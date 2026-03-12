@@ -31,7 +31,7 @@ These documents are kept in sync. SPEC.md is the product truth; PLAN.md is the i
 - **Server-side sync** — background jobs fetch from Google Calendar (every 5 min) and Open-Meteo (every 30 min), caching results in SQLite.
 - **Client reads cache** — dashboard polls API routes that serve data from SQLite. Never hits external APIs on render.
 - **Calendar cache window** — 30 days back, 60 days ahead.
-- **Auth** — 6-digit PIN gate with signed cookie session. One shared PIN for all users.
+- **Auth** — 6-digit PIN gate with HMAC-SHA256 signed cookie session. One shared PIN for all users. Auth gate is `proxy.ts` (Next.js 16 proxy convention, replaces middleware).
 - **Google OAuth** — offline access, refresh token stored in SQLite. One Google account for MVP. Bootstrap via `/setup` route.
 - **Resilience** — always show cached data when APIs are down. "Last synced" indicator shows staleness. Never a blank screen.
 
@@ -65,31 +65,35 @@ npm test             # Run tests (Vitest)
 ## Project Structure
 
 ```
+proxy.ts                              # Auth gate (Next.js 16 proxy, replaces middleware)
 app/
-├── layout.tsx                    # Root layout (dark theme, fonts)
-├── page.tsx                      # Main dashboard
-├── login/page.tsx                # PIN entry
-├── setup/page.tsx                # OAuth bootstrap (temporary)
+├── layout.tsx                        # Root layout (dark theme, fonts)
+├── global-error.tsx                  # Error boundary
+├── page.tsx                          # Main dashboard (TopBar + calendar area)
+├── login/page.tsx                    # PIN entry
+├── setup/page.tsx                    # OAuth bootstrap (temporary)
 └── api/
-    ├── auth/                     # PIN validation, session
-    ├── calendar/                 # Serve cached events from SQLite
-    ├── oauth/                    # Google OAuth flow
-    └── weather/                  # Serve cached weather from SQLite
+    ├── auth/route.ts                 # POST: PIN validation → signed cookie
+    ├── calendar/                     # Serve cached events from SQLite
+    ├── oauth/                        # Google OAuth flow
+    └── weather/                      # Serve cached weather from SQLite
 components/
-├── dashboard/                    # Top-level layout, top bar
-├── calendar/                     # Grid, day columns, event items
-├── clock/                        # Clock + date display
-└── weather/                      # Current conditions + forecast
+├── dashboard/TopBar.tsx              # Top bar (clock + weather slots)
+├── calendar/                         # Grid, day columns, event items
+├── clock/                            # Clock + date display
+└── weather/                          # Current conditions + forecast
 lib/
-├── auth/                         # PIN checking, cookie/session
-├── db/                           # SQLite setup, migrations, queries
-├── google/                       # Google Calendar API client, sync
-├── weather/                      # Open-Meteo client, sync
-├── config/                       # Read/write data/config.json
-└── time/                         # Date/time utilities
+├── auth/session.ts                   # HMAC-SHA256 session create/verify (Web Crypto)
+├── db/                               # SQLite setup, migrations, queries
+├── google/                           # Google Calendar API client, sync
+├── weather/                          # Open-Meteo client, sync
+├── config/                           # Read/write data/config.json
+└── time/                             # Date/time utilities
 data/
-├── config.example.json           # Committed template
-└── homehq.db                     # Created at runtime (gitignored)
+├── config.example.json               # Committed template
+└── homehq.db                         # Created at runtime (gitignored)
+docs/
+└── google-oauth-setup.md             # Google Cloud OAuth setup guide
 ```
 
 ## MVP Scope (quick reference)
