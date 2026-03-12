@@ -33,3 +33,8 @@ export function closeDb(): void {
     db = null;
   }
 }
+
+/** Inject a DB instance as the default singleton. Test use only. */
+export function _setDefaultDb(instance: Database.Database | null): void {
+  db = instance;
+}
