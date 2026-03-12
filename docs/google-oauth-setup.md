@@ -16,22 +16,21 @@
 ## 3. Configure the OAuth Consent Screen
 
 1. Go to **APIs & Services → OAuth consent screen**
-2. Select **External** user type → **Create**
-3. Fill in the required fields:
+2. Choose a user type:
+   - **Internal** (recommended if you have Google Workspace) — restricts access to users in your Workspace org. No test user setup or app review needed.
+   - **External** — use this if your Google account is a regular `@gmail.com`. Requires adding yourself as a test user (see step 6).
+3. Click **Create**
+4. Fill in the required fields:
    - **App name:** `HomeHQ`
    - **User support email:** your email
    - **Developer contact email:** your email
-4. Click **Save and Continue**
-5. On the **Scopes** step, click **Add or Remove Scopes**
+5. Click **Save and Continue**
+6. On the **Scopes** step, click **Add or Remove Scopes**
    - Search for and add: `https://www.googleapis.com/auth/calendar.readonly`
    - This is the only scope needed for MVP (read-only calendar access)
    - Click **Update** → **Save and Continue**
-6. On the **Test users** step, click **Add Users**
-   - Add the Google account email that owns the family calendars
-   - Click **Save and Continue**
-7. Click **Back to Dashboard**
-
-> **Why "External" + test users?** Publishing the app requires Google review, which isn't needed for a single-household app. Keeping it in "Testing" mode with your account added as a test user works indefinitely.
+7. **External only:** On the **Test users** step, click **Add Users** and add the Google account email that owns the family calendars. (Internal apps skip this — all Workspace users are already authorized.)
+8. Click **Save and Continue** → **Back to Dashboard**
 
 ## 4. Create OAuth Credentials
 
@@ -66,8 +65,7 @@ openssl rand -hex 32
 
 - [ ] Google Cloud project created
 - [ ] Google Calendar API enabled
-- [ ] OAuth consent screen configured (External, testing mode)
-- [ ] Your Google account added as a test user
+- [ ] OAuth consent screen configured (Internal for Workspace, or External with test user added)
 - [ ] `calendar.readonly` scope added
 - [ ] OAuth client ID created (Web application type)
 - [ ] Redirect URI set to `http://localhost:3000/api/oauth/callback`
