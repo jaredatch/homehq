@@ -10,12 +10,13 @@ A self-hosted family dashboard web app replacing Dakboard. Displays family calen
 
 - `SPEC.md` — Product spec and source of truth for features/design
 - `PLAN.md` — Implementation plan, MVP scope, build phases, and all technical decisions
+- `BOOTSTRAP.md` — Setup, dev commands, and troubleshooting
 
 These documents are kept in sync. SPEC.md is the product truth; PLAN.md is the implementation roadmap.
 
 ## Tech Stack
 
-- **Framework:** Next.js (App Router) + TypeScript + Tailwind CSS
+- **Framework:** Next.js 16 (App Router) + TypeScript + Tailwind CSS v4
 - **Runtime data:** SQLite via better-sqlite3 (`data/homehq.db`)
 - **Config:** JSON file (`data/config.json`) for human-edited, non-secret settings
 - **Secrets:** `.env` (Google OAuth credentials, cookie signing key)
@@ -53,11 +54,11 @@ npm test             # Run tests (Vitest)
 
 ## Data Boundaries
 
-| What | Where | Examples |
-|---|---|---|
-| Human-edited settings | `data/config.json` | Calendar names/colors, weather lat/long, display prefs, PIN |
-| Secrets | `.env` | Google OAuth client ID/secret, cookie signing key |
-| Runtime/cache data | `data/homehq.db` (SQLite) | OAuth refresh token, cached calendar events, cached weather |
+| What                  | Where                     | Examples                                                    |
+| --------------------- | ------------------------- | ----------------------------------------------------------- |
+| Human-edited settings | `data/config.json`        | Calendar names/colors, weather lat/long, display prefs, PIN |
+| Secrets               | `.env`                    | Google OAuth client ID/secret, cookie signing key           |
+| Runtime/cache data    | `data/homehq.db` (SQLite) | OAuth refresh token, cached calendar events, cached weather |
 
 `data/config.json` is gitignored (user-specific). `data/config.example.json` is committed as a template.
 

@@ -1,0 +1,9 @@
+@import 'tailwindcss';
+
+@theme inline {
+  --font-sans: var(--font-inter);
+}
+
+body {
+  @apply antialiased;
+}

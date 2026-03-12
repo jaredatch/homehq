@@ -7,8 +7,9 @@ out/
 
 # Build
 dist/
+/build
 
-# Environment
+# Environment (keep .env.example)
 .env
 .env.local
 .env.*.local
@@ -29,3 +30,10 @@ Thumbs.db
 
 # Debug
 npm-debug.log*
+
+# TypeScript
+*.tsbuildinfo
+next-env.d.ts
+
+# Testing
+/coverage

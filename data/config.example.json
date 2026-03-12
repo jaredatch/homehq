@@ -1,0 +1,21 @@
+{
+  "calendars": [
+    {
+      "id": "primary",
+      "name": "Family",
+      "color": "#4285f4"
+    }
+  ],
+  "weather": {
+    "latitude": 40.7128,
+    "longitude": -74.006,
+    "temperatureUnit": "fahrenheit"
+  },
+  "display": {
+    "calendarWeeks": 2,
+    "showWeather": true
+  },
+  "auth": {
+    "pin": "123456"
+  }
+}
