@@ -8,15 +8,11 @@ export async function GET(request: NextRequest) {
   const error = request.nextUrl.searchParams.get('error');
 
   if (error) {
-    return NextResponse.redirect(
-      new URL(`/setup?error=${encodeURIComponent(error)}`, request.url),
-    );
+    return NextResponse.redirect(new URL(`/setup?error=${encodeURIComponent(error)}`, request.url));
   }
 
   if (!code) {
-    return NextResponse.redirect(
-      new URL('/setup?error=no_code', request.url),
-    );
+    return NextResponse.redirect(new URL('/setup?error=no_code', request.url));
   }
 
   try {
@@ -29,7 +25,7 @@ export async function GET(request: NextRequest) {
     const message = err instanceof Error ? err.message : 'Token exchange failed';
     console.error('[oauth] Callback error:', message);
     return NextResponse.redirect(
-      new URL(`/setup?error=${encodeURIComponent(message)}`, request.url),
+      new URL(`/setup?error=${encodeURIComponent(message)}`, request.url)
     );
   }
 }

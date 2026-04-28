@@ -28,6 +28,10 @@ Thumbs.db
 .vscode/
 .idea/
 
+# Codex CLI
+.codex/
+.codexignore
+
 # Debug
 npm-debug.log*
 

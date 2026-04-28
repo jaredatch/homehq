@@ -7,7 +7,7 @@ async function getKey(secret: string): Promise<CryptoKey> {
     encoder.encode(secret),
     { name: 'HMAC', hash: 'SHA-256' },
     false,
-    ['sign', 'verify'],
+    ['sign', 'verify']
   );
 }
 

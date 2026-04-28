@@ -46,9 +46,7 @@ describe('calendar event queries', () => {
       makeEvent({ event_id: 'evt_1' }),
       makeEvent({ event_id: 'evt_2', summary: 'Old Event' }),
     ]);
-    upsertCalendarEvents('primary', [
-      makeEvent({ event_id: 'evt_3', summary: 'New Event' }),
-    ]);
+    upsertCalendarEvents('primary', [makeEvent({ event_id: 'evt_3', summary: 'New Event' })]);
     const events = getEventsInRange('2026-03-12', '2026-03-13');
     expect(events).toHaveLength(1);
     expect(events[0].summary).toBe('New Event');
@@ -67,9 +65,21 @@ describe('calendar event queries', () => {
 
   it('filters events by date range', () => {
     upsertCalendarEvents('primary', [
-      makeEvent({ event_id: 'evt_1', start_time: '2026-03-10T10:00:00Z', end_time: '2026-03-10T11:00:00Z' }),
-      makeEvent({ event_id: 'evt_2', start_time: '2026-03-12T10:00:00Z', end_time: '2026-03-12T11:00:00Z' }),
-      makeEvent({ event_id: 'evt_3', start_time: '2026-03-15T10:00:00Z', end_time: '2026-03-15T11:00:00Z' }),
+      makeEvent({
+        event_id: 'evt_1',
+        start_time: '2026-03-10T10:00:00Z',
+        end_time: '2026-03-10T11:00:00Z',
+      }),
+      makeEvent({
+        event_id: 'evt_2',
+        start_time: '2026-03-12T10:00:00Z',
+        end_time: '2026-03-12T11:00:00Z',
+      }),
+      makeEvent({
+        event_id: 'evt_3',
+        start_time: '2026-03-15T10:00:00Z',
+        end_time: '2026-03-15T11:00:00Z',
+      }),
     ]);
     const events = getEventsInRange('2026-03-11', '2026-03-13');
     expect(events).toHaveLength(1);
@@ -78,9 +88,26 @@ describe('calendar event queries', () => {
 
   it('sorts all-day events before timed events, then by start_time', () => {
     upsertCalendarEvents('primary', [
-      makeEvent({ event_id: 'evt_1', start_time: '2026-03-12T14:00:00Z', end_time: '2026-03-12T15:00:00Z', all_day: 0 }),
-      makeEvent({ event_id: 'evt_2', start_time: '2026-03-12', end_time: '2026-03-13', all_day: 1, summary: 'All Day' }),
-      makeEvent({ event_id: 'evt_3', start_time: '2026-03-12T09:00:00Z', end_time: '2026-03-12T10:00:00Z', all_day: 0, summary: 'Morning' }),
+      makeEvent({
+        event_id: 'evt_1',
+        start_time: '2026-03-12T14:00:00Z',
+        end_time: '2026-03-12T15:00:00Z',
+        all_day: 0,
+      }),
+      makeEvent({
+        event_id: 'evt_2',
+        start_time: '2026-03-12',
+        end_time: '2026-03-13',
+        all_day: 1,
+        summary: 'All Day',
+      }),
+      makeEvent({
+        event_id: 'evt_3',
+        start_time: '2026-03-12T09:00:00Z',
+        end_time: '2026-03-12T10:00:00Z',
+        all_day: 0,
+        summary: 'Morning',
+      }),
     ]);
     const events = getEventsInRange('2026-03-12', '2026-03-13');
     expect(events[0].summary).toBe('All Day');

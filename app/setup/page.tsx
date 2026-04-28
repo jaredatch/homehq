@@ -1,5 +1,6 @@
 'use client';
 
+import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
 import { Suspense } from 'react';
 
@@ -37,9 +38,9 @@ function SetupContent() {
 
         {success && (
           <div>
-            <a href="/" className="text-blue-400 hover:underline">
+            <Link href="/" className="text-blue-400 hover:underline">
               &larr; Back to dashboard
-            </a>
+            </Link>
           </div>
         )}
       </div>

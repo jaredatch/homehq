@@ -36,7 +36,7 @@ export default function LoginPage() {
         setLoading(false);
       }
     },
-    [router],
+    [router]
   );
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {

@@ -1,36 +1,30 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# HomeHQ
 
-## Getting Started
+HomeHQ is a self-hosted family dashboard for a wall-mounted display. It replaces Dakboard with a dense dark-theme calendar, clock, and weather dashboard backed by Google Calendar, Open-Meteo, and a local SQLite cache.
 
-First, run the development server:
+The product source of truth is [SPEC.md](./SPEC.md). The implementation roadmap is [PLAN.md](./PLAN.md). Local setup and troubleshooting live in [BOOTSTRAP.md](./BOOTSTRAP.md).
+
+## Development
 
 ```bash
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
 Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+## Checks
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+```bash
+npm test
+npm run lint
+npm run format:check
+npm run build
+```
 
-## Learn More
+## Runtime Data
 
-To learn more about Next.js, take a look at the following resources:
+- `data/config.json` contains human-edited household settings and is gitignored.
+- `.env` contains secrets and is gitignored.
+- `data/homehq.db` contains OAuth tokens and cached provider data and is gitignored.
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
-
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
-
-## Deploy on Vercel
-
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+Start by copying `data/config.example.json` to `data/config.json` and `.env.example` to `.env`, then follow [BOOTSTRAP.md](./BOOTSTRAP.md).

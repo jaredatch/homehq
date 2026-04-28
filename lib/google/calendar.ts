@@ -20,7 +20,7 @@ export async function fetchCalendarEvents(
   accessToken: string,
   calendarId: string,
   timeMin: string,
-  timeMax: string,
+  timeMax: string
 ): Promise<GoogleEvent[]> {
   const events: GoogleEvent[] = [];
   let pageToken: string | undefined;
@@ -37,7 +37,7 @@ export async function fetchCalendarEvents(
 
     const res = await fetch(
       `${CALENDAR_API}/calendars/${encodeURIComponent(calendarId)}/events?${params}`,
-      { headers: { Authorization: `Bearer ${accessToken}` } },
+      { headers: { Authorization: `Bearer ${accessToken}` } }
     );
 
     if (!res.ok) {
@@ -55,7 +55,7 @@ export async function fetchCalendarEvents(
 
 export function normalizeEvent(
   calendarId: string,
-  event: GoogleEvent,
+  event: GoogleEvent
 ): Omit<CalendarEventRow, 'id' | 'updated_at'> {
   const allDay = !event.start.dateTime;
   return {

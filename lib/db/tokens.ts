@@ -10,9 +10,9 @@ interface TokenRow {
 
 export function getToken(provider: string): TokenRow | null {
   const db = getDb();
-  const row = db
-    .prepare('SELECT * FROM oauth_tokens WHERE provider = ?')
-    .get(provider) as TokenRow | undefined;
+  const row = db.prepare('SELECT * FROM oauth_tokens WHERE provider = ?').get(provider) as
+    | TokenRow
+    | undefined;
   return row ?? null;
 }
 
@@ -20,7 +20,7 @@ export function saveToken(
   provider: string,
   accessToken: string,
   refreshToken: string | null,
-  expiresAt: number | null,
+  expiresAt: number | null
 ): void {
   const db = getDb();
   db.prepare(
@@ -30,6 +30,6 @@ export function saveToken(
        access_token = excluded.access_token,
        refresh_token = COALESCE(excluded.refresh_token, oauth_tokens.refresh_token),
        expires_at = excluded.expires_at,
-       updated_at = datetime('now')`,
+       updated_at = datetime('now')`
   ).run(provider, accessToken, refreshToken, expiresAt);
 }

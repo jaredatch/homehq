@@ -11,7 +11,7 @@ export function GET(request: NextRequest) {
   if (!start || !end) {
     return NextResponse.json(
       { error: 'start and end query params required (ISO 8601)' },
-      { status: 400 },
+      { status: 400 }
     );
   }
 

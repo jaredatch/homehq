@@ -15,14 +15,14 @@ export interface CalendarEventRow {
 
 export function upsertCalendarEvents(
   calendarId: string,
-  events: Omit<CalendarEventRow, 'id' | 'updated_at'>[],
+  events: Omit<CalendarEventRow, 'id' | 'updated_at'>[]
 ): void {
   const db = getDb();
   db.transaction(() => {
     db.prepare('DELETE FROM calendar_events WHERE calendar_id = ?').run(calendarId);
     const insert = db.prepare(
       `INSERT INTO calendar_events (event_id, calendar_id, summary, description, location, start_time, end_time, all_day)
-       VALUES (@event_id, @calendar_id, @summary, @description, @location, @start_time, @end_time, @all_day)`,
+       VALUES (@event_id, @calendar_id, @summary, @description, @location, @start_time, @end_time, @all_day)`
     );
     for (const event of events) {
       insert.run(event);
@@ -36,7 +36,7 @@ export function getEventsInRange(start: string, end: string): CalendarEventRow[]
     .prepare(
       `SELECT * FROM calendar_events
        WHERE start_time < ? AND end_time > ?
-       ORDER BY all_day DESC, start_time ASC`,
+       ORDER BY all_day DESC, start_time ASC`
     )
     .all(end, start) as CalendarEventRow[];
 }
