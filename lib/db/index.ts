@@ -10,6 +10,16 @@ export function getDb(dbPath?: string): Database.Database {
   const path = dbPath ?? DEFAULT_DB_PATH;
   const isDefault = !dbPath;
 
+  // Hard guard: tests must never touch the real database. This has happened —
+  // fixture data once overwrote the live Google refresh token. Tests must pass
+  // an explicit path or inject via _setDefaultDb().
+  if (isDefault && !db && process.env.VITEST) {
+    throw new Error(
+      'Refusing to open the default database under Vitest. ' +
+        'Pass an explicit dbPath or inject a test DB via _setDefaultDb().'
+    );
+  }
+
   if (isDefault && db) {
     return db;
   }

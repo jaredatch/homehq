@@ -2,7 +2,7 @@ import { mkdtempSync, rmSync } from 'fs';
 import { tmpdir } from 'os';
 import { join } from 'path';
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
-import { getDb } from '@/lib/db';
+import { getDb, _setDefaultDb } from '@/lib/db';
 import type Database from 'better-sqlite3';
 
 describe('database', () => {
@@ -21,6 +21,13 @@ describe('database', () => {
 
   it('creates the database file', () => {
     expect(db.open).toBe(true);
+  });
+
+  it('refuses to open the default (real) database under Vitest', () => {
+    // Regression guard: test fixtures once overwrote the live Google refresh
+    // token because the default DB path was reachable from tests.
+    _setDefaultDb(null);
+    expect(() => getDb()).toThrow('Refusing to open the default database');
   });
 
   it('enables WAL mode', () => {

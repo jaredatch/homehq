@@ -32,6 +32,9 @@ Thumbs.db
 .codex/
 .codexignore
 
+# Claude Code (local-only settings)
+.claude/settings.local.json
+
 # Debug
 npm-debug.log*
 
