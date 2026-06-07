@@ -1,9 +1,13 @@
 import { getToken, saveToken } from '@/lib/db/tokens';
+import { fetchWithTimeout } from '@/lib/http';
 
 const PROVIDER = 'google';
 const TOKEN_URL = 'https://oauth2.googleapis.com/token';
 const AUTH_URL = 'https://accounts.google.com/o/oauth2/v2/auth';
 const SCOPES = 'https://www.googleapis.com/auth/calendar.readonly';
+
+/** Cookie carrying the OAuth CSRF state between /api/oauth and the callback. */
+export const OAUTH_STATE_COOKIE = 'homehq_oauth_state';
 
 function getCredentials() {
   const clientId = process.env.GOOGLE_CLIENT_ID;
@@ -15,7 +19,7 @@ function getCredentials() {
   return { clientId, clientSecret, redirectUri: `${baseUrl}/api/oauth/callback` };
 }
 
-export function getAuthUrl(): string {
+export function getAuthUrl(state: string): string {
   const { clientId, redirectUri } = getCredentials();
   const params = new URLSearchParams({
     client_id: clientId,
@@ -24,6 +28,7 @@ export function getAuthUrl(): string {
     scope: SCOPES,
     access_type: 'offline',
     prompt: 'consent',
+    state,
   });
   return `${AUTH_URL}?${params.toString()}`;
 }
@@ -34,7 +39,7 @@ export async function exchangeCode(code: string): Promise<{
   expires_in: number;
 }> {
   const { clientId, clientSecret, redirectUri } = getCredentials();
-  const res = await fetch(TOKEN_URL, {
+  const res = await fetchWithTimeout(TOKEN_URL, {
     method: 'POST',
     headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
     body: new URLSearchParams({
@@ -59,7 +64,7 @@ export async function refreshAccessToken(refreshToken: string): Promise<{
   expires_in: number;
 }> {
   const { clientId, clientSecret } = getCredentials();
-  const res = await fetch(TOKEN_URL, {
+  const res = await fetchWithTimeout(TOKEN_URL, {
     method: 'POST',
     headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
     body: new URLSearchParams({
@@ -90,8 +95,18 @@ export async function getValidAccessToken(): Promise<string> {
   }
 
   // Refresh the token
-  const refreshed = await refreshAccessToken(token.refresh_token);
-  const expiresAt = Math.floor(Date.now() / 1000) + refreshed.expires_in;
-  saveToken(PROVIDER, refreshed.access_token, null, expiresAt);
-  return refreshed.access_token;
+  try {
+    const refreshed = await refreshAccessToken(token.refresh_token);
+    const expiresAt = Math.floor(Date.now() / 1000) + refreshed.expires_in;
+    saveToken(PROVIDER, refreshed.access_token, null, expiresAt);
+    return refreshed.access_token;
+  } catch (err) {
+    const message = err instanceof Error ? err.message : String(err);
+    // invalid_grant means the refresh token is dead (revoked, expired, or
+    // garbage) — refreshing will never succeed again without re-consent.
+    if (message.includes('invalid_grant')) {
+      throw new Error('Google authorization revoked — reconnect at /setup');
+    }
+    throw err;
+  }
 }

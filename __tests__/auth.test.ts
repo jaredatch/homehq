@@ -1,5 +1,13 @@
 import { describe, it, expect } from 'vitest';
-import { createSession, verifySession, COOKIE_NAME } from '@/lib/auth/session';
+import {
+  createSession,
+  verifySession,
+  readSession,
+  shouldRenewSession,
+  COOKIE_NAME,
+  SESSION_MAX_AGE_MS,
+  SESSION_RENEW_AFTER_MS,
+} from '@/lib/auth/session';
 
 const TEST_SECRET = 'test-secret-key-for-hmac-signing';
 
@@ -65,5 +73,30 @@ describe('session', () => {
     await new Promise((r) => setTimeout(r, 5));
     const token2 = await createSession(TEST_SECRET);
     expect(token1).not.toBe(token2);
+  });
+
+  it('rejects a session older than the max age', async () => {
+    const old = Date.now() - SESSION_MAX_AGE_MS - 1000;
+    const token = await createSession(TEST_SECRET, old);
+    expect(await verifySession(token, TEST_SECRET)).toBe(false);
+  });
+
+  it('rejects a future-dated session', async () => {
+    const future = Date.now() + 10 * 60 * 1000;
+    const token = await createSession(TEST_SECRET, future);
+    expect(await verifySession(token, TEST_SECRET)).toBe(false);
+  });
+
+  it('reads the created timestamp from a valid session', async () => {
+    const now = Date.now();
+    const token = await createSession(TEST_SECRET, now);
+    const session = await readSession(token, TEST_SECRET);
+    expect(session).toEqual({ created: now });
+  });
+
+  it('flags sessions past the renewal threshold for re-issue', () => {
+    const now = Date.now();
+    expect(shouldRenewSession({ created: now }, now)).toBe(false);
+    expect(shouldRenewSession({ created: now - SESSION_RENEW_AFTER_MS - 1000 }, now)).toBe(true);
   });
 });

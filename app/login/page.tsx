@@ -26,7 +26,8 @@ export default function LoginPage() {
           router.push('/');
           router.refresh();
         } else {
-          setError('Invalid PIN');
+          const data = (await res.json().catch(() => null)) as { error?: string } | null;
+          setError(data?.error ?? 'Invalid PIN');
           setPin('');
           inputRef.current?.focus();
         }
