@@ -17,8 +17,8 @@
 
 1. Go to **APIs & Services → OAuth consent screen**
 2. Choose a user type:
-   - **Internal** (recommended if you have Google Workspace) — restricts access to users in your Workspace org. No test user setup or app review needed.
-   - **External** — use this if your Google account is a regular `@gmail.com`. Requires adding yourself as a test user (see step 6).
+   - **Internal** (recommended if you have Google Workspace) — restricts access to users in your Workspace org. No test user setup or app review needed, and refresh tokens never expire from publishing status.
+   - **External** — use this if your Google account is a regular `@gmail.com`. Requires adding yourself as a test user (see step 6) **and publishing the app to production (see step 4b) — do not skip this**.
 3. Click **Create**
 4. Fill in the required fields:
    - **App name:** `HomeHQ`
@@ -44,6 +44,19 @@
 6. Click **Create**
 7. You'll see your **Client ID** and **Client Secret** — copy both
 
+## 4b. External apps only: publish to production
+
+> **This is the trap that kills External apps.** While an External app's publishing
+> status is **Testing**, Google expires its refresh tokens after **7 days**. The
+> dashboard works for a week, then sync silently dies with `invalid_grant` and you have
+> to reconnect. (Internal apps are immune — skip this section.)
+
+1. Go to **APIs & Services → OAuth consent screen**
+2. Under **Publishing status**, click **Publish App** → confirm
+3. The app will show as "unverified" — that's fine for personal use. When connecting,
+   Google shows a warning screen; click **Advanced → Go to HomeHQ (unsafe)**. It's your
+   own app reading your own calendar.
+
 ## 5. Configure HomeHQ
 
 Add the credentials to your `.env` file:
@@ -66,6 +79,7 @@ openssl rand -hex 32
 - [ ] Google Cloud project created
 - [ ] Google Calendar API enabled
 - [ ] OAuth consent screen configured (Internal for Workspace, or External with test user added)
+- [ ] **External only:** app published to production (avoids 7-day refresh token expiry)
 - [ ] `calendar.readonly` scope added
 - [ ] OAuth client ID created (Web application type)
 - [ ] Redirect URI set to `http://localhost:3000/api/oauth/callback`

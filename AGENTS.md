@@ -11,6 +11,8 @@ A self-hosted family dashboard web app replacing Dakboard. Displays family calen
 - `SPEC.md` — Product spec and source of truth for features/design
 - `PLAN.md` — Implementation plan, MVP scope, build phases, and all technical decisions
 - `BOOTSTRAP.md` — Setup, dev commands, and troubleshooting
+- `docs/deployment.md` — DO droplet + Raspberry Pi kiosk deployment
+- `docs/review-2026-06-07.md` — Deep review findings and decisions from the project restart
 
 These documents are kept in sync. SPEC.md is the product truth; PLAN.md is the implementation roadmap.
 
@@ -28,12 +30,14 @@ These documents are kept in sync. SPEC.md is the product truth; PLAN.md is the i
 ## Architecture
 
 - **API routes as proxies** — browser never talks to Google/Open-Meteo directly. Credentials stay server-side.
-- **Server-side sync** — background jobs fetch from Google Calendar (every 5 min) and, in Phase 5, Open-Meteo (every 30 min), caching results in SQLite.
+- **Server-side sync** — background jobs fetch from Google Calendar (every 5 min) and Open-Meteo (every 30 min), caching results in SQLite. Started from `instrumentation.ts`.
 - **Client reads cache** — dashboard polls API routes that serve data from SQLite. Never hits external APIs on render.
 - **Calendar cache window** — 30 days back, 60 days ahead.
-- **Auth** — 6-digit PIN gate with HMAC-SHA256 signed cookie session. One shared PIN for all users. Auth gate is `proxy.ts` (Next.js 16 proxy convention, replaces middleware).
-- **Google OAuth** — offline access, refresh token stored in SQLite. One Google account for MVP. Bootstrap via `/setup` route.
-- **Resilience** — always show cached data when APIs are down. "Last synced" indicator shows staleness. Never a blank screen.
+- **Auth** — 6-digit PIN gate with HMAC-SHA256 signed cookie session. One shared PIN for all users. Auth gate is `proxy.ts` (Next.js 16 proxy convention, replaces middleware). PIN attempts are rate-limited (`lib/auth/rate-limit.ts`); sessions expire after 30 days but renew on use after 7 (kiosk never logs out).
+- **Google OAuth** — offline access, refresh token stored in SQLite. One Google account for MVP. Bootstrap via `/setup` route. Flow carries a CSRF `state` param; OAuth routes sit *behind* the auth gate (SameSite=Lax survives Google's redirect).
+- **Resilience** — always show cached data when APIs are down. "Last synced" indicator shows staleness and turns amber on sync failures. Never a blank screen.
+- **Timestamps** — sync/cache timestamps are stored as ISO 8601 UTC with the `Z` suffix. Never use SQLite's `datetime('now')` for anything a browser will parse.
+- **Test isolation** — `getDb()` refuses the default DB path under Vitest (fixture data once destroyed the live refresh token). Tests use temp paths + `_setDefaultDb()`.
 
 ## UI Priorities (in order)
 
@@ -66,6 +70,7 @@ npm test             # Run tests (Vitest)
 
 ```
 proxy.ts                              # Auth gate (Next.js 16 proxy, replaces middleware)
+instrumentation.ts                    # Starts calendar + weather sync schedulers
 app/
 ├── layout.tsx                        # Root layout (dark theme, fonts)
 ├── global-error.tsx                  # Error boundary
@@ -73,27 +78,29 @@ app/
 ├── login/page.tsx                    # PIN entry
 ├── setup/page.tsx                    # OAuth bootstrap (temporary)
 └── api/
-    ├── auth/route.ts                 # POST: PIN validation → signed cookie
-    ├── calendar/                     # Serve cached events from SQLite
-    ├── oauth/                        # Google OAuth flow
-    └── weather/                      # Phase 5: serve cached weather from SQLite
+    ├── auth/route.ts                 # POST: PIN validation → signed cookie (rate-limited)
+    ├── calendar/route.ts             # Serve cached events from SQLite
+    ├── oauth/                        # Google OAuth flow (with CSRF state)
+    └── weather/route.ts              # Serve cached weather from SQLite
 components/
-├── dashboard/TopBar.tsx              # Top bar (clock + weather slots)
-├── calendar/                         # Grid, day columns, event items
-├── clock/                            # Phase 5: clock + date display
-└── weather/                          # Phase 5: current conditions + forecast
+├── dashboard/TopBar.tsx              # Top bar (clock left, weather right)
+├── calendar/                         # Grid, day columns, event items, display utils
+├── clock/Clock.tsx                   # Live clock + date (useSyncExternalStore)
+└── weather/WeatherPanel.tsx          # Current conditions + 4-day forecast
 lib/
 ├── auth/session.ts                   # HMAC-SHA256 session create/verify (Web Crypto)
+├── auth/rate-limit.ts                # In-memory failure rate limiter (PIN endpoint)
 ├── db/                               # SQLite setup, migrations, queries
 ├── google/                           # Google Calendar API client, sync
-├── weather/                          # Phase 5: Open-Meteo client, sync
-├── config/                           # Read/write data/config.json
-└── time/                             # Date/time utilities
+├── weather/                          # Open-Meteo client, WMO codes, sync
+└── config/                           # Read data/config.json
 data/
 ├── config.example.json               # Committed template
 └── homehq.db                         # Created at runtime (gitignored)
 docs/
-└── google-oauth-setup.md             # Google Cloud OAuth setup guide
+├── google-oauth-setup.md             # Google Cloud OAuth setup guide
+├── deployment.md                     # Droplet + Pi kiosk deployment
+└── review-2026-06-07.md              # Project-restart review findings
 ```
 
 ## MVP Scope (quick reference)
