@@ -9,7 +9,7 @@ export default function DashboardPage() {
 
   return (
     <div className="flex h-screen flex-col">
-      <TopBar />
+      <TopBar showWeather={config.display.showWeather} />
       <main className="flex-1 overflow-hidden">
         <CalendarGrid calendars={config.calendars} weeks={config.display.calendarWeeks} />
       </main>
