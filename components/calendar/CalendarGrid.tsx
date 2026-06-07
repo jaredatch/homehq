@@ -5,8 +5,8 @@ import DayColumn from './DayColumn';
 import {
   assignEventsToDays,
   formatLocalDate,
+  formatSyncLabel,
   generateRollingDays,
-  timeAgo,
   type CalendarEvent,
   type SyncStatus,
 } from './calendar-utils';
@@ -88,13 +88,18 @@ export default function CalendarGrid({ calendars, weeks }: CalendarGridProps) {
       </div>
 
       {/* Sync indicator */}
-      <div className="shrink-0 px-4 py-1 text-right text-[11px] text-gray-600">
-        {loading
-          ? 'Loading\u2026'
-          : sync.lastSuccess
-            ? `Synced ${timeAgo(sync.lastSuccess)}`
-            : 'Not yet synced'}
-      </div>
+      {(() => {
+        const label = loading ? { text: 'Loading\u2026', isError: false } : formatSyncLabel(sync);
+        return (
+          <div
+            className={`shrink-0 px-4 py-1 text-right text-[11px] ${
+              label.isError ? 'text-amber-500/90' : 'text-gray-600'
+            }`}
+          >
+            {label.text}
+          </div>
+        );
+      })()}
     </div>
   );
 }

@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import {
   assignEventsToDays,
   formatEventTimeRange,
+  formatSyncLabel,
   generateRollingDays,
   timeAgo,
   type CalendarEvent,
@@ -71,5 +72,43 @@ describe('calendar rendering helpers', () => {
     const now = new Date('2026-04-29T12:00:00Z').getTime();
     expect(timeAgo('2026-04-29T11:55:00Z', now)).toBe('5m ago');
     expect(timeAgo('2026-04-29T09:00:00Z', now)).toBe('3h ago');
+  });
+
+  it('shows normal sync label when healthy', () => {
+    const now = new Date('2026-04-29T12:00:00Z').getTime();
+    const label = formatSyncLabel(
+      { lastSuccess: '2026-04-29T11:55:00Z', lastAttempt: '2026-04-29T11:55:00Z', lastError: null },
+      now
+    );
+    expect(label).toEqual({ text: 'Synced 5m ago', isError: false });
+  });
+
+  it('surfaces sync errors with last-success age', () => {
+    const now = new Date('2026-04-29T12:00:00Z').getTime();
+    const label = formatSyncLabel(
+      {
+        lastSuccess: '2026-04-29T09:00:00Z',
+        lastAttempt: '2026-04-29T11:55:00Z',
+        lastError: 'Calendar API error: 500',
+      },
+      now
+    );
+    expect(label.isError).toBe(true);
+    expect(label.text).toBe('Sync failing — last sync 3h ago');
+  });
+
+  it('surfaces a reconnect hint when authorization is revoked', () => {
+    const label = formatSyncLabel({
+      lastSuccess: null,
+      lastAttempt: '2026-04-29T11:55:00Z',
+      lastError: 'Google authorization revoked — reconnect at /setup',
+    });
+    expect(label.isError).toBe(true);
+    expect(label.text).toBe('Sync failing — reconnect Google at /setup');
+  });
+
+  it('shows not-yet-synced before the first sync', () => {
+    const label = formatSyncLabel({ lastSuccess: null, lastAttempt: null, lastError: null });
+    expect(label).toEqual({ text: 'Not yet synced', isError: false });
   });
 });

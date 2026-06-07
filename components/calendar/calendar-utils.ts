@@ -90,6 +90,35 @@ export function timeAgo(isoString: string, now = Date.now()): string {
   return `${days}d ago`;
 }
 
+export interface SyncLabel {
+  text: string;
+  isError: boolean;
+}
+
+/**
+ * Human-readable sync indicator state. Errors are surfaced — a quietly dead
+ * sync once went unnoticed for weeks behind a stale "Synced Xd ago".
+ */
+export function formatSyncLabel(sync: SyncStatus, now = Date.now()): SyncLabel {
+  if (sync.lastError) {
+    // Auth-related failures direct the family to /setup; their error
+    // messages all reference it.
+    const needsSetup = sync.lastError.includes('/setup');
+    const suffix = needsSetup
+      ? ' — reconnect Google at /setup'
+      : sync.lastSuccess
+        ? ` — last sync ${timeAgo(sync.lastSuccess, now)}`
+        : '';
+    return { text: `Sync failing${suffix}`, isError: true };
+  }
+
+  if (!sync.lastSuccess) {
+    return { text: 'Not yet synced', isError: false };
+  }
+
+  return { text: `Synced ${timeAgo(sync.lastSuccess, now)}`, isError: false };
+}
+
 export function formatEventTime(isoString: string): string {
   const date = new Date(isoString);
   let hours = date.getHours();

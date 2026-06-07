@@ -7,20 +7,31 @@ interface SyncStatusRow {
   last_error: string | null;
 }
 
+/**
+ * Record a sync attempt.
+ *
+ * Timestamps are stored as ISO 8601 UTC (with the trailing `Z`) so the
+ * browser parses them correctly — SQLite's `datetime('now')` emits UTC
+ * without a zone marker, which JS Date treats as *local* time.
+ *
+ * `success` means data was updated this attempt. `error` may accompany a
+ * success when the sync was partial (e.g. one of several calendars failed).
+ */
 export function updateSyncStatus(type: string, success: boolean, error?: string): void {
   const db = getDb();
+  const now = new Date().toISOString();
   if (success) {
     db.prepare(
       `UPDATE sync_status
-       SET last_success = datetime('now'), last_attempt = datetime('now'), last_error = NULL
+       SET last_success = ?, last_attempt = ?, last_error = ?
        WHERE sync_type = ?`
-    ).run(type);
+    ).run(now, now, error ?? null, type);
   } else {
     db.prepare(
       `UPDATE sync_status
-       SET last_attempt = datetime('now'), last_error = ?
+       SET last_attempt = ?, last_error = ?
        WHERE sync_type = ?`
-    ).run(error ?? 'Unknown error', type);
+    ).run(now, error ?? 'Unknown error', type);
   }
 }
 
