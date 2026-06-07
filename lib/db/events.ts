@@ -30,6 +30,23 @@ export function upsertCalendarEvents(
   })();
 }
 
+/**
+ * Drop cached events for any calendar no longer listed in config. Without
+ * this, removing a calendar from data/config.json leaves its events on the
+ * dashboard forever — sync only ever replaces calendars it still knows about.
+ */
+export function deleteEventsNotInCalendars(calendarIds: string[]): void {
+  const db = getDb();
+  if (calendarIds.length === 0) {
+    db.prepare('DELETE FROM calendar_events').run();
+    return;
+  }
+  const placeholders = calendarIds.map(() => '?').join(', ');
+  db.prepare(`DELETE FROM calendar_events WHERE calendar_id NOT IN (${placeholders})`).run(
+    ...calendarIds
+  );
+}
+
 export function getEventsInRange(start: string, end: string): CalendarEventRow[] {
   const db = getDb();
   return db

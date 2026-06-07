@@ -1,4 +1,5 @@
 import type { CalendarEventRow } from '@/lib/db/events';
+import { fetchWithTimeout } from '@/lib/http';
 
 const CALENDAR_API = 'https://www.googleapis.com/calendar/v3';
 
@@ -35,7 +36,7 @@ export async function fetchCalendarEvents(
     });
     if (pageToken) params.set('pageToken', pageToken);
 
-    const res = await fetch(
+    const res = await fetchWithTimeout(
       `${CALENDAR_API}/calendars/${encodeURIComponent(calendarId)}/events?${params}`,
       { headers: { Authorization: `Bearer ${accessToken}` } }
     );

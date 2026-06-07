@@ -53,6 +53,13 @@ function validate(data: unknown): AppConfig {
   if (typeof a.pin !== 'string' || !/^\d{6}$/.test(a.pin)) {
     throw new Error('Config: auth.pin must be a 6-digit string');
   }
+  // Fail fast in production rather than ship the template PIN to a public
+  // droplet — a forgotten default is an instant auth bypass.
+  if (process.env.NODE_ENV === 'production' && a.pin === '123456') {
+    throw new Error(
+      'Config: auth.pin is still the default "123456" — set a real PIN in data/config.json before deploying'
+    );
+  }
 
   return data as AppConfig;
 }

@@ -3,7 +3,11 @@ import { tmpdir } from 'os';
 import { join } from 'path';
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import { getDb, _setDefaultDb } from '@/lib/db';
-import { upsertCalendarEvents, getEventsInRange } from '@/lib/db/events';
+import {
+  upsertCalendarEvents,
+  getEventsInRange,
+  deleteEventsNotInCalendars,
+} from '@/lib/db/events';
 import type Database from 'better-sqlite3';
 
 describe('calendar event queries', () => {
@@ -113,5 +117,24 @@ describe('calendar event queries', () => {
     expect(events[0].summary).toBe('All Day');
     expect(events[1].summary).toBe('Morning');
     expect(events[2].event_id).toBe('evt_1');
+  });
+
+  it('purges events for calendars no longer in config', () => {
+    upsertCalendarEvents('primary', [makeEvent({ event_id: 'evt_1' })]);
+    upsertCalendarEvents('work', [makeEvent({ event_id: 'evt_2', calendar_id: 'work' })]);
+    upsertCalendarEvents('old', [makeEvent({ event_id: 'evt_3', calendar_id: 'old' })]);
+
+    // Config now only has primary + work; 'old' was removed.
+    deleteEventsNotInCalendars(['primary', 'work']);
+
+    const events = getEventsInRange('2026-03-12', '2026-03-13');
+    const ids = events.map((e) => e.calendar_id).sort();
+    expect(ids).toEqual(['primary', 'work']);
+  });
+
+  it('purges everything when no calendars are configured', () => {
+    upsertCalendarEvents('primary', [makeEvent({ event_id: 'evt_1' })]);
+    deleteEventsNotInCalendars([]);
+    expect(getEventsInRange('2026-03-12', '2026-03-13')).toHaveLength(0);
   });
 });

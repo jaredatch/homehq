@@ -57,6 +57,22 @@ describe('config loader', () => {
     expect(() => getConfig(path)).toThrow('6-digit string');
   });
 
+  it('rejects the default PIN in production', () => {
+    const path = join(tmpDir, 'config.json');
+    writeFileSync(path, JSON.stringify(validConfig)); // pin: '123456'
+    const prev = process.env.NODE_ENV;
+    try {
+      // @ts-expect-error — NODE_ENV is normally readonly in types
+      process.env.NODE_ENV = 'production';
+      reloadConfig();
+      expect(() => getConfig(path)).toThrow('still the default');
+    } finally {
+      // @ts-expect-error — restore
+      process.env.NODE_ENV = prev;
+      reloadConfig();
+    }
+  });
+
   it('throws on missing weather fields', () => {
     const path = join(tmpDir, 'config.json');
     const bad = { ...validConfig, weather: { latitude: 40 } };
