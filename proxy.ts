@@ -11,6 +11,14 @@ import {
 export async function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl;
 
+  // Dev-only auth bypass for local design work (headless screenshots + manual
+  // reloads skip the PIN). Doubly guarded: requires BOTH a non-production build
+  // AND an explicit opt-in flag, so it can never weaken the gate in production
+  // even if DEV_AUTH_BYPASS leaks into a prod environment.
+  if (process.env.NODE_ENV !== 'production' && process.env.DEV_AUTH_BYPASS === '1') {
+    return NextResponse.next();
+  }
+
   // Only the login page and PIN validation endpoint are public. Everything
   // else — including the OAuth routes — requires a session. Google's redirect
   // back to /api/oauth/callback is a top-level GET navigation, so the
