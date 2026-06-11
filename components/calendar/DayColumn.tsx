@@ -89,7 +89,7 @@ export default function DayColumn({
       {/* Events — dimmed for days already past */}
       <div
         data-events
-        className={`flex-1 space-y-0.5 overflow-hidden px-1 py-1 ${isPast ? 'opacity-40' : ''}`}
+        className={`flex-1 space-y-1.5 overflow-hidden px-1 py-1 ${isPast ? 'opacity-40' : ''}`}
       >
         {visible.map(({ event, kind }) => (
           <EventItem

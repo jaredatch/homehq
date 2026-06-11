@@ -146,6 +146,20 @@ export function formatSyncLabel(sync: SyncStatus, now = Date.now()): SyncLabel {
   return { text: `Synced ${timeAgo(sync.lastSuccess, now)}`, isError: false };
 }
 
+/**
+ * Black or white text, whichever reads better on a solid hex background.
+ * Used for all-day color bars, where the fill is the calendar's own color and
+ * could be anything from bright yellow to dark navy.
+ */
+export function contrastText(hex: string): string {
+  const m = hex.replace('#', '');
+  const r = parseInt(m.slice(0, 2), 16);
+  const g = parseInt(m.slice(2, 4), 16);
+  const b = parseInt(m.slice(4, 6), 16);
+  const luminance = (0.299 * r + 0.587 * g + 0.114 * b) / 255;
+  return luminance > 0.55 ? '#0a0a0a' : '#f5f5f5';
+}
+
 export function formatEventTime(isoString: string): string {
   const date = new Date(isoString);
   let hours = date.getHours();
@@ -158,5 +172,13 @@ export function formatEventTime(isoString: string): string {
 }
 
 export function formatEventTimeRange(start: string, end: string): string {
-  return `${formatEventTime(start)}-${formatEventTime(end)}`;
+  const startMeridiem = new Date(start).getHours() >= 12 ? 'p' : 'a';
+  const endMeridiem = new Date(end).getHours() >= 12 ? 'p' : 'a';
+  // Drop the start meridiem when it matches the end's — "10–11:15a" reads
+  // cleaner than "10a–11:15a" and saves width in a narrow column.
+  const startLabel =
+    startMeridiem === endMeridiem
+      ? formatEventTime(start).replace(/[ap]$/, '')
+      : formatEventTime(start);
+  return `${startLabel}–${formatEventTime(end)}`;
 }
