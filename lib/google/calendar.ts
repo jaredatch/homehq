@@ -3,13 +3,26 @@ import { fetchWithTimeout } from '@/lib/http';
 
 const CALENDAR_API = 'https://www.googleapis.com/calendar/v3';
 
+interface GoogleEventPerson {
+  email?: string;
+  self?: boolean;
+}
+
+interface GoogleAttendee extends GoogleEventPerson {
+  responseStatus?: string; // needsAction | declined | tentative | accepted
+}
+
 interface GoogleEvent {
   id: string;
+  status?: string; // confirmed | tentative | cancelled
   summary?: string;
   description?: string;
   location?: string;
   start: { dateTime?: string; date?: string };
   end: { dateTime?: string; date?: string };
+  attendees?: GoogleAttendee[];
+  creator?: GoogleEventPerson;
+  organizer?: GoogleEventPerson;
 }
 
 interface GoogleEventsResponse {
@@ -52,6 +65,38 @@ export async function fetchCalendarEvents(
   } while (pageToken);
 
   return events;
+}
+
+/**
+ * Whether to drop an event before it's cached. Removes:
+ *  - cancelled occurrences (deleted instances of recurring events), and
+ *  - calendar spam: invites the owner declined, plus un-answered (needsAction)
+ *    invites from *other* people. Un-answered events the owner created or
+ *    forwarded themselves are kept — that's a real plan, not spam.
+ *
+ * Google's `self` flag (and a matching `email`) is relative to the calendar this
+ * copy lives on, so it pinpoints the owner regardless of which account holds the
+ * OAuth token — what lets us tell "Sam's own forwarded meeting" from a stranger's
+ * invite. Group calendars have no attendees, so they always pass through.
+ */
+export function shouldHideEvent(calendarId: string, event: GoogleEvent): boolean {
+  if (event.status === 'cancelled') return true;
+
+  const owner = event.attendees?.find((a) => a.self || a.email === calendarId);
+  if (!owner) return false; // not invited (self-created or a group calendar)
+
+  if (owner.responseStatus === 'declined') return true;
+
+  if (owner.responseStatus === 'needsAction') {
+    const ownerInitiated =
+      event.creator?.self === true ||
+      event.organizer?.self === true ||
+      event.creator?.email === calendarId ||
+      event.organizer?.email === calendarId;
+    return !ownerInitiated;
+  }
+
+  return false; // accepted / tentative
 }
 
 export function normalizeEvent(

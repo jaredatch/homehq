@@ -2,7 +2,7 @@ import { getConfig } from '@/lib/config';
 import { upsertCalendarEvents, deleteEventsNotInCalendars } from '@/lib/db/events';
 import { updateSyncStatus } from '@/lib/db/sync-status';
 import { getValidAccessToken } from './oauth';
-import { fetchCalendarEvents, normalizeEvent } from './calendar';
+import { fetchCalendarEvents, normalizeEvent, shouldHideEvent } from './calendar';
 
 const SYNC_INTERVAL_MS = 5 * 60 * 1000; // 5 minutes
 const DAYS_BACK = 30;
@@ -43,13 +43,17 @@ export async function syncCalendars(): Promise<void> {
     // permission revoked) must not block the others.
     const errors: string[] = [];
     let synced = 0;
+    let hidden = 0;
 
     for (const cal of calendars) {
       try {
         const googleEvents = await fetchCalendarEvents(accessToken, cal.id, timeMin, timeMax);
+        // Drop declined/spam invites and cancelled occurrences before caching.
+        const visible = googleEvents.filter((e) => !shouldHideEvent(cal.id, e));
+        hidden += googleEvents.length - visible.length;
         upsertCalendarEvents(
           cal.id,
-          googleEvents.map((e) => normalizeEvent(cal.id, e))
+          visible.map((e) => normalizeEvent(cal.id, e))
         );
         synced += 1;
       } catch (err) {
@@ -60,7 +64,7 @@ export async function syncCalendars(): Promise<void> {
 
     if (errors.length === 0) {
       updateSyncStatus('calendar', true);
-      console.log(`[sync] Calendar sync complete — ${synced} calendar(s)`);
+      console.log(`[sync] Calendar sync complete — ${synced} calendar(s), ${hidden} hidden`);
     } else if (synced > 0) {
       updateSyncStatus('calendar', true, `Partial sync — ${errors.join('; ')}`);
       console.error(`[sync] Calendar sync partial (${synced} ok):`, errors.join('; '));
