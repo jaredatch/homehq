@@ -137,11 +137,62 @@ weekly cron backup is cheap.
 
 ## Display client (Raspberry Pi)
 
-Raspberry Pi OS (with desktop) + Chromium in kiosk mode.
+Raspberry Pi OS (64-bit, **with desktop**) + Chromium in kiosk mode.
+
+### Hardware (this build)
+
+- **Raspberry Pi 5** with the official **27 W USB-C PSU** (don't power it from the monitor —
+  use the dedicated supply for stable peripherals).
+- **micro-HDMI → HDMI** cable to the **Dell S2725QC** (27" 4K). The Pi 5 outputs video only
+  over its **micro-HDMI** ports; its USB-C port is power *in*, not video. The monitor's USB-C
+  is for a laptop source, so drive the panel via the monitor's **HDMI** input. The Pi 5
+  handles 4K@60 fine — that's the wall resolution the UI is designed for.
+- A USB/Bluetooth **keyboard with trackpad** for the one-time PIN entry and any debugging.
+
+### Flashing the image
+
+Use **Raspberry Pi Imager** on your Mac. Choose *Raspberry Pi OS (64-bit)*. Before writing,
+open the **settings (gear)** and pre-configure — this is what lets you finish from your Mac
+over SSH instead of fumbling at the monitor:
+
+- **Hostname** — e.g. `homehq-kiosk` (gives you `homehq-kiosk.local` for SSH)
+- **Enable SSH**
+- **Username / password**
+- **Wi-Fi** — your **office** network + country code
+- **Locale / timezone**
+
+First boot, then update:
+
+```bash
+sudo apt update && sudo apt full-upgrade -y
+sudo reboot
+```
+
+### Dual Wi-Fi (office + home)
+
+Bookworm manages Wi-Fi with **NetworkManager**, which auto-connects to whichever *saved*
+network is in range — no detection logic to write. The Imager seeds the office network; add
+home as a second saved profile. You can add it **at the office while out of range** — the
+profile just waits until home is reachable:
+
+```bash
+sudo nmcli connection add type wifi con-name home ssid "HOME_SSID" \
+  wifi-sec.key-mgmt wpa-psk wifi-sec.psk "HOME_PASSWORD"
+nmcli connection show          # verify both profiles are saved
+```
+
+Both stay saved; the Pi connects to whichever it sees at boot, so it "just works" when you
+carry it from office to kitchen. (If both were ever in range at once, break the tie with
+`nmcli connection modify home connection.autoconnect-priority 10`.)
 
 ### Kiosk autostart
 
-For Raspberry Pi OS Bookworm+ (Wayland/labwc), add to `~/.config/labwc/autostart`:
+Point this at your **Mac's dev server** during office testing (see *Testing on the Pi*
+below), then swap the URL to your production domain once the droplet is live — that one line
+is the only difference between office and kitchen.
+
+For Raspberry Pi OS Bookworm+ (Wayland/labwc — the default on Pi 5), add to
+`~/.config/labwc/autostart`:
 
 ```bash
 chromium-browser --kiosk --noerrdialogs --disable-infobars \
@@ -153,6 +204,28 @@ On older X11-based images, use `~/.config/lxsession/LXDE-pi/autostart` instead:
 ```
 @chromium-browser --kiosk --noerrdialogs --disable-infobars https://your-domain.com
 ```
+
+### Testing on the Pi before the server exists
+
+You can demo the in-progress app on the real monitor *before* the droplet is provisioned —
+no DigitalOcean, no domain, no PIN/OAuth setup required:
+
+1. On your Mac, run the dev server with the auth bypass enabled:
+
+   ```bash
+   DEV_AUTH_BYPASS=1 npm run dev
+   ```
+
+   `next dev` listens on all interfaces and prints a `Network: http://192.168.x.x:3000`
+   line — that's the URL the Pi uses. (If the Pi can't reach it, allow the incoming
+   connection in macOS firewall.) The bypass is ignored in production builds, so it can't
+   leak past local dev (`proxy.ts`).
+
+2. Point the kiosk Chromium at `http://<your-Mac-LAN-IP>:3000`.
+
+The Pi now renders the live app at real size and distance with the real keyboard, while the
+app is still being tweaked. When the droplet is up, change the autostart URL to
+`https://your-domain.com` — nothing else about the Pi changes.
 
 ### Disable screen blanking
 
