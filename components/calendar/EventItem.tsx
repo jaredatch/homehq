@@ -1,4 +1,4 @@
-import { formatEventTimeRange } from './calendar-utils';
+import { formatEventTime } from './calendar-utils';
 
 interface EventItemProps {
   event: {
@@ -16,8 +16,9 @@ export default function EventItem({ event, color }: EventItemProps) {
   if (event.all_day) {
     return (
       <div
-        className="truncate rounded-r-sm border-l-[3px] py-[1px] pl-1.5 pr-1 text-xs leading-snug"
-        style={{ borderColor: color, backgroundColor: `${color}18` }}
+        data-event-row
+        className="truncate rounded-r border-l-4 py-0.5 pl-2 pr-1.5 text-sm font-medium leading-snug text-gray-100"
+        style={{ borderColor: color, backgroundColor: `${color}22` }}
         title={event.summary}
       >
         {event.summary || '(No title)'}
@@ -27,14 +28,15 @@ export default function EventItem({ event, color }: EventItemProps) {
 
   return (
     <div
-      className="flex min-w-0 items-baseline border-l-[3px] py-[1px] pl-1.5 pr-1 text-xs leading-snug"
+      data-event-row
+      className="flex min-w-0 items-baseline border-l-4 py-0.5 pl-2 pr-1.5 leading-snug"
       style={{ borderColor: color }}
       title={event.summary}
     >
-      <span className="mr-1 shrink-0 text-[11px] text-gray-500">
-        {formatEventTimeRange(event.start_time, event.end_time)}
+      <span className="mr-1.5 shrink-0 text-xs font-medium tabular-nums text-gray-500">
+        {formatEventTime(event.start_time)}
       </span>
-      <span className="truncate text-gray-300">{event.summary || '(No title)'}</span>
+      <span className="truncate text-sm text-gray-200">{event.summary || '(No title)'}</span>
     </div>
   );
 }

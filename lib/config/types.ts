@@ -13,6 +13,8 @@ export interface WeatherConfig {
 export interface DisplayConfig {
   calendarWeeks: number;
   showWeather: boolean;
+  /** Which day the grid's first column is. Defaults to "monday". */
+  weekStartsOn?: 'monday' | 'sunday';
 }
 
 export interface AuthConfig {

@@ -45,6 +45,9 @@ function validate(data: unknown): AppConfig {
   if (typeof d.calendarWeeks !== 'number' || typeof d.showWeather !== 'boolean') {
     throw new Error('Config: display must have numeric calendarWeeks and boolean showWeather');
   }
+  if (d.weekStartsOn !== undefined && d.weekStartsOn !== 'monday' && d.weekStartsOn !== 'sunday') {
+    throw new Error('Config: display.weekStartsOn must be "monday" or "sunday"');
+  }
 
   if (typeof obj.auth !== 'object' || obj.auth === null) {
     throw new Error('Config: "auth" must be an object');

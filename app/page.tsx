@@ -11,7 +11,11 @@ export default function DashboardPage() {
     <div className="flex h-screen flex-col">
       <TopBar showWeather={config.display.showWeather} />
       <main className="flex-1 overflow-hidden">
-        <CalendarGrid calendars={config.calendars} weeks={config.display.calendarWeeks} />
+        <CalendarGrid
+          calendars={config.calendars}
+          weeks={config.display.calendarWeeks}
+          weekStartsOn={config.display.weekStartsOn ?? 'monday'}
+        />
       </main>
     </div>
   );

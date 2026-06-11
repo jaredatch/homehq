@@ -43,6 +43,33 @@ export function generateRollingDays(startDate: string, count: number): string[] 
   return days;
 }
 
+export type WeekStart = 'monday' | 'sunday';
+
+const WEEKDAY_SHORT = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+
+/** JS getDay() index (0=Sun) that a column-0 maps to, per week-start preference. */
+export function weekStartIndex(weekStartsOn: WeekStart): number {
+  return weekStartsOn === 'sunday' ? 0 : 1;
+}
+
+/**
+ * First day (YYYY-MM-DD) of the week containing `dateStr`. Anchoring the grid
+ * to a fixed week start keeps the columns from sliding day to day.
+ */
+export function startOfWeek(dateStr: string, weekStartsOn: WeekStart): string {
+  const [y, m, d] = dateStr.split('-').map(Number);
+  const date = new Date(y, m - 1, d);
+  const diff = (date.getDay() - weekStartIndex(weekStartsOn) + 7) % 7;
+  date.setDate(date.getDate() - diff);
+  return formatLocalDate(date);
+}
+
+/** Weekday labels in column order, e.g. ['Mon', …, 'Sun'] for a Monday start. */
+export function weekdayLabels(weekStartsOn: WeekStart): string[] {
+  const start = weekStartIndex(weekStartsOn);
+  return Array.from({ length: 7 }, (_, i) => WEEKDAY_SHORT[(start + i) % 7]);
+}
+
 export function assignEventsToDays(
   events: CalendarEvent[],
   days: string[]

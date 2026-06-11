@@ -4,13 +4,15 @@ import type { CalendarEvent } from './calendar-utils';
 interface DayColumnProps {
   date: string;
   isToday: boolean;
+  isPast: boolean;
   showMonth: boolean;
   allDayEvents: CalendarEvent[];
   timedEvents: CalendarEvent[];
   colorMap: Map<string, string>;
+  /** Max event rows to show before collapsing the rest into "+N more". Infinity = show all. */
+  capacity: number;
 }
 
-const DAY_NAMES = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 const MONTH_NAMES = [
   'Jan',
   'Feb',
@@ -34,63 +36,71 @@ function parseLocalDate(dateStr: string): Date {
 export default function DayColumn({
   date,
   isToday,
+  isPast,
   showMonth,
   allDayEvents,
   timedEvents,
   colorMap,
+  capacity,
 }: DayColumnProps) {
   const dateObj = parseLocalDate(date);
-  const dayName = DAY_NAMES[dateObj.getDay()];
   const dayNum = dateObj.getDate();
   const monthName = MONTH_NAMES[dateObj.getMonth()];
   const isWeekend = dateObj.getDay() === 0 || dateObj.getDay() === 6;
 
   const getColor = (calendarId: string) => colorMap.get(calendarId) ?? '#6b7280';
 
+  // All-day events first, then timed. When the list exceeds the cell's capacity,
+  // the last visible slot becomes a "+N more" tally rather than clipping silently.
+  const items = [
+    ...allDayEvents.map((event) => ({ event, kind: 'ad' })),
+    ...timedEvents.map((event) => ({ event, kind: 't' })),
+  ];
+  const overflowing = items.length > capacity;
+  const visible = overflowing ? items.slice(0, Math.max(0, capacity - 1)) : items;
+  const hiddenCount = items.length - visible.length;
+
   return (
     <div
       className={`flex flex-col overflow-hidden ${
-        isToday ? 'bg-gray-900' : isWeekend ? 'bg-gray-950/70' : 'bg-gray-950'
+        isToday
+          ? 'bg-blue-950/40 ring-1 ring-inset ring-blue-500/40'
+          : isWeekend
+            ? 'bg-gray-950/70'
+            : 'bg-gray-950'
       }`}
     >
-      {/* Day header */}
+      {/* Day header — date only; the weekday lives in the shared header row */}
       <div
-        className={`shrink-0 border-b px-1.5 py-1 text-center ${
-          isToday ? 'border-blue-500/50' : 'border-gray-800/50'
+        data-day-header
+        className={`shrink-0 border-b px-2 py-1 text-center ${
+          isToday ? 'border-blue-500/60' : 'border-gray-800/50'
         }`}
       >
         <div
-          className={`text-[11px] font-medium uppercase tracking-wide ${
-            isToday ? 'text-blue-400' : 'text-gray-500'
-          }`}
-        >
-          {dayName}
-        </div>
-        <div
-          className={`text-sm font-semibold leading-tight ${
-            isToday ? 'text-blue-300' : 'text-gray-300'
+          className={`text-lg font-bold leading-tight ${
+            isToday ? 'text-blue-200' : isPast ? 'text-gray-600' : 'text-gray-200'
           }`}
         >
           {showMonth ? `${monthName} ${dayNum}` : dayNum}
         </div>
       </div>
 
-      {/* Events */}
-      <div className="flex-1 space-y-px overflow-hidden px-0.5 py-0.5">
-        {allDayEvents.map((event) => (
+      {/* Events — dimmed for days already past */}
+      <div
+        data-events
+        className={`flex-1 space-y-0.5 overflow-hidden px-1 py-1 ${isPast ? 'opacity-40' : ''}`}
+      >
+        {visible.map(({ event, kind }) => (
           <EventItem
-            key={`ad-${event.event_id}-${event.calendar_id}`}
+            key={`${kind}-${event.event_id}-${event.calendar_id}`}
             event={event}
             color={getColor(event.calendar_id)}
           />
         ))}
-        {timedEvents.map((event) => (
-          <EventItem
-            key={`t-${event.event_id}-${event.calendar_id}`}
-            event={event}
-            color={getColor(event.calendar_id)}
-          />
-        ))}
+        {hiddenCount > 0 && (
+          <div className="px-2 pt-0.5 text-xs font-semibold text-gray-500">+{hiddenCount} more</div>
+        )}
       </div>
     </div>
   );

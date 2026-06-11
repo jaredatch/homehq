@@ -4,6 +4,16 @@
   --font-sans: var(--font-inter);
 }
 
+/* The dashboard is a fixed 16:9 wall display viewed from 6–10 ft. Scale the
+   root font-size with the viewport height so every rem-based size (type AND
+   spacing) grows proportionally — the layout looks identical whether the Pi
+   drives the panel at native 4K or a scaled-down resolution, and physical
+   text size stays constant across scale factors. Tune THIS number for overall
+   density, not individual class names. */
+html {
+  font-size: clamp(20px, 2vh, 46px);
+}
+
 body {
   @apply antialiased;
 }

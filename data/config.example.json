@@ -13,7 +13,8 @@
   },
   "display": {
     "calendarWeeks": 2,
-    "showWeather": true
+    "showWeather": true,
+    "weekStartsOn": "monday"
   },
   "auth": {
     "pin": "123456"
