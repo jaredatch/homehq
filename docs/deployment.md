@@ -224,7 +224,7 @@ For Raspberry Pi OS Bookworm+ (Wayland/labwc — the default on Pi 5), add to
 
 ```bash
 chromium-browser --kiosk --noerrdialogs --disable-infobars \
-  --disable-session-crashed-bubble https://your-domain.com &
+  --disable-session-crashed-bubble --force-device-scale-factor=2 https://your-domain.com &
 ```
 
 On older X11-based images, use `~/.config/lxsession/LXDE-pi/autostart` instead:
@@ -232,6 +232,27 @@ On older X11-based images, use `~/.config/lxsession/LXDE-pi/autostart` instead:
 ```
 @chromium-browser --kiosk --noerrdialogs --disable-infobars https://your-domain.com
 ```
+
+### Display tuning on the 4K panel
+
+The Dell is 3840×2160 on a 27" panel (~163 PPI), and Raspberry Pi OS doesn't scale the
+desktop the way macOS does — so at native resolution everything renders physically small.
+**Keep the resolution at native 4K** (lowering it just blurs the image and fits fewer
+events); size things up with scaling instead:
+
+- **Dashboard size** — `--force-device-scale-factor` on the Chromium launch (above) scales
+  the *page* while keeping 4K crispness. `2` ≈ a 1920-wide layout; `1.5` is denser (more
+  events, smaller text). Tune it on the wall — that's what the dev-server test loop is for.
+- **Mouse cursor** — the scale factor does **not** affect the OS cursor, which is
+  microscopic at 4K. Enlarge it by setting `XCURSOR_SIZE` in `~/.config/labwc/environment`,
+  then reboot:
+  ```
+  XCURSOR_SIZE=48
+  ```
+  Bump to 64–96 to make it really obvious. This matters once the dashboard gains interactive
+  features (tabs, mouse) — for a pure read-only display you may instead prefer to hide it.
+- **Black desktop background** — set the wallpaper to solid black (Appearance Settings →
+  Desktop) so any flash during boot or before Chromium loads is black, not white, on the wall.
 
 ### Testing on the Pi before the server exists
 
