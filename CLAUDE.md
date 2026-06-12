@@ -9,6 +9,7 @@ A self-hosted family dashboard web app replacing Dakboard. Displays family calen
 ## Key Documents
 
 - `PLAN.md` — Implementation plan, MVP scope, build phases, roadmap, and all technical decisions
+- `TODO.md` — running punch list (System/Ops + Web App tasks); near-term work, complements PLAN.md's roadmap
 - `BOOTSTRAP.md` — Setup, dev commands, and troubleshooting
 - `docs/deployment.md` — DO droplet + Raspberry Pi kiosk deployment
 - `docs/review-2026-06-07.md` — Deep review findings and decisions from the project restart
