@@ -128,6 +128,28 @@ npm run build
 sudo systemctl restart homehq
 ```
 
+### Deploying updates with a script
+
+Rather than SSHing in to run the steps above by hand each time, wrap them in a small
+`scripts/deploy.sh` that runs the update over SSH from your Mac — you run it (`./scripts/deploy.sh`),
+or have Claude run it on "deploy." The script just automates the Updating commands above;
+the build stays on the droplet (that's what the swap is for). Two prerequisites make it
+non-interactive:
+
+- **Passwordless restart** — so the deploy doesn't stall on a sudo password prompt. Add a
+  narrow rule via `sudo visudo -f /etc/sudoers.d/homehq`:
+  ```
+  homehq ALL=(root) NOPASSWD: /usr/bin/systemctl restart homehq
+  ```
+  (Or run HomeHQ as a systemd **user service** and skip sudo entirely.)
+- **Repo pull access on the droplet** — fine if the GitHub repo is public; if it's private,
+  give the droplet a read-only deploy key.
+
+This script is also the reusable core if you later want **GitHub Actions** deploys
+(tag/release → CI runs the same script over SSH) — the workflow is just a trigger around it.
+Start with the script; graduate to Actions only if you want deploys to run without your Mac,
+gate them on tests, or hand deploy access to someone else.
+
 ### Backups
 
 Everything worth backing up lives in three files:
