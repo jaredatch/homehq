@@ -2,7 +2,7 @@
 
 ## Prerequisites
 
-- Node.js 18+ (LTS)
+- Node.js 20+ (LTS)
 - npm
 
 ## Initial Setup
@@ -23,10 +23,10 @@ cp .env.example .env
 
 | Variable               | Description                               | Required |
 | ---------------------- | ----------------------------------------- | -------- |
-| `GOOGLE_CLIENT_ID`     | Google OAuth client ID                    | Phase 3+ |
-| `GOOGLE_CLIENT_SECRET` | Google OAuth client secret                | Phase 3+ |
-| `COOKIE_SECRET`        | Secret for signing session cookies        | Phase 2+ |
-| `NEXT_PUBLIC_BASE_URL` | App URL (default `http://localhost:3000`) | Phase 2+ |
+| `GOOGLE_CLIENT_ID`     | Google OAuth client ID                    | Yes      |
+| `GOOGLE_CLIENT_SECRET` | Google OAuth client secret                | Yes      |
+| `COOKIE_SECRET`        | Secret for signing session cookies        | Yes      |
+| `NEXT_PUBLIC_BASE_URL` | App URL (default `http://localhost:3000`) | Yes      |
 
 ### Config (`data/config.json`)
 

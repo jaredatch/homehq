@@ -7,7 +7,8 @@ client** (Raspberry Pi) pointing Chromium at it in kiosk mode.
 
 ### Requirements
 
-- Smallest droplet is fine (1 GB RAM). Ubuntu LTS.
+- A 1 GB droplet ($6/mo Basic) is enough. Ubuntu LTS. **Add swap before the first build**
+  (see Initial setup) — `next build` can run a 1 GB box out of memory without it.
 - A domain (or subdomain) pointed at the droplet — required for SSL, which Google OAuth
   redirect URIs effectively require in production.
 - Node.js 20+ (LTS). Install via [NodeSource](https://github.com/nodesource/distributions)
@@ -16,6 +17,11 @@ client** (Raspberry Pi) pointing Chromium at it in kiosk mode.
 ### Initial setup
 
 ```bash
+# On a 1 GB droplet, add 2 GB swap first — npm ci + next build can spike past 1 GB.
+sudo fallocate -l 2G /swapfile && sudo chmod 600 /swapfile
+sudo mkswap /swapfile && sudo swapon /swapfile
+echo '/swapfile none swap sw 0 0' | sudo tee -a /etc/fstab
+
 # As a non-root user (e.g. `homehq`)
 git clone <your-repo-url> ~/homehq
 cd ~/homehq
