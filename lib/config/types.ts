@@ -2,6 +2,9 @@ export interface CalendarConfig {
   id: string;
   name: string;
   color: string;
+  /** Optional override for text drawn on `color` (e.g. white on a light pink
+   * that auto-contrast would render black). Defaults to auto black/white. */
+  textColor?: string;
 }
 
 export interface WeatherConfig {

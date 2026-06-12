@@ -35,6 +35,8 @@ This guide (CLAUDE.md) and PLAN.md are the living source of truth; SPEC.md is ar
 - **Server-side sync** — background jobs fetch from Google Calendar (every 5 min) and Open-Meteo (every 30 min), caching results in SQLite. Started from `instrumentation.ts`.
 - **Client reads cache** — dashboard polls API routes that serve data from SQLite. Never hits external APIs on render.
 - **Calendar cache window** — 30 days back, 60 days ahead.
+- **Calendar layout** — one `WeekRow` per week. All-day events lay out as horizontal **spanning bars** in a shared per-week band (`computeWeekSegments` packs overlaps into slots, Google-calendar style); single-day all-day events sit in that same band. Timed events render per day below the band via `EventItem`. `CalendarGrid` measures header/row/band heights and sizes the grid so the **current week is protected** (shows everything) while past days + later weeks crop with `+N more`. Past-only all-day bars and past timed events dim to 40%.
+- **Per-calendar text color** — `config.json` calendars accept an optional `textColor` to override auto black/white on the all-day bar fill (e.g. white on a light pink).
 - **Auth** — 6-digit PIN gate with HMAC-SHA256 signed cookie session. One shared PIN for all users. Auth gate is `proxy.ts` (Next.js 16 proxy convention, replaces middleware). PIN attempts are rate-limited (`lib/auth/rate-limit.ts`); sessions expire after 30 days but renew on use after 7 (kiosk never logs out).
 - **Google OAuth** — offline access, refresh token stored in SQLite. One Google account for MVP. Bootstrap via `/setup` route. Flow carries a CSRF `state` param; OAuth routes sit *behind* the auth gate (SameSite=Lax survives Google's redirect).
 - **Resilience** — always show cached data when APIs are down. "Last synced" indicator shows staleness and turns amber on sync failures. Never a blank screen.
@@ -86,9 +88,9 @@ app/
     └── weather/route.ts              # Serve cached weather from SQLite
 components/
 ├── dashboard/TopBar.tsx              # Top bar (clock left, weather right)
-├── calendar/                         # Grid, day columns, event items, display utils
+├── calendar/                         # CalendarGrid (measures/sizes), WeekRow (bg + headers + all-day band + timed), EventItem (timed only), utils
 ├── clock/Clock.tsx                   # Live clock + date (useSyncExternalStore)
-└── weather/WeatherPanel.tsx          # Current conditions + 4-day forecast
+└── weather/WeatherPanel.tsx          # Current conditions + per-day forecast tiles
 lib/
 ├── auth/session.ts                   # HMAC-SHA256 session create/verify (Web Crypto)
 ├── auth/rate-limit.ts                # In-memory failure rate limiter (PIN endpoint)

@@ -23,8 +23,7 @@ export function formatClockTime(date: Date): { time: string; ampm: string } {
   const ampm = hours >= 12 ? 'PM' : 'AM';
   hours = hours % 12 || 12;
   const minutes = String(date.getMinutes()).padStart(2, '0');
-  const seconds = String(date.getSeconds()).padStart(2, '0');
-  return { time: `${hours}:${minutes}:${seconds}`, ampm };
+  return { time: `${hours}:${minutes}`, ampm };
 }
 
 export function formatClockDate(date: Date): string {
@@ -34,14 +33,14 @@ export function formatClockDate(date: Date): string {
 // The wall clock is an external store: subscribe to its ticks rather than
 // mirroring it into useState from an effect.
 function subscribe(onStoreChange: () => void): () => void {
-  // Tick faster than the display resolution; React only re-renders when the
-  // snapshot (whole second) actually changes.
-  const id = setInterval(onStoreChange, 250);
+  // Poll every second; React only re-renders when the snapshot (whole minute)
+  // actually changes, so the display ticks over within a second of the rollover.
+  const id = setInterval(onStoreChange, 1000);
   return () => clearInterval(id);
 }
 
 function getSnapshot(): number {
-  return Math.floor(Date.now() / 1000);
+  return Math.floor(Date.now() / 60000);
 }
 
 // The server can't know the kiosk's wall-clock time — render a placeholder
@@ -51,13 +50,13 @@ function getServerSnapshot(): number {
 }
 
 export default function Clock() {
-  const seconds = useSyncExternalStore(subscribe, getSnapshot, getServerSnapshot);
+  const minute = useSyncExternalStore(subscribe, getSnapshot, getServerSnapshot);
 
-  if (seconds === 0) {
+  if (minute === 0) {
     return <div className="h-10 w-64" aria-hidden />;
   }
 
-  const now = new Date(seconds * 1000);
+  const now = new Date(minute * 60000);
   const { time, ampm } = formatClockTime(now);
 
   return (

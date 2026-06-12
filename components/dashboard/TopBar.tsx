@@ -7,7 +7,7 @@ interface TopBarProps {
 
 export default function TopBar({ showWeather }: TopBarProps) {
   return (
-    <header className="flex items-center justify-between border-b border-gray-800 px-6 py-2">
+    <header className="flex items-center justify-between border-b border-gray-800 py-2 pl-6 pr-3">
       <Clock />
       {showWeather && <WeatherPanel />}
     </header>

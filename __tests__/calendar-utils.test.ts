@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
   assignEventsToDays,
+  computeWeekSegments,
   formatEventTimeRange,
   formatSyncLabel,
   generateRollingDays,
@@ -64,8 +65,76 @@ describe('calendar rendering helpers', () => {
     expect(mapped.get('2026-04-30')!.timed).toEqual([event]);
   });
 
-  it('formats compact timed event ranges', () => {
-    expect(formatEventTimeRange('2026-04-29T15:30:00', '2026-04-29T16:00:00')).toBe('3:30p-4p');
+  it('formats timed all-day spans as one bar across the days covered', () => {
+    // Mon 2026-04-27 … Sun 2026-05-03
+    const week = generateRollingDays('2026-04-27', 7);
+    const allDay = (overrides: Partial<CalendarEvent>) =>
+      makeEvent({ all_day: 1, ...overrides });
+
+    // Single-day all-day event (end is exclusive next day) → span 1.
+    const single = computeWeekSegments(
+      [allDay({ event_id: 's', start_time: '2026-04-29', end_time: '2026-04-30' })],
+      week
+    );
+    expect(single.slotCount).toBe(1);
+    expect(single.segments[0]).toMatchObject({
+      startCol: 2,
+      span: 1,
+      slot: 0,
+      continuesLeft: false,
+      continuesRight: false,
+    });
+
+    // Multi-day event fully inside the week → spans the covered columns.
+    const multi = computeWeekSegments(
+      [allDay({ event_id: 'm', start_time: '2026-04-28', end_time: '2026-04-30' })],
+      week
+    );
+    expect(multi.segments[0]).toMatchObject({ startCol: 1, span: 2, continuesLeft: false });
+  });
+
+  it('clips all-day spans to the week and flags continuation', () => {
+    const week = generateRollingDays('2026-04-27', 7);
+    const allDay = (overrides: Partial<CalendarEvent>) =>
+      makeEvent({ all_day: 1, ...overrides });
+
+    // Starts before the week, ends Wed → clipped left, two columns.
+    const left = computeWeekSegments(
+      [allDay({ event_id: 'l', start_time: '2026-04-25', end_time: '2026-04-29' })],
+      week
+    );
+    expect(left.segments[0]).toMatchObject({ startCol: 0, span: 2, continuesLeft: true });
+
+    // Starts Sat, runs past Sunday → clipped right.
+    const right = computeWeekSegments(
+      [allDay({ event_id: 'r', start_time: '2026-05-02', end_time: '2026-05-05' })],
+      week
+    );
+    expect(right.segments[0]).toMatchObject({ startCol: 5, span: 2, continuesRight: true });
+  });
+
+  it('stacks overlapping all-day events into separate slots', () => {
+    const week = generateRollingDays('2026-04-27', 7);
+    const allDay = (overrides: Partial<CalendarEvent>) =>
+      makeEvent({ all_day: 1, ...overrides });
+
+    const { slotCount, segments } = computeWeekSegments(
+      [
+        allDay({ event_id: 'a', start_time: '2026-04-27', end_time: '2026-04-30' }),
+        allDay({ event_id: 'b', start_time: '2026-04-29', end_time: '2026-05-01' }),
+      ],
+      week
+    );
+    expect(slotCount).toBe(2);
+    expect(new Set(segments.map((s) => s.slot)).size).toBe(2);
+  });
+
+  it('formats timed event ranges with spaced dash and shared meridiem', () => {
+    expect(formatEventTimeRange('2026-04-29T15:30:00', '2026-04-29T16:00:00')).toBe('3:30 – 4pm');
+  });
+
+  it('keeps both meridiems when the range crosses noon', () => {
+    expect(formatEventTimeRange('2026-04-29T11:30:00', '2026-04-29T13:00:00')).toBe('11:30am – 1pm');
   });
 
   it('formats sync age labels', () => {

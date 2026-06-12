@@ -58,34 +58,49 @@ export default function WeatherPanel() {
 
   return (
     <div
-      className={`flex items-center gap-5 ${stale ? 'opacity-50' : ''}`}
+      className={`flex items-center gap-6 ${stale ? 'opacity-50' : ''}`}
       title={stale ? 'Weather data is stale — sync may be failing' : undefined}
     >
-      {/* Current conditions */}
-      <div className="flex items-center gap-2" title={current.label}>
+      {/* Current conditions — the live "now" reading. Rain lives on the forecast
+          tiles below, so it isn't repeated here. */}
+      <div className="flex items-center gap-2.5" title={current.label}>
         <span className="text-3xl leading-none">{current.icon}</span>
-        <span className="text-4xl font-semibold leading-none text-gray-100">
+        <span className="text-4xl font-semibold leading-none text-gray-300">
           {data.current.temperature}°
         </span>
         {stale && <span className="text-[11px] font-medium text-amber-500">stale</span>}
       </div>
 
-      {/* Forecast */}
-      <div className="flex items-center gap-4">
+      {/* Forecast — one tile per day, aligned 2×2: high │ icon over low │ rain */}
+      <div className="flex items-start gap-4">
         {data.forecast.map((day, i) => {
           const desc = describeWeather(day.weatherCode);
+          const wetClass = day.precipChance >= 15 ? 'text-sky-500' : 'text-gray-600';
           return (
-            <div key={day.date} className="flex flex-col items-center" title={desc.label}>
-              <span className="text-[11px] font-medium uppercase tracking-wide text-gray-500">
+            <div key={day.date} className="flex flex-col" title={desc.label}>
+              <span className="text-[11px] font-semibold uppercase tracking-wide text-gray-500">
                 {dayLabel(day.date, i)}
               </span>
-              <span className="text-lg leading-tight">{desc.icon}</span>
-              <span className="text-xs leading-tight text-gray-300">
-                {day.tempMax}°<span className="text-gray-500">/{day.tempMin}°</span>
-                {day.precipChance >= 15 && (
-                  <span className="ml-1 text-sky-400">{day.precipChance}%</span>
-                )}
-              </span>
+              {/* Icon is vertically centered against the high/low pair; rain is
+                  taken out of flow so it tucks under the icon without shifting it. */}
+              <div className="mt-1 flex items-center gap-2">
+                <div className="flex flex-col gap-y-0.5">
+                  <span className="text-base font-semibold leading-none text-gray-400">
+                    {day.tempMax}°
+                  </span>
+                  <span className="text-base font-medium leading-none text-gray-500">
+                    {day.tempMin}°
+                  </span>
+                </div>
+                <div className="relative flex -translate-y-1 items-center">
+                  <span className="text-2xl leading-none">{desc.icon}</span>
+                  <span
+                    className={`absolute left-1/2 top-full -translate-x-1/2 text-[11px] font-medium leading-none ${wetClass}`}
+                  >
+                    {day.precipChance}%
+                  </span>
+                </div>
+              </div>
             </div>
           );
         })}

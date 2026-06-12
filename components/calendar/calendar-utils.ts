@@ -29,6 +29,90 @@ export function formatLocalDate(date: Date): string {
   return `${y}-${m}-${d}`;
 }
 
+export function addDays(dateStr: string, n: number): string {
+  const [y, m, d] = dateStr.split('-').map(Number);
+  const date = new Date(y, m - 1, d);
+  date.setDate(date.getDate() + n);
+  return formatLocalDate(date);
+}
+
+export function isWeekendDate(dateStr: string): boolean {
+  const [y, m, d] = dateStr.split('-').map(Number);
+  const day = new Date(y, m - 1, d).getDay();
+  return day === 0 || day === 6;
+}
+
+/** Split a flat list of days into rows of 7 (calendar weeks). */
+export function chunkWeeks(days: string[]): string[][] {
+  const weeks: string[][] = [];
+  for (let i = 0; i < days.length; i += 7) weeks.push(days.slice(i, i + 7));
+  return weeks;
+}
+
+export interface AllDaySegment {
+  event: CalendarEvent;
+  /** Column (0-6) the bar starts in, within this week. */
+  startCol: number;
+  /** Number of columns the bar covers. */
+  span: number;
+  /** Vertical slot (row) in the all-day band; overlapping events stack. */
+  slot: number;
+  /** Event started before this week (clip the left end flat). */
+  continuesLeft: boolean;
+  /** Event continues past this week (clip the right end flat). */
+  continuesRight: boolean;
+}
+
+/**
+ * Lay out a week's all-day events as horizontal bars that span the days they
+ * cover (Google-Calendar style) instead of repeating per cell. Bars are packed
+ * into slots greedily by start date so overlapping events stack without
+ * colliding. All-day `end_time` is exclusive (the day after the last covered).
+ */
+export function computeWeekSegments(
+  allDayEvents: CalendarEvent[],
+  weekDays: string[]
+): { segments: AllDaySegment[]; slotCount: number } {
+  const first = weekDays[0];
+  const last = weekDays[weekDays.length - 1];
+  const dayAfterLast = addDays(last, 1);
+
+  const intersecting = allDayEvents
+    .filter((e) => e.start_time <= last && e.end_time > first)
+    .sort((a, b) => {
+      if (a.start_time !== b.start_time) return a.start_time < b.start_time ? -1 : 1;
+      // Longer events first so they claim the lower slots.
+      if (a.end_time !== b.end_time) return a.end_time > b.end_time ? -1 : 1;
+      return a.event_id < b.event_id ? -1 : 1;
+    });
+
+  const slotLastCol: number[] = []; // last column each slot is occupied through
+  const segments: AllDaySegment[] = [];
+
+  for (const e of intersecting) {
+    let startCol = 0;
+    while (startCol < 7 && weekDays[startCol] < e.start_time) startCol++;
+    let endCol = 6;
+    while (endCol >= 0 && weekDays[endCol] >= e.end_time) endCol--;
+    if (startCol > 6 || endCol < 0 || endCol < startCol) continue;
+
+    let slot = 0;
+    while (slot < slotLastCol.length && slotLastCol[slot] >= startCol) slot++;
+    slotLastCol[slot] = endCol;
+
+    segments.push({
+      event: e,
+      startCol,
+      span: endCol - startCol + 1,
+      slot,
+      continuesLeft: e.start_time < first,
+      continuesRight: e.end_time > dayAfterLast,
+    });
+  }
+
+  return { segments, slotCount: slotLastCol.length };
+}
+
 export function generateRollingDays(startDate: string, count: number): string[] {
   const [y, m, d] = startDate.split('-').map(Number);
   const start = new Date(y, m - 1, d);
@@ -164,7 +248,7 @@ export function formatEventTime(isoString: string): string {
   const date = new Date(isoString);
   let hours = date.getHours();
   const minutes = date.getMinutes();
-  const ampm = hours >= 12 ? 'p' : 'a';
+  const ampm = hours >= 12 ? 'pm' : 'am';
 
   hours = hours % 12 || 12;
   if (minutes === 0) return `${hours}${ampm}`;
@@ -172,13 +256,14 @@ export function formatEventTime(isoString: string): string {
 }
 
 export function formatEventTimeRange(start: string, end: string): string {
-  const startMeridiem = new Date(start).getHours() >= 12 ? 'p' : 'a';
-  const endMeridiem = new Date(end).getHours() >= 12 ? 'p' : 'a';
-  // Drop the start meridiem when it matches the end's — "10–11:15a" reads
-  // cleaner than "10a–11:15a" and saves width in a narrow column.
+  const startMeridiem = new Date(start).getHours() >= 12 ? 'pm' : 'am';
+  const endMeridiem = new Date(end).getHours() >= 12 ? 'pm' : 'am';
+  // Drop the start meridiem when it matches the end's — "8 – 9:30am" reads
+  // cleaner than "8am – 9:30am". Spaces around the dash aid skimming on the
+  // full-width row (the column has room for it).
   const startLabel =
     startMeridiem === endMeridiem
-      ? formatEventTime(start).replace(/[ap]$/, '')
+      ? formatEventTime(start).replace(/[ap]m$/, '')
       : formatEventTime(start);
-  return `${startLabel}–${formatEventTime(end)}`;
+  return `${startLabel} – ${formatEventTime(end)}`;
 }

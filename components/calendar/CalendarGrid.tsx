@@ -1,9 +1,11 @@
 'use client';
 
 import { useEffect, useLayoutEffect, useState, useCallback, useMemo, useRef } from 'react';
-import DayColumn from './DayColumn';
+import WeekRow from './WeekRow';
 import {
   assignEventsToDays,
+  chunkWeeks,
+  computeWeekSegments,
   formatLocalDate,
   formatSyncLabel,
   generateRollingDays,
@@ -15,7 +17,7 @@ import {
 } from './calendar-utils';
 
 interface CalendarGridProps {
-  calendars: { id: string; name: string; color: string }[];
+  calendars: { id: string; name: string; color: string; textColor?: string }[];
   weeks: number;
   weekStartsOn: WeekStart;
 }
@@ -29,9 +31,12 @@ const useIsoLayoutEffect = typeof window !== 'undefined' ? useLayoutEffect : use
 interface GridMetrics {
   availH: number; // calendar grid's usable height
   headerH: number; // a day cell's date-header height
-  rowH: number; // a single event row's height
-  pitch: number; // row-to-row distance (height + inter-row gap)
-  padV: number; // events container's top+bottom padding
+  rowH: number; // a single timed-event row's height
+  rowPitch: number; // timed row-to-row distance (height + inter-row gap)
+  rowPadV: number; // timed events container's top+bottom padding
+  barH: number; // an all-day band bar's height
+  barGap: number; // gap between band slots
+  bandPadV: number; // band container's top+bottom padding
 }
 
 export default function CalendarGrid({ calendars, weeks, weekStartsOn }: CalendarGridProps) {
@@ -46,9 +51,27 @@ export default function CalendarGrid({ calendars, weeks, weekStartsOn }: Calenda
   const gridRef = useRef<HTMLDivElement>(null);
   const [metrics, setMetrics] = useState<GridMetrics | null>(null);
 
+  // Footer calendar legend — on by default while the family learns the colors,
+  // collapsible to a faint dot cluster once it's just noise. Choice persists.
+  const [showLegend, setShowLegend] = useState(true);
+  useEffect(() => {
+    const stored = localStorage.getItem('homehq:legend');
+    if (stored !== null) setShowLegend(stored === '1');
+  }, []);
+  const toggleLegend = useCallback(() => {
+    setShowLegend((prev) => {
+      const next = !prev;
+      localStorage.setItem('homehq:legend', next ? '1' : '0');
+      return next;
+    });
+  }, []);
+
   const totalDays = weeks * 7;
 
-  const colorMap = useMemo(() => new Map(calendars.map((c) => [c.id, c.color])), [calendars]);
+  const colorMap = useMemo(
+    () => new Map(calendars.map((c) => [c.id, { color: c.color, textColor: c.textColor }])),
+    [calendars]
+  );
 
   const fetchEvents = useCallback(async () => {
     // Update today on each poll (handles midnight rollover)
@@ -86,53 +109,78 @@ export default function CalendarGrid({ calendars, weeks, weekStartsOn }: Calenda
     () => generateRollingDays(startOfWeek(today, weekStartsOn), totalDays),
     [today, totalDays, weekStartsOn]
   );
+  const weeksOfDays = useMemo(() => chunkWeeks(days), [days]);
   const dayEventsMap = useMemo(() => assignEventsToDays(events, days), [events, days]);
 
-  const labels = useMemo(() => weekdayLabels(weekStartsOn), [weekStartsOn]);
-  // Today always sits in the first week, so its column index is its offset from
-  // the grid start — used to highlight the matching weekday header.
-  const todayCol = days.indexOf(today);
+  // Timed events keyed by start day; all-day events are laid out separately as
+  // spanning bars in each week's band.
+  const timedByDay = useMemo(() => {
+    const map = new Map<string, CalendarEvent[]>();
+    for (const day of days) map.set(day, dayEventsMap.get(day)?.timed ?? []);
+    return map;
+  }, [days, dayEventsMap]);
 
-  // Measure the calendar's available height plus the (uniform) header and event
-  // row sizes, so rows can be sized and overflow cropped in JS. Re-runs on
-  // resize and whenever the rendered events change.
+  const allDayEvents = useMemo(() => events.filter((e) => e.all_day), [events]);
+  const weekSegments = useMemo(
+    () => weeksOfDays.map((w) => computeWeekSegments(allDayEvents, w)),
+    [weeksOfDays, allDayEvents]
+  );
+  const slotCounts = useMemo(() => weekSegments.map((w) => w.slotCount), [weekSegments]);
+
+  const labels = useMemo(() => weekdayLabels(weekStartsOn), [weekStartsOn]);
+
+  // Measure the calendar's available height plus the (uniform) header, timed-row,
+  // and band-bar sizes, so rows can be sized and overflow cropped in JS. Re-runs
+  // on resize and whenever the rendered events change.
   useIsoLayoutEffect(() => {
     const grid = gridRef.current;
     if (!grid) return;
 
     const measure = () => {
-      // Fractional (getBoundingClientRect) rather than rounded (offsetHeight), so
-      // sub-pixel row heights don't accumulate into a clip across many rows.
       const availH = grid.clientHeight;
       const headerEl = grid.querySelector('[data-day-header]') as HTMLElement | null;
       const headerH = headerEl?.getBoundingClientRect().height ?? 0;
 
       const containers = grid.querySelectorAll('[data-events]');
-      let padV = 0;
+      let rowPadV = 0;
       if (containers[0]) {
         const cs = getComputedStyle(containers[0] as HTMLElement);
-        padV = parseFloat(cs.paddingTop) + parseFloat(cs.paddingBottom);
+        rowPadV = parseFloat(cs.paddingTop) + parseFloat(cs.paddingBottom);
       }
 
-      // Event rows aren't perfectly uniform (all-day vs timed differ by ~1px), so
-      // size to the TALLEST row — a protected day must never clip. Gap is the
-      // constant inter-row margin, taken from any two adjacent rows.
+      // Timed rows aren't perfectly uniform, so size to the TALLEST — a protected
+      // day must never clip. Gap is the constant inter-row margin (space-y-1.5).
       const rowEls = grid.querySelectorAll('[data-event-row]');
       let rowH = 0;
       for (let i = 0; i < rowEls.length; i++) {
         rowH = Math.max(rowH, (rowEls[i] as HTMLElement).getBoundingClientRect().height);
       }
-      let gap = 0;
+      let rowGap = 0;
       for (let i = 0; i < containers.length; i++) {
         const rows = containers[i].querySelectorAll('[data-event-row]');
         if (rows.length >= 2) {
           const r0 = (rows[0] as HTMLElement).getBoundingClientRect();
           const r1 = (rows[1] as HTMLElement).getBoundingClientRect();
-          gap = Math.max(0, r1.top - r0.top - r0.height);
+          rowGap = Math.max(0, r1.top - r0.top - r0.height);
           break;
         }
       }
-      const pitch = rowH + gap;
+      const rowPitch = rowH + rowGap;
+
+      // All-day band metrics — only present when some week has all-day events.
+      const bandEl = grid.querySelector('[data-band]') as HTMLElement | null;
+      let barH = 0;
+      let barGap = 0;
+      let bandPadV = 0;
+      if (bandEl) {
+        const cs = getComputedStyle(bandEl);
+        bandPadV = parseFloat(cs.paddingTop) + parseFloat(cs.paddingBottom);
+        barGap = parseFloat(cs.rowGap) || 0;
+        const barEls = grid.querySelectorAll('[data-band-row]');
+        for (let i = 0; i < barEls.length; i++) {
+          barH = Math.max(barH, (barEls[i] as HTMLElement).getBoundingClientRect().height);
+        }
+      }
 
       if (availH && headerH && rowH) {
         setMetrics((prev) =>
@@ -140,10 +188,13 @@ export default function CalendarGrid({ calendars, weeks, weekStartsOn }: Calenda
           prev.availH === availH &&
           prev.headerH === headerH &&
           prev.rowH === rowH &&
-          prev.pitch === pitch &&
-          prev.padV === padV
+          prev.rowPitch === rowPitch &&
+          prev.rowPadV === rowPadV &&
+          prev.barH === barH &&
+          prev.barGap === barGap &&
+          prev.bandPadV === bandPadV
             ? prev
-            : { availH, headerH, rowH, pitch, padV }
+            : { availH, headerH, rowH, rowPitch, rowPadV, barH, barGap, bandPadV }
         );
       }
     };
@@ -155,106 +206,144 @@ export default function CalendarGrid({ calendars, weeks, weekStartsOn }: Calenda
   }, [days, events]);
 
   // Space policy: today + the remaining days of THIS week always show every
-  // event (they set the current-week row height); past days and later weeks
-  // crop with "+N more".
+  // event (they set the current-week height); past days and later weeks crop
+  // their timed lists with "+N more". All-day bands are always shown in full.
   const layout = useMemo(() => {
     if (!metrics) return null;
-    const { availH, headerH, rowH, pitch, padV } = metrics;
-    const gap = Math.max(0, pitch - rowH);
+    const { availH, headerH, rowH, rowPitch, rowPadV, barH, barGap, bandPadV } = metrics;
+    const rowGap = Math.max(0, rowPitch - rowH);
 
-    // Exact pixel height a cell needs to show n event rows, and the inverse:
-    // how many rows fit in a given cell height.
-    const heightFor = (n: number) => headerH + padV + (n > 0 ? n * rowH + (n - 1) * gap : 0);
-    const capFor = (px: number) => {
-      const inner = px - headerH - padV;
-      return inner < rowH ? 0 : Math.floor((inner + gap) / pitch);
+    const timedHeightFor = (n: number) => rowPadV + (n > 0 ? n * rowH + (n - 1) * rowGap : 0);
+    const bandHeightFor = (slots: number) =>
+      slots > 0 ? bandPadV + slots * barH + (slots - 1) * barGap : 0;
+    const capTimedFor = (cellPx: number, slots: number) => {
+      const inner = cellPx - headerH - bandHeightFor(slots) - rowPadV;
+      if (inner < rowH) return 0;
+      return Math.floor((inner + rowGap) / rowPitch);
     };
 
-    let protectedMax = 0;
-    days.forEach((date, i) => {
-      if (i < 7 && date >= today) {
-        const dd = dayEventsMap.get(date);
-        if (dd) protectedMax = Math.max(protectedMax, dd.allDay.length + dd.timed.length);
+    // Busiest protected day sets the current-week timed height.
+    let protectedTimedMax = 0;
+    (weeksOfDays[0] ?? []).forEach((date) => {
+      if (date >= today) {
+        protectedTimedMax = Math.max(protectedTimedMax, timedByDay.get(date)?.length ?? 0);
       }
     });
+    const currSlots = slotCounts[0] ?? 0;
 
-    // Current week is exactly tall enough for its busiest protected day (with a
-    // 2px buffer so subpixel rounding can never clip it), floored at ~2 rows and
-    // capped at the whole grid (then later weeks collapse — an accepted extreme).
+    // Current week: header + its full all-day band + enough rows for its busiest
+    // protected day (floored at ~2 rows, 2px subpixel buffer), capped at the grid.
     const currentWeekPx = Math.min(
-      Math.ceil(Math.max(heightFor(protectedMax), heightFor(2)) + 4),
+      Math.ceil(
+        Math.max(
+          headerH + bandHeightFor(currSlots) + timedHeightFor(protectedTimedMax),
+          headerH + bandHeightFor(currSlots) + timedHeightFor(2)
+        ) + 4
+      ),
       availH
     );
     const laterWeeks = Math.max(0, weeks - 1);
     const laterWeekPx = laterWeeks > 0 ? Math.max(0, availH - currentWeekPx) / laterWeeks : 0;
 
+    // Each later week's timed capacity depends on its own band height.
+    const capLater = slotCounts.map((slots, wi) =>
+      wi === 0 ? Infinity : capTimedFor(laterWeekPx, slots)
+    );
+    const capPastCurrent = capTimedFor(currentWeekPx, currSlots);
+
     return {
       gridRows: `${currentWeekPx}px repeat(${laterWeeks}, minmax(0, 1fr))`,
-      capCurrent: capFor(currentWeekPx),
-      capLater: capFor(laterWeekPx),
+      capPastCurrent,
+      capLater,
     };
-  }, [metrics, days, dayEventsMap, today, weeks]);
+  }, [metrics, weeksOfDays, slotCounts, timedByDay, today, weeks]);
 
   return (
     <div className="flex h-full flex-col">
       {/* Weekday header — shown once, so day cells don't repeat it per row */}
       <div className="grid shrink-0 grid-cols-7 gap-px bg-gray-800 pb-px">
-        {labels.map((label, i) => (
+        {labels.map((label) => (
           <div
             key={label}
-            className={`bg-gray-950 py-1.5 text-center text-sm font-semibold uppercase tracking-wider ${
-              i === todayCol ? 'text-blue-300' : 'text-gray-500'
-            }`}
+            className="bg-gray-950 px-2 py-1.5 text-left text-sm font-semibold uppercase tracking-wider text-gray-500"
           >
             {label}
           </div>
         ))}
       </div>
 
-      {/* Calendar grid */}
+      {/* Calendar grid — one WeekRow per row; 1px gaps separate weeks */}
       <div
         ref={gridRef}
-        className="grid min-h-0 flex-1 grid-cols-7 gap-px bg-gray-800"
+        className="grid min-h-0 flex-1 gap-px bg-gray-800"
         style={{ gridTemplateRows: layout?.gridRows ?? `repeat(${weeks}, minmax(0, 1fr))` }}
       >
-        {days.map((date, index) => {
-          const dayData = dayEventsMap.get(date)!;
-          const isPast = date < today;
-          const inCurrentWeek = index < 7;
-          // Today + the rest of this week never crop; past days and later weeks do.
-          const capacity = !layout
-            ? Infinity
-            : inCurrentWeek
-              ? isPast
-                ? layout.capCurrent
-                : Infinity
-              : layout.capLater;
+        {weeksOfDays.map((weekDays, wi) => {
+          const { segments, slotCount } = weekSegments[wi];
+          const capacities = weekDays.map((date) => {
+            if (!layout) return Infinity;
+            if (wi === 0) return date < today ? layout.capPastCurrent : Infinity;
+            return layout.capLater[wi];
+          });
           return (
-            <DayColumn
-              key={date}
-              date={date}
-              isToday={date === today}
-              isPast={isPast}
-              showMonth={index === 0 || date.slice(8, 10) === '01'}
-              allDayEvents={dayData.allDay}
-              timedEvents={dayData.timed}
+            <WeekRow
+              key={weekDays[0]}
+              weekDays={weekDays}
+              weekIndex={wi}
+              today={today}
+              segments={segments}
+              slotCount={slotCount}
+              timedByDay={timedByDay}
               colorMap={colorMap}
-              capacity={capacity}
+              capacities={capacities}
             />
           );
         })}
       </div>
 
-      {/* Sync indicator */}
+      {/* Footer — calendar legend (left, toggleable) + sync indicator (right) */}
       {(() => {
-        const label = loading ? { text: 'Loading\u2026', isError: false } : formatSyncLabel(sync);
+        const label = loading ? { text: 'Loading…', isError: false } : formatSyncLabel(sync);
         return (
-          <div
-            className={`shrink-0 px-4 py-1 text-right text-xs ${
-              label.isError ? 'text-amber-500/90' : 'text-gray-600'
-            }`}
-          >
-            {label.text}
+          <div className="flex shrink-0 items-center justify-between px-4 py-1 text-xs">
+            {showLegend ? (
+              <button
+                type="button"
+                onClick={toggleLegend}
+                title="Hide calendar legend"
+                className="flex items-center gap-3 text-gray-400 transition-colors hover:text-gray-200"
+              >
+                {calendars.map((c) => (
+                  <span key={c.id} className="flex items-center gap-1.5">
+                    <span
+                      className="h-2 w-2 rounded-full"
+                      style={{ backgroundColor: c.color }}
+                      aria-hidden
+                    />
+                    {c.name}
+                  </span>
+                ))}
+              </button>
+            ) : (
+              <button
+                type="button"
+                onClick={toggleLegend}
+                title="Show calendar legend"
+                className="flex items-center gap-1 opacity-40 transition-opacity hover:opacity-100"
+              >
+                {calendars.map((c) => (
+                  <span
+                    key={c.id}
+                    className="h-1.5 w-1.5 rounded-full"
+                    style={{ backgroundColor: c.color }}
+                    aria-hidden
+                  />
+                ))}
+              </button>
+            )}
+            <span className={label.isError ? 'text-amber-500/90' : 'text-gray-600'}>
+              {label.text}
+            </span>
           </div>
         );
       })()}
