@@ -288,14 +288,18 @@ swap the URL to your production domain once the droplet is live — that one lin
 difference between a test setup and the wall.
 
 For Raspberry Pi OS Bookworm+ (Wayland/labwc — the default on Pi 5), add to
-`~/.config/labwc/autostart`:
+`~/.config/labwc/autostart`. **Heads-up on the binary name:** it's `chromium-browser` on
+Bookworm but **`chromium` on Debian 13 / trixie** — call the wrong one and the kiosk fails
+silently and you land on the bare desktop. This picks whichever exists:
 
 ```bash
-chromium-browser --kiosk --noerrdialogs --disable-infobars \
+CHROMIUM="$(command -v chromium-browser || command -v chromium)"
+"$CHROMIUM" --kiosk --noerrdialogs --disable-infobars \
   --disable-session-crashed-bubble --force-device-scale-factor=2 https://your-domain.com &
 ```
 
-On older X11-based images, use `~/.config/lxsession/LXDE-pi/autostart` instead:
+On older X11-based images, use `~/.config/lxsession/LXDE-pi/autostart` instead (swap in
+`chromium` if that's what your image ships):
 
 ```
 @chromium-browser --kiosk --noerrdialogs --disable-infobars https://your-domain.com
