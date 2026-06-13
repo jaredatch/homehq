@@ -14,10 +14,9 @@ A self-hosted family dashboard web app replacing Dakboard. Displays family calen
 - `private/TODO.md` — running punch list (System/Ops + Web App); maintainer-local (gitignored — carries live ops + household specifics), complements PLAN.md's roadmap
 - `BOOTSTRAP.md` — Setup, dev commands, and troubleshooting
 - `docs/deployment.md` — DO droplet + Raspberry Pi kiosk deployment
-- `docs/review-2026-06-07.md` — Deep review findings and decisions from the project restart
-- `docs/archive/SPEC.md` — original product spec (historical; superseded by this guide + PLAN.md)
+- `docs/google-oauth-setup.md` — Google Cloud OAuth walkthrough
 
-This guide (CLAUDE.md) and PLAN.md are the living source of truth; SPEC.md is archived.
+This guide (CLAUDE.md) and PLAN.md are the living source of truth. (Historical docs — the original spec, the project-restart review, and the setup handoff — live in `private/archive/`, gitignored.)
 `AGENTS.md` is a thin pointer to this file so Codex/other agents read the same guidance.
 
 ## Tech Stack
@@ -105,8 +104,7 @@ data/
 └── homehq.db                         # Created at runtime (gitignored)
 docs/
 ├── google-oauth-setup.md             # Google Cloud OAuth setup guide
-├── deployment.md                     # Droplet + Pi kiosk deployment
-└── review-2026-06-07.md              # Project-restart review findings
+└── deployment.md                     # Droplet + Pi kiosk deployment
 ```
 
 ## MVP Scope (quick reference)

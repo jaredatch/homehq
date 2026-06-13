@@ -235,14 +235,14 @@ weekly cron backup is cheap.
 
 Raspberry Pi OS (64-bit, **with desktop**) + Chromium in kiosk mode.
 
-### Hardware (this build)
+### Hardware
 
-- **Raspberry Pi 5** with the official **27 W USB-C PSU** (don't power it from the monitor —
-  use the dedicated supply for stable peripherals).
-- **micro-HDMI → HDMI** cable to the **Dell S2725QC** (27" 4K). The Pi 5 outputs video only
-  over its **micro-HDMI** ports; its USB-C port is power *in*, not video. The monitor's USB-C
-  is for a laptop source, so drive the panel via the monitor's **HDMI** input. The Pi 5
-  handles 4K@60 fine — that's the wall resolution the UI is designed for.
+- A **Raspberry Pi 5** with the official **27 W USB-C PSU** (don't power it from the monitor —
+  use the dedicated supply for stable peripherals). Older Pis work, but the Pi 5 drives 4K@60
+  comfortably.
+- A **micro-HDMI → HDMI** cable to your display. The Pi 5 outputs video only over its
+  **micro-HDMI** ports — its USB-C port is power *in*, not video — so drive the panel over its
+  HDMI input. A 27" 4K panel is what this UI is tuned for, but it scales to other sizes.
 - A USB/Bluetooth **keyboard with trackpad** for the one-time PIN entry and any debugging.
 
 ### Flashing the image
@@ -254,7 +254,7 @@ over SSH instead of fumbling at the monitor:
 - **Hostname** — e.g. `homehq-kiosk` (gives you `homehq-kiosk.local` for SSH)
 - **Enable SSH**
 - **Username / password**
-- **Wi-Fi** — your **office** network + country code
+- **Wi-Fi** — your network + country code
 - **Locale / timezone**
 
 First boot, then update:
@@ -264,12 +264,12 @@ sudo apt update && sudo apt full-upgrade -y
 sudo reboot
 ```
 
-### Dual Wi-Fi (office + home)
+### Dual Wi-Fi (two networks)
 
 Bookworm manages Wi-Fi with **NetworkManager**, which auto-connects to whichever *saved*
-network is in range — no detection logic to write. The Imager seeds the office network; add
-home as a second saved profile. You can add it **at the office while out of range** — the
-profile just waits until home is reachable:
+network is in range — no detection logic to write. The Imager seeds your first network; add a
+second as another saved profile. You can add it **while out of range** — the profile just
+waits until that network is reachable:
 
 ```bash
 sudo nmcli connection add type wifi con-name home ssid "HOME_SSID" \
@@ -278,14 +278,14 @@ nmcli connection show          # verify both profiles are saved
 ```
 
 Both stay saved; the Pi connects to whichever it sees at boot, so it "just works" when you
-carry it from office to kitchen. (If both were ever in range at once, break the tie with
+move it between locations. (If both were ever in range at once, break the tie with
 `nmcli connection modify home connection.autoconnect-priority 10`.)
 
 ### Kiosk autostart
 
-Point this at your **Mac's dev server** during office testing (see *Testing on the Pi*
-below), then swap the URL to your production domain once the droplet is live — that one line
-is the only difference between office and kitchen.
+Point this at your **Mac's dev server** while testing (see *Testing on the Pi* below), then
+swap the URL to your production domain once the droplet is live — that one line is the only
+difference between a test setup and the wall.
 
 For Raspberry Pi OS Bookworm+ (Wayland/labwc — the default on Pi 5), add to
 `~/.config/labwc/autostart`:
@@ -303,7 +303,7 @@ On older X11-based images, use `~/.config/lxsession/LXDE-pi/autostart` instead:
 
 ### Display tuning on the 4K panel
 
-The Dell is 3840×2160 on a 27" panel (~163 PPI), and Raspberry Pi OS doesn't scale the
+A 27" 4K panel is 3840×2160 at ~163 PPI, and Raspberry Pi OS doesn't scale the
 desktop the way macOS does — so at native resolution everything renders physically small.
 **Keep the resolution at native 4K** (lowering it just blurs the image and fits fewer
 events); size things up with scaling instead:
