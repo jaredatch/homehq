@@ -35,6 +35,9 @@ Thumbs.db
 # Claude Code (local-only settings)
 .claude/settings.local.json
 
+# Private (maintainer-only: live ops docs, deploy target, household punch list — never committed)
+private/
+
 # Debug
 npm-debug.log*
 

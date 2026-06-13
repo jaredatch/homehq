@@ -1,19 +1,30 @@
 #!/usr/bin/env bash
 #
-# Deploy HomeHQ to the kitchen droplet from your Mac:
+# Deploy HomeHQ to your droplet from your Mac:
 #
 #     ./scripts/deploy.sh
 #
 # Pulls latest on the droplet, reinstalls deps, rebuilds, and restarts the
 # systemd service (passwordless restart via the homehq sudoers rule). The build
-# runs on the droplet — that's what the 2 GB swap is for.
+# runs on the droplet — that's what the swap is for.
 #
-# Override via env if needed:
-#     HOMEHQ_HOST=homehq@REDACTED_IP  HOMEHQ_KEY=~/.ssh/homehq_deploy
+# Set the target host/key one of two ways:
+#   1. a gitignored env file at private/deploy.env (sourced automatically), or
+#   2. env vars:  HOMEHQ_HOST=homehq@<droplet-ip>  HOMEHQ_KEY=~/.ssh/homehq_deploy
 set -euo pipefail
 
-HOST="${HOMEHQ_HOST:-homehq@REDACTED_IP}"
+# Local, gitignored overrides keep the origin IP out of the tracked script.
+ENV_FILE="$(dirname "$0")/../private/deploy.env"
+# shellcheck disable=SC1090
+[ -f "$ENV_FILE" ] && source "$ENV_FILE"
+
+HOST="${HOMEHQ_HOST:-homehq@your-droplet-ip}"
 KEY="${HOMEHQ_KEY:-$HOME/.ssh/homehq_deploy}"
+
+if [ "$HOST" = "homehq@your-droplet-ip" ]; then
+  echo "[deploy] no target set — create private/deploy.env or export HOMEHQ_HOST (see header)" >&2
+  exit 1
+fi
 
 echo "[deploy] → $HOST"
 ssh -i "$KEY" -o IdentitiesOnly=yes "$HOST" 'bash -s' <<'EOF'

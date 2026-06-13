@@ -3,10 +3,11 @@
 Two pieces: a **server** (DigitalOcean droplet) running the Next.js app, and a **display
 client** (Raspberry Pi) pointing Chromium at it in kiosk mode.
 
-> **Current status (2026-06-13):** the kitchen droplet is **live at https://your-domain.com**
-> (DigitalOcean `REDACTED_IP`, Cloudflare-proxied). Admin via `ssh ubuntu@REDACTED_IP`
-> (root SSH is disabled); deploy with `./scripts/deploy.sh` from the Mac. The sections below are
-> the reusable runbook — replicate them for future room droplets (`<room>.homehq.dev`).
+> **This is the reusable runbook**, written generically so anyone can follow it. The author's
+> live deployment runs a DigitalOcean droplet behind Cloudflare, deployed with
+> `./scripts/deploy.sh`. Replace the `your-domain.com` / `<ip>` placeholders below with your
+> own; for multiple displays, give each a subdomain (`<room>.your-domain.com`).
+> *(Maintainers: the live host/IP, SSH access, and ops specifics are in `private/ops/droplet.md`.)*
 
 ## Server (DigitalOcean droplet)
 
@@ -51,7 +52,7 @@ NEXT_PUBLIC_BASE_URL=https://your-domain.com
 Add `https://your-domain.com/api/oauth/callback` to the OAuth client's authorized redirect
 URIs in Google Cloud Console (you can keep the localhost one for dev).
 
-### Hardening (applied to the live kitchen droplet)
+### Hardening (applied to the live droplet)
 
 Done beyond the basic setup above — replicate for future room droplets:
 
@@ -99,7 +100,7 @@ journalctl -u homehq -f             # tail logs (sync output shows here)
 
 ### Nginx + TLS (Cloudflare-proxied)
 
-The kitchen droplet sits behind **Cloudflare** (proxied / orange-cloud). TLS is terminated
+The live droplet sits behind **Cloudflare** (proxied / orange-cloud). TLS is terminated
 twice: browsers get Cloudflare's edge cert automatically, and Cloudflare → origin uses a
 **Cloudflare Origin CA certificate** on the droplet with SSL mode **Full (strict)**. No
 Let's Encrypt/certbot — a proxied record fails the HTTP-01 challenge anyway, and an Origin CA
@@ -109,8 +110,8 @@ cert is valid 15 years with nothing to renew.
 sudo apt install nginx        # no certbot needed when proxied through Cloudflare
 ```
 
-**1. Origin cert.** Cloudflare → SSL/TLS → Origin Server → Create Certificate (the default
-`*.homehq.dev, homehq.dev` covers every room subdomain with one cert). Save the two PEM blocks
+**1. Origin cert.** Cloudflare → SSL/TLS → Origin Server → Create Certificate (a wildcard like
+`*.your-domain.com, your-domain.com` covers every room subdomain with one cert). Save the two PEM blocks
 to the droplet, then set SSL mode to **Full (strict)** in the Cloudflare dashboard:
 
 ```
@@ -181,7 +182,7 @@ works because the record resolves to the droplet, and it auto-renews).
 2. Go to `https://your-domain.com/setup` → Connect Google Calendar.
 3. Within ~5 minutes the calendar grid populates; weather appears within ~30 seconds.
 
-> The kitchen droplet skipped step 2: its OAuth refresh token was seeded by copying a
+> The author's droplet skipped step 2: its OAuth refresh token was seeded by copying a
 > consistent snapshot of the dev DB (`sqlite3 data/homehq.db ".backup seed.db"`, scp, drop in
 > place) — same Google client, so the token works from the droplet and calendar synced
 > immediately. Either path is fine; `/setup` is still there if the token is ever revoked.
