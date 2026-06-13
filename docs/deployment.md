@@ -3,6 +3,11 @@
 Two pieces: a **server** (DigitalOcean droplet) running the Next.js app, and a **display
 client** (Raspberry Pi) pointing Chromium at it in kiosk mode.
 
+> **Current status (2026-06-13):** the kitchen droplet is **live at https://your-domain.com**
+> (DigitalOcean `REDACTED_IP`, Cloudflare-proxied). Admin via `ssh ubuntu@REDACTED_IP`
+> (root SSH is disabled); deploy with `./scripts/deploy.sh` from the Mac. The sections below are
+> the reusable runbook — replicate them for future room droplets (`<room>.homehq.dev`).
+
 ## Server (DigitalOcean droplet)
 
 ### Requirements
@@ -11,8 +16,8 @@ client** (Raspberry Pi) pointing Chromium at it in kiosk mode.
   (see Initial setup) — `next build` can run a 1 GB box out of memory without it.
 - A domain (or subdomain) pointed at the droplet — required for SSL, which Google OAuth
   redirect URIs effectively require in production.
-- Node.js 20+ (LTS). Install via [NodeSource](https://github.com/nodesource/distributions)
-  or `nvm`.
+- Node.js 24 (current Active LTS — Node 20 reached end-of-life in April 2026). Install via
+  [NodeSource](https://github.com/nodesource/distributions) or `nvm`.
 
 ### Initial setup
 
@@ -46,6 +51,18 @@ NEXT_PUBLIC_BASE_URL=https://your-domain.com
 Add `https://your-domain.com/api/oauth/callback` to the OAuth client's authorized redirect
 URIs in Google Cloud Console (you can keep the localhost one for dev).
 
+### Hardening (applied to the live kitchen droplet)
+
+Done beyond the basic setup above — replicate for future room droplets:
+
+- **Swap:** 2 GB swapfile + `vm.swappiness=10`, persisted in `/etc/fstab` and `/etc/sysctl.d/99-homehq.conf`.
+- **Users:** the app runs as an unprivileged **`homehq`** user; **`ubuntu`** is the admin / break-glass user. `homehq` has only a *narrow* `NOPASSWD` sudoers rule for `systemctl {restart,start,stop,status} homehq` (`/etc/sudoers.d/homehq`) — no general sudo.
+- **SSH:** key-only (`PasswordAuthentication no`), **`PermitRootLogin no`**, `KbdInteractiveAuthentication no`, `X11Forwarding no` via `/etc/ssh/sshd_config.d/99-homehq-hardening.conf`. **Connect as `ssh ubuntu@<ip>` — root SSH is closed.** Validate any change with `sshd -t` before `systemctl reload ssh`, and keep a second session open.
+- **Firewall:** `ufw` default-deny inbound, allowing only 22 / 80 / 443 (v4 + v6).
+- **fail2ban:** sshd jail on the systemd/journald backend (Ubuntu 24.04 logs auth to the journal, not `/var/log/auth.log`, so `backend = systemd` in `/etc/fail2ban/jail.local` is required).
+- **Auto-updates:** `unattended-upgrades` (security patches) — already enabled on the DO image; left on.
+- **Keys:** a dedicated `homehq-deploy` key authorizes automation; the droplet holds a read-only **GitHub deploy key** for `git pull` of the private repo. Personal keys stay on `ubuntu`; the stale `openclaw-deploy-*` key was removed from `root` and `ubuntu`.
+
 ### systemd service
 
 `/etc/systemd/system/homehq.service`:
@@ -58,11 +75,16 @@ After=network.target
 [Service]
 Type=simple
 User=homehq
+Group=homehq
 WorkingDirectory=/home/homehq/homehq
-ExecStart=/usr/bin/npm run start
+# Run the Next binary directly (not `npm run start`) so systemd delivers SIGTERM
+# straight to Node for a clean shutdown. Bind localhost — nginx fronts it.
+ExecStart=/home/homehq/homehq/node_modules/.bin/next start -H 127.0.0.1 -p 3000
 Restart=always
 RestartSec=5
 Environment=NODE_ENV=production
+NoNewPrivileges=true
+PrivateTmp=true
 
 [Install]
 WantedBy=multi-user.target
@@ -75,27 +97,66 @@ sudo systemctl status homehq        # check it's running
 journalctl -u homehq -f             # tail logs (sync output shows here)
 ```
 
-### Nginx + SSL
+### Nginx + TLS (Cloudflare-proxied)
+
+The kitchen droplet sits behind **Cloudflare** (proxied / orange-cloud). TLS is terminated
+twice: browsers get Cloudflare's edge cert automatically, and Cloudflare → origin uses a
+**Cloudflare Origin CA certificate** on the droplet with SSL mode **Full (strict)**. No
+Let's Encrypt/certbot — a proxied record fails the HTTP-01 challenge anyway, and an Origin CA
+cert is valid 15 years with nothing to renew.
 
 ```bash
-sudo apt install nginx certbot python3-certbot-nginx
+sudo apt install nginx        # no certbot needed when proxied through Cloudflare
 ```
 
-`/etc/nginx/sites-available/homehq`:
+**1. Origin cert.** Cloudflare → SSL/TLS → Origin Server → Create Certificate (the default
+`*.homehq.dev, homehq.dev` covers every room subdomain with one cert). Save the two PEM blocks
+to the droplet, then set SSL mode to **Full (strict)** in the Cloudflare dashboard:
+
+```
+/etc/ssl/cloudflare/homehq-origin.pem   # cert  (root, 644)
+/etc/ssl/cloudflare/homehq-origin.key   # key   (root, 600)
+```
+
+**2. Real visitor IP.** Behind Cloudflare, `$remote_addr` is a Cloudflare edge IP — which would
+collapse the PIN rate-limiter to a single key for everyone. Restore the true client IP from the
+`CF-Connecting-IP` header, trusting **only** Cloudflare's published ranges (regenerate if CF
+changes them):
+
+```bash
+{ curl -fsSL https://www.cloudflare.com/ips-v4 | sed 's/^/set_real_ip_from /; s/$/;/'
+  curl -fsSL https://www.cloudflare.com/ips-v6 | sed 's/^/set_real_ip_from /; s/$/;/'
+  echo 'real_ip_header CF-Connecting-IP;'; } | sudo tee /etc/nginx/snippets/cloudflare-realip.conf
+```
+
+**3. Vhost** `/etc/nginx/sites-available/homehq` — port 80 redirects to 443; 443 proxies the app:
 
 ```nginx
 server {
-    listen 80;
+    listen 80 default_server;
+    listen [::]:80 default_server;
+    server_name _;
+    return 301 https://your-domain.com$request_uri;
+}
+
+server {
+    listen 443 ssl http2 default_server;
+    listen [::]:443 ssl http2 default_server;
     server_name your-domain.com;
+
+    ssl_certificate     /etc/ssl/cloudflare/homehq-origin.pem;
+    ssl_certificate_key /etc/ssl/cloudflare/homehq-origin.key;
+    ssl_protocols TLSv1.2 TLSv1.3;
+
+    include /etc/nginx/snippets/cloudflare-realip.conf;
 
     location / {
         proxy_pass http://127.0.0.1:3000;
         proxy_http_version 1.1;
         proxy_set_header Host $host;
-        # Set X-Real-IP to the true TCP peer. Do NOT use
-        # $proxy_add_x_forwarded_for here — it appends to a client-supplied
-        # X-Forwarded-For, which would let a client spoof the rate-limiter key
-        # and brute-force the PIN. Overwrite, don't append.
+        # X-Real-IP = real visitor (real_ip restores it from CF-Connecting-IP). NEVER use
+        # $proxy_add_x_forwarded_for — the PIN limiter keys on X-Real-IP and a client could
+        # otherwise spoof it to dodge rate-limiting.
         proxy_set_header X-Real-IP $remote_addr;
         proxy_set_header X-Forwarded-For $remote_addr;
         proxy_set_header X-Forwarded-Proto $scheme;
@@ -103,20 +164,27 @@ server {
 }
 ```
 
-`X-Real-IP` matters — the PIN rate limiter keys on it, and nginx must set it
-from `$remote_addr` so clients can't forge it.
-
 ```bash
 sudo ln -s /etc/nginx/sites-available/homehq /etc/nginx/sites-enabled/
+sudo rm -f /etc/nginx/sites-enabled/default
 sudo nginx -t && sudo systemctl reload nginx
-sudo certbot --nginx -d your-domain.com    # provisions SSL + auto-renewal
 ```
+
+**Not using Cloudflare's proxy?** If you point DNS straight at the droplet (DNS-only /
+grey-cloud), skip the Origin cert and use Let's Encrypt instead:
+`sudo apt install certbot python3-certbot-nginx && sudo certbot --nginx -d <host>` (HTTP-01
+works because the record resolves to the droplet, and it auto-renews).
 
 ### First run
 
 1. Visit `https://your-domain.com` → PIN screen. Enter your PIN.
 2. Go to `https://your-domain.com/setup` → Connect Google Calendar.
 3. Within ~5 minutes the calendar grid populates; weather appears within ~30 seconds.
+
+> The kitchen droplet skipped step 2: its OAuth refresh token was seeded by copying a
+> consistent snapshot of the dev DB (`sqlite3 data/homehq.db ".backup seed.db"`, scp, drop in
+> place) — same Google client, so the token works from the droplet and calendar synced
+> immediately. Either path is fine; `/setup` is still there if the token is ever revoked.
 
 ### Updating
 
@@ -130,11 +198,10 @@ sudo systemctl restart homehq
 
 ### Deploying updates with a script
 
-Rather than SSHing in to run the steps above by hand each time, wrap them in a small
-`scripts/deploy.sh` that runs the update over SSH from your Mac — you run it (`./scripts/deploy.sh`),
-or have Claude run it on "deploy." The script just automates the Updating commands above;
-the build stays on the droplet (that's what the swap is for). Two prerequisites make it
-non-interactive:
+`scripts/deploy.sh` does this — run `./scripts/deploy.sh` from your Mac (or ask Claude to
+"deploy"). It SSHes in as `homehq`, pulls, `npm ci`, rebuilds on the droplet (that's what the
+swap is for), restarts the service, and health-checks `/login`. Two prerequisites make it
+non-interactive (both already in place on the kitchen droplet):
 
 - **Passwordless restart** — so the deploy doesn't stall on a sudo password prompt. Add a
   narrow rule via `sudo visudo -f /etc/sudoers.d/homehq`:

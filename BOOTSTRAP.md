@@ -2,7 +2,7 @@
 
 ## Prerequisites
 
-- Node.js 20+ (LTS)
+- Node.js 24 (current Active LTS)
 - npm
 
 ## Initial Setup

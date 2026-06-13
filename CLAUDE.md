@@ -6,6 +6,8 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 A self-hosted family dashboard web app replacing Dakboard. Displays family calendars, weather, and clock on a wall-mounted monitor via Raspberry Pi in kiosk mode. Built for a single household (5 family members).
 
+**Status:** live in production at `https://your-domain.com` (DO droplet `REDACTED_IP`, Cloudflare-proxied). Admin: `ssh ubuntu@REDACTED_IP` (root SSH disabled); deploy: `./scripts/deploy.sh`. Details in `docs/deployment.md`.
+
 ## Key Documents
 
 - `PLAN.md` — Implementation plan, MVP scope, build phases, roadmap, and all technical decisions
