@@ -121,7 +121,7 @@ export interface AllDaySegment {
 export function computeWeekSegments(
   allDayEvents: CalendarEvent[],
   weekDays: string[]
-): { segments: AllDaySegment[]; slotCount: number } {
+): { segments: AllDaySegment[]; slotCount: number; laneByColumn: number[] } {
   const first = weekDays[0];
   const last = weekDays[weekDays.length - 1];
   const dayAfterLast = addDays(last, 1);
@@ -159,7 +159,21 @@ export function computeWeekSegments(
     });
   }
 
-  return { segments, slotCount: slotLastCol.length };
+  // Per-column lane reservation: how many band rows each day must reserve at the
+  // top of its cell. It's the highest slot occupied in that column PLUS ONE —
+  // crucially counting bars that merely *pass through* the column, not just ones
+  // that start there, or a spanning bar would collide with that day's timed
+  // events. Columns no bar touches stay 0, so their timed events flow to the top
+  // (no placeholder gap). Empty lower slots under a high bar still count, keeping
+  // a multi-day bar on its own row across every day it covers.
+  const laneByColumn = new Array(weekDays.length).fill(0);
+  for (const seg of segments) {
+    for (let c = seg.startCol; c < seg.startCol + seg.span; c++) {
+      laneByColumn[c] = Math.max(laneByColumn[c], seg.slot + 1);
+    }
+  }
+
+  return { segments, slotCount: slotLastCol.length, laneByColumn };
 }
 
 export function generateRollingDays(startDate: string, count: number): string[] {

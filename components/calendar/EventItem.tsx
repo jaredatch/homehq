@@ -16,10 +16,15 @@ interface EventItemProps {
 // Timed events only — all-day events render as spanning bars in WeekRow's band.
 export default function EventItem({ event, color, timeZone }: EventItemProps) {
   return (
-    <div data-event-row className="relative py-1 pl-3 pr-1.5 leading-snug" title={event.summary}>
-      {/* Accent bar, inset top/bottom so events read as slightly more spaced. */}
+    <div
+      data-event-row
+      className="relative py-1 pl-[0.5625rem] pr-1.5 leading-snug"
+      title={event.summary}
+    >
+      {/* Accent bar, inset top/bottom so events read as slightly more spaced.
+          Width + left padding are rem-based so they scale with the wall. */}
       <span
-        className="absolute inset-y-1 left-0 w-0.5"
+        className="absolute inset-y-1 left-0 w-[0.0625rem]"
         style={{ backgroundColor: color }}
         aria-hidden
       />

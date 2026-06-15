@@ -144,7 +144,9 @@ export default function CalendarGrid({
     () => weeksOfDays.map((w) => computeWeekSegments(allDayEvents, w)),
     [weeksOfDays, allDayEvents]
   );
-  const slotCounts = useMemo(() => weekSegments.map((w) => w.slotCount), [weekSegments]);
+  // Per-week, per-column band reservation — each day's own band height now varies
+  // (a day no all-day event touches reserves nothing), so capacity is per-column.
+  const laneByWeek = useMemo(() => weekSegments.map((w) => w.laneByColumn), [weekSegments]);
 
   const labels = useMemo(() => weekdayLabels(weekStartsOn), [weekStartsOn]);
 
@@ -275,8 +277,11 @@ export default function CalendarGrid({
       dayHeights,
     } = metrics;
 
-    const bandHeightFor = (slots: number) =>
-      slots > 0 ? bandPadV + slots * barH + (slots - 1) * barGap : 0;
+    // Height a cell reserves at the top for `lanes` all-day band rows. Now fed a
+    // per-column lane count, not the per-week max — so a day no bar touches (0)
+    // reserves nothing and hands that space back to its timed stack.
+    const bandHeightFor = (lanes: number) =>
+      lanes > 0 ? bandPadV + lanes * barH + (lanes - 1) * barGap : 0;
     const stackHeight = (hs: number[]) =>
       hs.length ? rowPadV + hs.reduce((a, b) => a + b, 0) + (hs.length - 1) * rowGap : rowPadV;
 
@@ -301,40 +306,52 @@ export default function CalendarGrid({
     };
 
     const week0 = weeksOfDays[0] ?? [];
-    const currSlots = slotCounts[0] ?? 0;
+    const lanes0 = laneByWeek[0] ?? [];
 
-    // Priority 1: busiest protected day's real stack sets the current-week height.
+    // Priority 1: busiest protected day sets the current-week height — and its
+    // band now counts per-column, since today's own all-day rows sit in its cell.
     let protectedPx = 0;
-    for (const date of week0) {
-      if (date >= today) protectedPx = Math.max(protectedPx, stackHeight(dayHeights[date] ?? []));
-    }
+    week0.forEach((date, col) => {
+      if (date >= today) {
+        protectedPx = Math.max(
+          protectedPx,
+          bandHeightFor(lanes0[col] ?? 0) + stackHeight(dayHeights[date] ?? [])
+        );
+      }
+    });
     // Keep the current week at least ~2 rows tall so it never collapses to a sliver.
     const floorPx = rowPadV + (rowUnitPx > 0 ? 2 * rowUnitPx + rowGap : 0);
     const currentWeekPx = Math.min(
-      Math.ceil(headerH + bandHeightFor(currSlots) + Math.max(protectedPx, floorPx) + 6),
+      Math.ceil(headerH + Math.max(protectedPx, floorPx) + 6),
       availH
     );
     const laterWeeks = Math.max(0, weeks - 1);
     const laterWeekPx = laterWeeks > 0 ? Math.max(0, availH - currentWeekPx) / laterWeeks : 0;
 
-    // Per-day visible counts. Protected days = all (Infinity); others greedily packed.
+    // Per-day visible counts. Protected days = all (Infinity); others greedily
+    // packed into whatever's left below the header and that column's own band.
     const visibleByDay: Record<string, number> = {};
-    const currInner = currentWeekPx - headerH - bandHeightFor(currSlots);
-    for (const date of week0) {
-      visibleByDay[date] = date >= today ? Infinity : fitCount(dayHeights[date] ?? [], currInner);
-    }
-    for (let wi = 1; wi < weeksOfDays.length; wi++) {
-      const inner = laterWeekPx - headerH - bandHeightFor(slotCounts[wi] ?? 0);
-      for (const date of weeksOfDays[wi]) {
+    week0.forEach((date, col) => {
+      if (date >= today) {
+        visibleByDay[date] = Infinity;
+      } else {
+        const inner = currentWeekPx - headerH - bandHeightFor(lanes0[col] ?? 0);
         visibleByDay[date] = fitCount(dayHeights[date] ?? [], inner);
       }
+    });
+    for (let wi = 1; wi < weeksOfDays.length; wi++) {
+      const lanes = laneByWeek[wi] ?? [];
+      weeksOfDays[wi].forEach((date, col) => {
+        const inner = laterWeekPx - headerH - bandHeightFor(lanes[col] ?? 0);
+        visibleByDay[date] = fitCount(dayHeights[date] ?? [], inner);
+      });
     }
 
     return {
       gridRows: `${currentWeekPx}px repeat(${laterWeeks}, minmax(0, 1fr))`,
       visibleByDay,
     };
-  }, [metrics, weeksOfDays, slotCounts, today, weeks]);
+  }, [metrics, weeksOfDays, laneByWeek, today, weeks]);
 
   return (
     <div className="flex h-full flex-col">
@@ -357,7 +374,7 @@ export default function CalendarGrid({
         style={{ gridTemplateRows: layout?.gridRows ?? `repeat(${weeks}, minmax(0, 1fr))` }}
       >
         {weeksOfDays.map((weekDays, wi) => {
-          const { segments, slotCount } = weekSegments[wi];
+          const { segments, slotCount, laneByColumn } = weekSegments[wi];
           const capacities = weekDays.map((date) =>
             layout ? (layout.visibleByDay[date] ?? Infinity) : Infinity
           );
@@ -369,6 +386,7 @@ export default function CalendarGrid({
               today={today}
               segments={segments}
               slotCount={slotCount}
+              laneByColumn={laneByColumn}
               timedByDay={timedByDay}
               colorMap={colorMap}
               capacities={capacities}

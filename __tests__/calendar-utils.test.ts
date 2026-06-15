@@ -126,6 +126,34 @@ describe('calendar rendering helpers', () => {
     expect(new Set(segments.map((s) => s.slot)).size).toBe(2);
   });
 
+  it('reserves band lanes per column for pass-through and empty lower slots', () => {
+    // Mon 2026-04-27 … Sun 2026-05-03
+    const week = generateRollingDays('2026-04-27', 7);
+    const allDay = (overrides: Partial<CalendarEvent>) => makeEvent({ all_day: 1, ...overrides });
+
+    // X: Mon–Wed in slot 0. Z: Tue–Fri starts later, overlaps X on Tue/Wed so it
+    // packs into slot 1. Tue/Wed reserve both lanes (pass-through); Thu/Fri reserve
+    // 2 as well — slot 0 is empty there but must stay reserved so Z keeps its row.
+    const { laneByColumn } = computeWeekSegments(
+      [
+        allDay({ event_id: 'x', start_time: '2026-04-27', end_time: '2026-04-30' }),
+        allDay({ event_id: 'z', start_time: '2026-04-28', end_time: '2026-05-02' }),
+      ],
+      week
+    );
+    expect(laneByColumn).toEqual([1, 2, 2, 2, 2, 0, 0]);
+  });
+
+  it('reserves no lanes on days outside an all-day span', () => {
+    const week = generateRollingDays('2026-04-27', 7);
+    const { laneByColumn } = computeWeekSegments(
+      [makeEvent({ all_day: 1, start_time: '2026-04-29', end_time: '2026-04-30' })],
+      week
+    );
+    // Only Wed (col 2) holds the single-day bar; every other day stays at the top.
+    expect(laneByColumn).toEqual([0, 0, 1, 0, 0, 0, 0]);
+  });
+
   it('formats timed event ranges with spaced dash and shared meridiem', () => {
     expect(formatEventTimeRange('2026-04-29T15:30:00', '2026-04-29T16:00:00')).toBe('3:30 – 4pm');
   });
