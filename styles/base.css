@@ -1,0 +1,94 @@
+/* ============================================================================
+   Base layer — a small, deliberate reset (replaces Tailwind's Preflight) plus
+   the root scaling that drives the whole wall display. Only the rules this app
+   actually relies on; nothing speculative.
+   ============================================================================ */
+
+*,
+*::before,
+*::after {
+	box-sizing: border-box;
+}
+
+* {
+	margin: 0;
+}
+
+html {
+	/* The dashboard is a fixed 16:9 wall display viewed from 6–10 ft. Scaling the
+     root font-size with the viewport height makes every rem-based size (type AND
+     spacing) grow proportionally — the layout looks identical whether the Pi
+     drives the panel at native 4K or a scaled-down resolution, and physical text
+     size stays constant across scale factors. Tune THIS number for overall
+     density, not individual rules. */
+	font-size: clamp(20px, 2vh, 46px);
+	line-height: var(--leading-normal);
+	-webkit-text-size-adjust: 100%;
+	text-size-adjust: 100%;
+}
+
+body {
+	font-family: var(--font-inter), system-ui, sans-serif;
+	background-color: var(--bg);
+	color: var(--fg);
+	-webkit-font-smoothing: antialiased;
+	-moz-osx-font-smoothing: grayscale;
+}
+
+/* Headings carry no built-in size/weight — the app sets those per use. */
+h1,
+h2,
+h3,
+h4,
+h5,
+h6 {
+	font-size: inherit;
+	font-weight: inherit;
+}
+
+/* Links and buttons render as plain text until a rule says otherwise — the
+   calendar legend toggle and error-retry button depend on this. */
+a {
+	color: inherit;
+	text-decoration: none;
+}
+
+button {
+	font: inherit;
+	color: inherit;
+	background: none;
+	border: 0;
+	padding: 0;
+	cursor: pointer;
+}
+
+input {
+	font: inherit;
+	color: inherit;
+}
+
+/* Media behave as blocks (matches Preflight) so inline SVG icons don't pick up
+   baseline whitespace. */
+img,
+svg,
+video,
+canvas {
+	display: block;
+	max-width: 100%;
+}
+
+::placeholder {
+	color: color-mix(in oklab, currentColor 50%, transparent);
+}
+
+/* ---- App shell (page.tsx) --------------------------------------------- */
+.app-shell {
+	display: flex;
+	flex-direction: column;
+	height: 100vh;
+}
+
+.app-main {
+	flex: 1 1 0%;
+	overflow: hidden;
+}

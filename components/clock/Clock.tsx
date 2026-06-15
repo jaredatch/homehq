@@ -54,21 +54,19 @@ export default function Clock({ timeZone }: { timeZone?: string }) {
   const minute = useSyncExternalStore(subscribe, getSnapshot, getServerSnapshot);
 
   if (minute === 0) {
-    return <div className="h-10 w-64" aria-hidden />;
+    return <div className="clk-placeholder" aria-hidden />;
   }
 
   const now = new Date(minute * 60000);
   const { time, ampm } = formatClockTime(now, timeZone);
 
   return (
-    <div className="flex items-baseline gap-4">
-      <div className="flex items-baseline gap-1.5">
-        <span className="text-4xl font-semibold tabular-nums leading-none text-gray-100">
-          {time}
-        </span>
-        <span className="text-lg font-medium text-gray-400">{ampm}</span>
+    <div className="clk">
+      <div className="clk-time-group">
+        <span className="clk-time">{time}</span>
+        <span className="clk-ampm">{ampm}</span>
       </div>
-      <span className="text-xl text-gray-300">{formatClockDate(now, timeZone)}</span>
+      <span className="clk-date">{formatClockDate(now, timeZone)}</span>
     </div>
   );
 }

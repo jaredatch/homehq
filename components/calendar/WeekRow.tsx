@@ -59,41 +59,36 @@ export default function WeekRow({
   todayColor,
 }: WeekRowProps) {
   return (
-    <div className="relative grid min-h-0 grid-rows-[auto_minmax(0,1fr)] overflow-hidden">
+    <div className="cal-week">
       {/* Continuous background — column tints + 1px separators behind everything,
           so the all-day band's spanning bars sit on an unbroken grid. */}
-      <div className="absolute inset-0 grid grid-cols-7 gap-px bg-gray-800" aria-hidden>
+      <div className="cal-week-bg" aria-hidden>
         {weekDays.map((date) => (
-          <div key={date} className={isWeekendDate(date) ? 'bg-gray-950/70' : 'bg-gray-950'} />
+          <div
+            key={date}
+            className={isWeekendDate(date) ? 'cal-bg-cell cal-bg-cell--weekend' : 'cal-bg-cell'}
+          />
         ))}
       </div>
 
       {/* Header row — weekday lives in the shared header above the grid; here it's
           the date, with today marked by an accent + underline (no full-cell tint). */}
-      <div className="relative grid grid-cols-7 gap-px">
+      <div className="cal-week-header">
         {weekDays.map((date) => {
           const isToday = date === today;
           const isPast = date < today;
           const { dayNum, monthName } = dayNumber(date);
           const showMonth = (weekIndex === 0 && date === weekDays[0]) || date.slice(8, 10) === '01';
           return (
-            <div
-              key={date}
-              data-day-header
-              className="border-b border-gray-800/50 px-2 py-1 text-left"
-            >
+            <div key={date} data-day-header className="cal-day-header">
               {/* Today is styled like every other day; a dot is the only marker. */}
-              <span className="flex items-center gap-1.5">
-                <span
-                  className={`text-lg font-bold leading-tight ${
-                    isPast ? 'text-gray-600' : 'text-gray-200'
-                  }`}
-                >
+              <span className="cal-day-header-row">
+                <span className={`cal-date ${isPast ? 'cal-date--past' : ''}`}>
                   {showMonth ? `${monthName} ${dayNum}` : dayNum}
                 </span>
                 {isToday && (
                   <span
-                    className="h-2 w-2 shrink-0 rounded-full"
+                    className="cal-today-dot"
                     style={{ backgroundColor: todayColor }}
                     aria-hidden
                   />
@@ -108,9 +103,9 @@ export default function WeekRow({
           overlay on top. Each day reserves only the band rows that actually touch
           it (invisible spacers), so days no all-day event covers start at the top
           and reclaim the space instead of holding a uniform per-week placeholder. */}
-      <div className="relative min-h-0">
+      <div className="cal-week-content">
         {/* Timed events — one stack per day, dimmed for days already past. */}
-        <div className="relative grid min-h-0 grid-cols-7 gap-px">
+        <div className="cal-week-timed">
           {weekDays.map((date, col) => {
             const isPast = date < today;
             const lanes = laneByColumn[col] ?? 0;
@@ -119,27 +114,20 @@ export default function WeekRow({
             const visible = timed.slice(0, Math.max(0, capacity));
             const hiddenCount = timed.length - visible.length;
             return (
-              <div
-                key={date}
-                data-events
-                className={`flex min-h-0 flex-col overflow-hidden ${isPast ? 'opacity-40' : ''}`}
-              >
+              <div key={date} data-events className={`cal-day ${isPast ? 'cal-day--past' : ''}`}>
                 {/* Reserve this column's band rows with invisible, self-sizing
                     bars — same box as a real bar, so the overlay lines up without
                     passing pixel measurements down. */}
                 {lanes > 0 && (
-                  <div aria-hidden className="flex shrink-0 flex-col gap-px pb-0.5 pt-0.5">
+                  <div aria-hidden className="cal-band-reserve">
                     {Array.from({ length: lanes }).map((_, i) => (
-                      <div
-                        key={i}
-                        className="invisible truncate px-2 py-0.5 text-[0.8125rem] font-semibold leading-snug"
-                      >
+                      <div key={i} className="cal-band-spacer">
                         &nbsp;
                       </div>
                     ))}
                   </div>
                 )}
-                <div className="space-y-1.5 px-1 py-1">
+                <div className="cal-day-events">
                   {visible.map((event) => {
                     const cal = colorMap.get(event.calendar_id);
                     return (
@@ -151,11 +139,7 @@ export default function WeekRow({
                       />
                     );
                   })}
-                  {hiddenCount > 0 && (
-                    <div className="px-2 pt-0.5 text-xs font-semibold text-gray-500">
-                      +{hiddenCount} more
-                    </div>
-                  )}
+                  {hiddenCount > 0 && <div className="cal-more">+{hiddenCount} more</div>}
                 </div>
               </div>
             );
@@ -168,7 +152,7 @@ export default function WeekRow({
         {slotCount > 0 && (
           <div
             data-band
-            className="pointer-events-none absolute inset-x-0 top-0 grid grid-cols-7 gap-px pb-0.5 pt-0.5"
+            className="cal-band"
             style={{ gridTemplateRows: `repeat(${slotCount}, auto)` }}
           >
             {segments.map((seg) => {
@@ -181,7 +165,7 @@ export default function WeekRow({
               return (
                 <div
                   key={`${seg.event.event_id}-${seg.event.calendar_id}`}
-                  className={`min-w-0 ${isPast ? 'opacity-40' : ''}`}
+                  className={`cal-band-seg ${isPast ? 'cal-band-seg--past' : ''}`}
                   style={{
                     gridColumn: `${seg.startCol + 1} / span ${seg.span}`,
                     gridRow: seg.slot + 1,
@@ -189,7 +173,7 @@ export default function WeekRow({
                 >
                   <div
                     data-band-row
-                    className="truncate px-2 py-0.5 text-[0.8125rem] font-semibold leading-snug"
+                    className="cal-band-bar"
                     style={{ backgroundColor: color, color: text }}
                     title={seg.event.summary}
                   >

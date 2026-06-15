@@ -1,0 +1,86 @@
+/* ============================================================================
+   Design tokens — the single place to tune the look.
+   Change a value here and it propagates everywhere that references it.
+
+   Values mirror the Tailwind v4 defaults the app shipped with (captured exact),
+   so leaving Tailwind changed nothing visual. Edit freely from here on.
+   ============================================================================ */
+
+:root {
+	/* ---- Palette ---------------------------------------------------------- */
+	/* Grays carry the whole dark UI; the accents are for status + links. */
+	--gray-100: #f3f4f6;
+	--gray-200: #e5e7eb;
+	--gray-300: #d1d5dc;
+	--gray-400: #99a1af;
+	--gray-500: #6a7282;
+	--gray-600: #4a5565;
+	--gray-700: #364153;
+	--gray-800: #1e2939;
+	--gray-900: #101828;
+	--gray-950: #030712;
+
+	--blue-400: #54a2ff;
+	--blue-500: #3080ff;
+	--blue-600: #155dfc;
+	--red-300: #ffa3a3;
+	--red-400: #ff6568;
+	--red-900: #82181a;
+	--green-300: #7bf1a8;
+	--green-900: #0d542b;
+	--amber-500: #f99c00;
+	--sky-500: #00a5ef;
+	--white: #fff;
+
+	/* ---- Roles (what the grays mean) -------------------------------------- */
+	--bg: var(--gray-950); /* page background */
+	--fg: var(--gray-100); /* default text */
+	--hairline: var(--gray-800); /* 1px separators / grid lines */
+
+	/* ---- Type scale ------------------------------------------------------- */
+	/* Each size pairs with its natural line-height (the ratio an element gets
+     when no explicit line-height is set). Use --leading-* to override. */
+	--text-xs: 0.75rem;
+	--text-xs-lh: calc(1 / 0.75); /* ≈1.333 */
+	--text-sm: 0.875rem;
+	--text-sm-lh: calc(1.25 / 0.875); /* ≈1.429 */
+	--text-base: 1rem;
+	--text-base-lh: 1.5;
+	--text-lg: 1.125rem;
+	--text-lg-lh: calc(1.75 / 1.125); /* ≈1.556 */
+	--text-xl: 1.25rem;
+	--text-xl-lh: calc(1.75 / 1.25); /* =1.4 */
+	--text-2xl: 1.5rem;
+	--text-2xl-lh: calc(2 / 1.5); /* ≈1.333 */
+	--text-3xl: 1.875rem;
+	--text-3xl-lh: calc(2.25 / 1.875); /* =1.2 */
+	--text-4xl: 2.25rem;
+	--text-4xl-lh: calc(2.5 / 2.25); /* ≈1.111 */
+	--text-band: 0.8125rem; /* all-day calendar bars (custom size) */
+
+	/* ---- Line height (overrides the natural ratio above) ------------------ */
+	--leading-none: 1;
+	--leading-tight: 1.25;
+	--leading-snug: 1.375;
+	--leading-normal: 1.5;
+
+	/* ---- Letter spacing --------------------------------------------------- */
+	--tracking-wide: 0.025em;
+	--tracking-wider: 0.05em;
+
+	/* ---- Font weight ------------------------------------------------------ */
+	--weight-medium: 500;
+	--weight-semibold: 600;
+	--weight-bold: 700;
+
+	/* ---- Radius ----------------------------------------------------------- */
+	--radius: 0.25rem;
+	--radius-lg: 0.5rem;
+	--radius-full: 9999px;
+}
+
+/* ----------------------------------------------------------------------------
+   Spacing rhythm: this app uses a 0.25rem step (0.125 / 0.25 / 0.375 / 0.5 /
+   0.625 / 0.75 / 1 / 1.5 / 2rem …). Spacing is written as literal rem in the
+   rules so you can read padding/gaps at a glance; keep to the step above.
+   ---------------------------------------------------------------------------- */

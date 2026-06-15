@@ -12,13 +12,13 @@ export default function DashboardPage() {
   const appVersion = getDeployVersion();
 
   return (
-    <div className="flex h-screen flex-col">
+    <div className="app-shell">
       <TopBar
         showWeather={config.display.showWeather}
         timezone={config.display.timezone}
         weatherIcons={config.display.weatherIcons ?? 'lucide'}
       />
-      <main className="flex-1 overflow-hidden">
+      <main className="app-main">
         <CalendarGrid
           calendars={config.calendars}
           weeks={config.display.calendarWeeks}

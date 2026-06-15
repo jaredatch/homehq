@@ -1,0 +1,160 @@
+/* ============================================================================
+   Auth + bootstrap screens — login (PIN), setup (OAuth), global error.
+   Prefix: auth-     Components: app/login, app/setup, app/global-error
+   These aren't on the wall, so they carry a broader accent palette (blues for
+   actions, red/green for status).
+   ============================================================================ */
+
+/* Full-screen centered layout shared by all three screens. */
+.auth-center {
+	display: flex;
+	min-height: 100vh;
+	align-items: center;
+	justify-content: center;
+}
+
+/* ---- Login ------------------------------------------------------------ */
+.auth-panel {
+	width: 100%;
+	max-width: 24rem;
+	text-align: center;
+}
+.auth-panel > * + * {
+	margin-top: 1.5rem;
+}
+
+.auth-h1 {
+	font-size: var(--text-3xl);
+	line-height: var(--text-3xl-lh);
+	font-weight: var(--weight-bold);
+}
+
+.auth-sub {
+	color: var(--gray-400);
+}
+
+.auth-pin {
+	width: 12rem;
+	padding: 0.75rem 1rem;
+	border: 1px solid var(--gray-700);
+	border-radius: var(--radius-lg);
+	background-color: var(--gray-900);
+	text-align: center;
+	font-size: var(--text-2xl);
+	letter-spacing: 0.3em;
+	color: var(--white);
+}
+.auth-pin:focus {
+	outline: none;
+	border-color: var(--blue-500);
+	box-shadow: 0 0 0 1px var(--blue-500);
+}
+.auth-pin:disabled {
+	opacity: 0.5;
+}
+
+.auth-dots {
+	display: flex;
+	justify-content: center;
+	gap: 0.5rem;
+}
+
+.auth-dot {
+	height: 0.625rem;
+	width: 0.625rem;
+	border-radius: var(--radius-full);
+}
+.auth-dot--on {
+	background-color: var(--blue-500);
+}
+.auth-dot--off {
+	background-color: var(--gray-700);
+}
+
+.auth-error {
+	font-size: var(--text-sm);
+	line-height: var(--text-sm-lh);
+	color: var(--red-400);
+}
+
+.auth-loading {
+	font-size: var(--text-sm);
+	line-height: var(--text-sm-lh);
+	color: var(--gray-500);
+}
+
+/* ---- Setup ------------------------------------------------------------ */
+.auth-card {
+	width: 100%;
+	max-width: 28rem;
+	padding: 2rem;
+	border-radius: var(--radius-lg);
+	background-color: var(--gray-900);
+}
+.auth-card > * + * {
+	margin-top: 1.5rem;
+}
+
+.auth-h2 {
+	font-size: var(--text-2xl);
+	line-height: var(--text-2xl-lh);
+	font-weight: var(--weight-bold);
+}
+
+.auth-ok {
+	padding: 0.75rem;
+	border-radius: var(--radius);
+	background-color: color-mix(in oklab, var(--green-900) 50%, transparent);
+	color: var(--green-300);
+}
+
+.auth-err-box {
+	padding: 0.75rem;
+	border-radius: var(--radius);
+	background-color: color-mix(in oklab, var(--red-900) 50%, transparent);
+	color: var(--red-300);
+}
+
+.auth-connect {
+	display: inline-block;
+	padding: 0.5rem 1rem;
+	border-radius: var(--radius);
+	background-color: var(--blue-600);
+	font-weight: var(--weight-medium);
+	color: var(--white);
+}
+.auth-connect:hover {
+	background-color: var(--blue-500);
+}
+
+.auth-link {
+	color: var(--blue-400);
+}
+.auth-link:hover {
+	text-decoration: underline;
+}
+
+/* ---- Global error ----------------------------------------------------- */
+.auth-stack {
+	text-align: center;
+}
+.auth-stack > * + * {
+	margin-top: 1rem;
+}
+
+.auth-title {
+	font-size: var(--text-2xl);
+	line-height: var(--text-2xl-lh);
+	font-weight: var(--weight-bold);
+}
+
+.auth-btn {
+	padding: 0.5rem 1rem;
+	border-radius: var(--radius-lg);
+	background-color: var(--gray-800);
+	font-size: var(--text-sm);
+	line-height: var(--text-sm-lh);
+}
+.auth-btn:hover {
+	background-color: var(--gray-700);
+}

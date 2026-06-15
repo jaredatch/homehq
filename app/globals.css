@@ -1,19 +1,9 @@
-@import 'tailwindcss';
-
-@theme inline {
-  --font-sans: var(--font-inter);
-}
-
-/* The dashboard is a fixed 16:9 wall display viewed from 6–10 ft. Scale the
-   root font-size with the viewport height so every rem-based size (type AND
-   spacing) grows proportionally — the layout looks identical whether the Pi
-   drives the panel at native 4K or a scaled-down resolution, and physical
-   text size stays constant across scale factors. Tune THIS number for overall
-   density, not individual class names. */
-html {
-  font-size: clamp(20px, 2vh, 46px);
-}
-
-body {
-  @apply antialiased;
-}
+/* Top-level stylesheet — pulls in the logical partials in cascade order:
+   tokens (variables) → base (reset + shell) → per-area component styles.
+   Imported once in app/layout.tsx. Edit the partials, not this file. */
+@import '../styles/tokens.css';
+@import '../styles/base.css';
+@import '../styles/calendar.css';
+@import '../styles/weather.css';
+@import '../styles/topbar.css';
+@import '../styles/auth.css';

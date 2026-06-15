@@ -52,7 +52,7 @@ export default function WeatherPanel({ iconSet }: { iconSet: WeatherIconSet }) {
   }, [fetchWeather]);
 
   if (!weather) {
-    return <div className="h-12" aria-hidden />;
+    return <div className="wx-placeholder" aria-hidden />;
   }
 
   const { data } = weather;
@@ -60,54 +60,45 @@ export default function WeatherPanel({ iconSet }: { iconSet: WeatherIconSet }) {
 
   return (
     <div
-      className={`flex items-center gap-6 ${stale ? 'opacity-50' : ''}`}
+      className={`wx ${stale ? 'wx--stale' : ''}`}
       title={stale ? 'Weather data is stale — sync may be failing' : undefined}
     >
       {/* Current conditions — the live "now" reading. Rain lives on the forecast
           tiles below, so it isn't repeated here. */}
-      <div className="flex items-center gap-2.5" title={current.label}>
+      <div className="wx-current" title={current.label}>
         <WeatherIcon
           glyph={current.glyph}
           set={iconSet}
-          className="text-3xl leading-none text-gray-200"
+          className="wx-current-icon"
           label={current.label}
         />
-        <span className="text-4xl font-semibold leading-none text-gray-300">
-          {data.current.temperature}°
-        </span>
-        {stale && <span className="text-[11px] font-medium text-amber-500">stale</span>}
+        <span className="wx-temp">{data.current.temperature}°</span>
+        {stale && <span className="wx-stale">stale</span>}
       </div>
 
       {/* Forecast — one tile per day, aligned 2×2: high │ icon over low │ rain */}
-      <div className="flex items-start gap-4">
+      <div className="wx-forecast">
         {data.forecast.map((day, i) => {
           const desc = describeWeather(day.weatherCode);
-          const wetClass = day.precipChance >= 15 ? 'text-sky-500' : 'text-gray-600';
           return (
-            <div key={day.date} className="flex flex-col" title={desc.label}>
-              <span className="text-[11px] font-semibold uppercase tracking-wide text-gray-500">
-                {dayLabel(day.date, i)}
-              </span>
+            <div key={day.date} className="wx-tile" title={desc.label}>
+              <span className="wx-day">{dayLabel(day.date, i)}</span>
               {/* Icon is vertically centered against the high/low pair; rain is
                   taken out of flow so it tucks under the icon without shifting it. */}
-              <div className="mt-1 flex items-center gap-2">
-                <div className="flex flex-col gap-y-0.5">
-                  <span className="text-base font-semibold leading-none text-gray-400">
-                    {day.tempMax}°
-                  </span>
-                  <span className="text-base font-medium leading-none text-gray-500">
-                    {day.tempMin}°
-                  </span>
+              <div className="wx-temps">
+                <div className="wx-hilo">
+                  <span className="wx-high">{day.tempMax}°</span>
+                  <span className="wx-low">{day.tempMin}°</span>
                 </div>
-                <div className="relative flex -translate-y-1 items-center">
+                <div className="wx-icon-wrap">
                   <WeatherIcon
                     glyph={desc.glyph}
                     set={iconSet}
-                    className="text-2xl leading-none text-gray-300"
+                    className="wx-forecast-icon"
                     label={desc.label}
                   />
                   <span
-                    className={`absolute left-1/2 top-full -translate-x-1/2 text-[11px] font-medium leading-none ${wetClass}`}
+                    className={`wx-precip ${day.precipChance >= 15 ? 'wx-precip--wet' : 'wx-precip--dry'}`}
                   >
                     {day.precipChance}%
                   </span>

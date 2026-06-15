@@ -1,0 +1,131 @@
+/* ============================================================================
+   Weather — current conditions + per-day forecast tiles.
+   Prefix: wx-     Components: WeatherPanel, WeatherIcon
+   Note: the 11px sizes here are intentionally fixed (not rem) — they match the
+   original design and stay small regardless of wall scale.
+   ============================================================================ */
+
+.wx {
+	display: flex;
+	align-items: center;
+	gap: 1.5rem;
+}
+.wx--stale {
+	opacity: 0.5;
+}
+
+/* Loading placeholder before the first reading lands. */
+.wx-placeholder {
+	height: 3rem;
+}
+
+/* ---- Current conditions ----------------------------------------------- */
+.wx-current {
+	display: flex;
+	align-items: center;
+	gap: 0.625rem;
+}
+
+.wx-current-icon {
+	font-size: var(--text-3xl);
+	line-height: var(--leading-none);
+	color: var(--gray-200);
+}
+
+.wx-temp {
+	font-size: var(--text-4xl);
+	line-height: var(--leading-none);
+	font-weight: var(--weight-semibold);
+	color: var(--gray-300);
+}
+
+.wx-stale {
+	font-size: 11px;
+	font-weight: var(--weight-medium);
+	color: var(--amber-500);
+}
+
+/* ---- Forecast --------------------------------------------------------- */
+.wx-forecast {
+	display: flex;
+	align-items: flex-start;
+	gap: 1rem;
+}
+
+.wx-tile {
+	display: flex;
+	flex-direction: column;
+}
+
+.wx-day {
+	font-size: 11px;
+	font-weight: var(--weight-semibold);
+	text-transform: uppercase;
+	letter-spacing: var(--tracking-wide);
+	color: var(--gray-500);
+}
+
+/* high / low pair beside the icon */
+.wx-temps {
+	display: flex;
+	align-items: center;
+	gap: 0.5rem;
+	margin-top: 0.25rem;
+}
+
+.wx-hilo {
+	display: flex;
+	flex-direction: column;
+	row-gap: 0.125rem;
+}
+
+.wx-high {
+	font-size: var(--text-base);
+	line-height: var(--leading-none);
+	font-weight: var(--weight-semibold);
+	color: var(--gray-400);
+}
+
+.wx-low {
+	font-size: var(--text-base);
+	line-height: var(--leading-none);
+	font-weight: var(--weight-medium);
+	color: var(--gray-500);
+}
+
+/* Icon nudged up so the rain % can tuck under it without shifting the row. */
+.wx-icon-wrap {
+	position: relative;
+	display: flex;
+	align-items: center;
+	transform: translateY(-0.25rem);
+}
+
+.wx-forecast-icon {
+	font-size: var(--text-2xl);
+	line-height: var(--leading-none);
+	color: var(--gray-300);
+}
+
+.wx-precip {
+	position: absolute;
+	left: 50%;
+	top: 100%;
+	transform: translateX(-50%);
+	font-size: 11px;
+	line-height: var(--leading-none);
+	font-weight: var(--weight-medium);
+}
+.wx-precip--wet {
+	color: var(--sky-500);
+}
+.wx-precip--dry {
+	color: var(--gray-600);
+}
+
+/* ---- Icon base (WeatherIcon) ------------------------------------------ */
+/* Sizing + color come from the caller's class; this just makes the SVG sets
+   lay out as an inline box sized to 1em. */
+.wx-icon {
+	display: inline-flex;
+}

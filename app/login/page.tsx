@@ -51,10 +51,10 @@ export default function LoginPage() {
   };
 
   return (
-    <div className="flex min-h-screen items-center justify-center">
-      <div className="w-full max-w-sm space-y-6 text-center">
-        <h1 className="text-3xl font-bold">HomeHQ</h1>
-        <p className="text-gray-400">Enter PIN to continue</p>
+    <div className="auth-center">
+      <div className="auth-panel">
+        <h1 className="auth-h1">HomeHQ</h1>
+        <p className="auth-sub">Enter PIN to continue</p>
 
         <div>
           <input
@@ -67,24 +67,22 @@ export default function LoginPage() {
             onChange={handleChange}
             disabled={loading}
             autoFocus
-            className="w-48 rounded-lg border border-gray-700 bg-gray-900 px-4 py-3 text-center text-2xl tracking-[0.3em] text-white focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500 disabled:opacity-50"
+            className="auth-pin"
             placeholder="••••••"
           />
         </div>
 
-        <div className="flex justify-center gap-2">
+        <div className="auth-dots">
           {Array.from({ length: 6 }).map((_, i) => (
             <div
               key={i}
-              className={`h-2.5 w-2.5 rounded-full ${
-                i < pin.length ? 'bg-blue-500' : 'bg-gray-700'
-              }`}
+              className={`auth-dot ${i < pin.length ? 'auth-dot--on' : 'auth-dot--off'}`}
             />
           ))}
         </div>
 
-        {error && <p className="text-sm text-red-400">{error}</p>}
-        {loading && <p className="text-sm text-gray-500">Verifying...</p>}
+        {error && <p className="auth-error">{error}</p>}
+        {loading && <p className="auth-loading">Verifying...</p>}
       </div>
     </div>
   );

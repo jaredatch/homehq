@@ -352,10 +352,7 @@ export default function CalendarGrid({
     });
     // Keep the current week at least ~2 rows tall so it never collapses to a sliver.
     const floorPx = rowPadV + (rowUnitPx > 0 ? 2 * rowUnitPx + rowGap : 0);
-    const currentWeekPx = Math.min(
-      Math.ceil(headerH + Math.max(protectedPx, floorPx) + 6),
-      availH
-    );
+    const currentWeekPx = Math.min(Math.ceil(headerH + Math.max(protectedPx, floorPx) + 6), availH);
     const laterWeeks = Math.max(0, weeks - 1);
     const laterWeekPx = laterWeeks > 0 ? Math.max(0, availH - currentWeekPx) / laterWeeks : 0;
 
@@ -385,14 +382,11 @@ export default function CalendarGrid({
   }, [metrics, weeksOfDays, laneByWeek, today, weeks]);
 
   return (
-    <div className="flex h-full flex-col">
+    <div className="cal-grid">
       {/* Weekday header — shown once, so day cells don't repeat it per row */}
-      <div className="grid shrink-0 grid-cols-7 gap-px bg-gray-800 pb-px">
+      <div className="cal-weekdays">
         {labels.map((label) => (
-          <div
-            key={label}
-            className="bg-gray-950 px-2 py-1.5 text-left text-sm font-semibold uppercase tracking-wider text-gray-500"
-          >
+          <div key={label} className="cal-weekday">
             {label}
           </div>
         ))}
@@ -401,7 +395,7 @@ export default function CalendarGrid({
       {/* Calendar grid — one WeekRow per row; 1px gaps separate weeks */}
       <div
         ref={gridRef}
-        className="relative grid min-h-0 flex-1 gap-px bg-gray-800"
+        className="cal-weeks"
         style={{ gridTemplateRows: layout?.gridRows ?? `repeat(${weeks}, minmax(0, 1fr))` }}
       >
         {weeksOfDays.map((weekDays, wi) => {
@@ -430,14 +424,10 @@ export default function CalendarGrid({
         {/* Hidden measurement layer — full (uncropped) event stacks at the real
             column width, so the layout can read true per-day heights no matter
             what the visible cells crop. Out of flow, so it adds no height. */}
-        <div
-          ref={measureRef}
-          aria-hidden
-          className="pointer-events-none invisible absolute inset-0 -z-10"
-        >
-          <div className="grid grid-cols-7 gap-px">
+        <div ref={measureRef} aria-hidden className="cal-measure">
+          <div className="cal-measure-grid">
             {days.map((date) => (
-              <div key={date} data-measure-day={date} className="space-y-1.5 px-1 py-1">
+              <div key={date} data-measure-day={date} className="cal-day-events">
                 {(timedByDay.get(date) ?? []).map((event) => (
                   <EventItem
                     key={`${event.event_id}-${event.calendar_id}`}
@@ -448,7 +438,7 @@ export default function CalendarGrid({
                 ))}
               </div>
             ))}
-            <div data-more-sample className="px-2 pt-0.5 text-xs font-semibold text-gray-500">
+            <div data-more-sample className="cal-more">
               +0 more
             </div>
           </div>
@@ -459,18 +449,18 @@ export default function CalendarGrid({
       {(() => {
         const label = loading ? { text: 'Loading…', isError: false } : formatSyncLabel(sync);
         return (
-          <div className="flex shrink-0 items-center justify-between px-4 py-1 text-xs">
+          <div className="cal-footer">
             {showLegend ? (
               <button
                 type="button"
                 onClick={toggleLegend}
                 title="Hide calendar legend"
-                className="flex items-center gap-3 text-gray-400 transition-colors hover:text-gray-200"
+                className="cal-legend"
               >
                 {calendars.map((c) => (
-                  <span key={c.id} className="flex items-center gap-1.5">
+                  <span key={c.id} className="cal-legend-item">
                     <span
-                      className="h-2 w-2 rounded-full"
+                      className="cal-legend-dot"
                       style={{ backgroundColor: c.color }}
                       aria-hidden
                     />
@@ -483,21 +473,19 @@ export default function CalendarGrid({
                 type="button"
                 onClick={toggleLegend}
                 title="Show calendar legend"
-                className="flex items-center gap-1 opacity-40 transition-opacity hover:opacity-100"
+                className="cal-legend-collapsed"
               >
                 {calendars.map((c) => (
                   <span
                     key={c.id}
-                    className="h-1.5 w-1.5 rounded-full"
+                    className="cal-legend-dot--sm"
                     style={{ backgroundColor: c.color }}
                     aria-hidden
                   />
                 ))}
               </button>
             )}
-            <span className={label.isError ? 'text-amber-500/90' : 'text-gray-600'}>
-              {label.text}
-            </span>
+            <span className={label.isError ? 'cal-sync--error' : 'cal-sync'}>{label.text}</span>
           </div>
         );
       })()}

@@ -24,7 +24,7 @@ export default function WeatherIcon({ glyph, set, className, label }: WeatherIco
 
   return (
     <span
-      className={`inline-flex ${className ?? ''}`}
+      className={`wx-icon ${className ?? ''}`}
       role="img"
       aria-label={label}
       dangerouslySetInnerHTML={{ __html: WEATHER_ICON_SVGS[set][glyph] }}

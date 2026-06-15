@@ -1,0 +1,52 @@
+/* ============================================================================
+   Top bar — the header strip holding the clock (left) and weather (right).
+   Prefixes: tb- (bar), clk- (clock)     Components: TopBar, Clock
+   ============================================================================ */
+
+.tb {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	padding: 0.5rem 0.75rem 0.5rem 1.5rem;
+	border-bottom: 1px solid var(--gray-800);
+}
+
+/* ---- Clock ------------------------------------------------------------ */
+.clk {
+	display: flex;
+	align-items: baseline;
+	gap: 1rem;
+}
+
+/* Loading placeholder until the client hydrates and knows the wall-clock time. */
+.clk-placeholder {
+	height: 2.5rem;
+	width: 16rem;
+}
+
+.clk-time-group {
+	display: flex;
+	align-items: baseline;
+	gap: 0.375rem;
+}
+
+.clk-time {
+	font-size: var(--text-4xl);
+	line-height: var(--leading-none);
+	font-weight: var(--weight-semibold);
+	font-variant-numeric: tabular-nums;
+	color: var(--gray-100);
+}
+
+.clk-ampm {
+	font-size: var(--text-lg);
+	line-height: var(--text-lg-lh);
+	font-weight: var(--weight-medium);
+	color: var(--gray-400);
+}
+
+.clk-date {
+	font-size: var(--text-xl);
+	line-height: var(--text-xl-lh);
+	color: var(--gray-300);
+}

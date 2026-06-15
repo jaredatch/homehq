@@ -10,7 +10,7 @@ interface TopBarProps {
 
 export default function TopBar({ showWeather, timezone, weatherIcons }: TopBarProps) {
   return (
-    <header className="flex items-center justify-between border-b border-gray-800 py-2 pl-6 pr-3">
+    <header className="tb">
       <Clock timeZone={timezone} />
       {showWeather && <WeatherPanel iconSet={weatherIcons} />}
     </header>

@@ -3,5 +3,13 @@
   "singleQuote": true,
   "trailingComma": "es5",
   "tabWidth": 2,
-  "printWidth": 100
+  "printWidth": 100,
+  "overrides": [
+    {
+      "files": "*.css",
+      "options": {
+        "useTabs": true
+      }
+    }
+  ]
 }
