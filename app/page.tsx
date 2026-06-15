@@ -1,11 +1,15 @@
 import TopBar from '@/components/dashboard/TopBar';
 import CalendarGrid from '@/components/calendar/CalendarGrid';
 import { getConfig } from '@/lib/config';
+import { getDeployVersion } from '@/lib/version';
 
 export const dynamic = 'force-dynamic';
 
 export default function DashboardPage() {
   const config = getConfig();
+  // Stamp the page with the build it was served by; the grid reloads itself when
+  // the server later reports a different one (a deploy or a manual kiosk-reload).
+  const appVersion = getDeployVersion();
 
   return (
     <div className="flex h-screen flex-col">
@@ -21,6 +25,7 @@ export default function DashboardPage() {
           weekStartsOn={config.display.weekStartsOn ?? 'monday'}
           timezone={config.display.timezone}
           todayColor={config.display.todayColor ?? '#60a5fa'}
+          appVersion={appVersion}
         />
       </main>
     </div>

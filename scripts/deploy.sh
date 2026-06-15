@@ -33,6 +33,9 @@ cd ~/homehq
 echo "[deploy] git pull";  git pull --ff-only
 echo "[deploy] npm ci";    npm ci --no-audit --no-fund
 echo "[deploy] build";     npm run build
+# Stamp the build token the kiosk polls — a changed SHA hard-reloads the wall
+# display within a poll interval, so deploys take effect without touching the Pi.
+echo "[deploy] stamp";     git rev-parse --short HEAD > data/deploy-version
 echo "[deploy] restart";   sudo systemctl restart homehq
 EOF
 

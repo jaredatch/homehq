@@ -19,6 +19,7 @@ data/config.json
 data/homehq.db
 data/homehq.db-wal
 data/homehq.db-shm
+data/deploy-version
 
 # OS
 .DS_Store

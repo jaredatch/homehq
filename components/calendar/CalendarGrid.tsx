@@ -26,6 +26,9 @@ interface CalendarGridProps {
   timezone?: string;
   /** Today's accent dot color (any CSS color). */
   todayColor: string;
+  /** Build token this page was served by; the grid hard-reloads when the server
+   * later reports a different one (a deploy or a manual kiosk-reload). */
+  appVersion: string;
 }
 
 const POLL_INTERVAL_MS = 60_000;
@@ -56,6 +59,7 @@ export default function CalendarGrid({
   weekStartsOn,
   timezone,
   todayColor,
+  appVersion,
 }: CalendarGridProps) {
   const [events, setEvents] = useState<CalendarEvent[]>([]);
   const [sync, setSync] = useState<SyncStatus>({
@@ -123,6 +127,33 @@ export default function CalendarGrid({
     const interval = setInterval(fetchEvents, POLL_INTERVAL_MS);
     return () => clearInterval(interval);
   }, [fetchEvents]);
+
+  // Self-update: poll the deployed build token and hard-reload when it changes,
+  // so a deploy (or a manual kiosk-reload) reaches the wall display without
+  // touching the Pi. Loop-proof — the reloaded page is re-served with the new
+  // token as its baseline, so it matches and settles. We never reload on a fetch
+  // error (a network blip must not bounce the kiosk), and the first check waits
+  // one interval so a fresh load always settles before any reload can fire.
+  useEffect(() => {
+    let cancelled = false;
+    const check = async () => {
+      try {
+        const res = await fetch('/api/version', { cache: 'no-store' });
+        if (!res.ok) return;
+        const { version } = await res.json();
+        if (!cancelled && version && version !== appVersion) {
+          window.location.reload();
+        }
+      } catch {
+        // Offline/transient — keep showing the current bundle.
+      }
+    };
+    const interval = setInterval(check, POLL_INTERVAL_MS);
+    return () => {
+      cancelled = true;
+      clearInterval(interval);
+    };
+  }, [appVersion]);
 
   const days = useMemo(
     () => generateRollingDays(startOfWeek(today, weekStartsOn), totalDays),

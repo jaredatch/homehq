@@ -44,6 +44,7 @@ This guide (CLAUDE.md) and PLAN.md are the living source of truth. (Historical d
 - **Auth** — 6-digit PIN gate with HMAC-SHA256 signed cookie session. One shared PIN for all users. Auth gate is `proxy.ts` (Next.js 16 proxy convention, replaces middleware). PIN attempts are rate-limited (`lib/auth/rate-limit.ts`); sessions expire after 30 days but renew on use after 7 (kiosk never logs out).
 - **Google OAuth** — offline access, refresh token stored in SQLite. One Google account for MVP. Bootstrap via `/setup` route. Flow carries a CSRF `state` param; OAuth routes sit _behind_ the auth gate (SameSite=Lax survives Google's redirect).
 - **Resilience** — always show cached data when APIs are down. "Last synced" indicator shows staleness and turns amber on sync failures. Never a blank screen.
+- **Kiosk self-update** — the dashboard is a long-lived SPA, so a deploy ships new code to the droplet but the Pi keeps running the bundle it booted with until a hard reload. To close that gap, the page is stamped with a build token (`getDeployVersion` in `lib/version.ts` reads `data/deploy-version`) and `CalendarGrid` polls `GET /api/version`, hard-reloading when the token differs from the one it loaded with. `deploy.sh` stamps the git SHA on every deploy (so deploys auto-refresh the wall within a poll interval); `scripts/kiosk-reload.sh` writes a `manual-<epoch>` token to force a refresh after a config-only change (which doesn't rebuild). Loop-proof by design: the reloaded page is re-served with the new token as its baseline, and it never reloads on a fetch error — so a token change triggers exactly one reload per client.
 - **Timestamps** — sync/cache timestamps are stored as ISO 8601 UTC with the `Z` suffix. Never use SQLite's `datetime('now')` for anything a browser will parse.
 - **Test isolation** — `getDb()` refuses the default DB path under Vitest (fixture data once destroyed the live refresh token). Tests use temp paths + `_setDefaultDb()`.
 
@@ -89,6 +90,7 @@ app/
     ├── auth/route.ts                 # POST: PIN validation → signed cookie (rate-limited)
     ├── calendar/route.ts             # Serve cached events from SQLite
     ├── oauth/                        # Google OAuth flow (with CSRF state)
+    ├── version/route.ts              # Serve deployed build token (kiosk self-update poll)
     └── weather/route.ts              # Serve cached weather from SQLite
 components/
 ├── dashboard/TopBar.tsx              # Top bar (clock left, weather right)
@@ -101,9 +103,11 @@ lib/
 ├── db/                               # SQLite setup, migrations, queries
 ├── google/                           # Google Calendar API client, sync
 ├── weather/                          # Open-Meteo client, WMO→glyph map, sync, self-hosted icon SVGs
-└── config/                           # Read data/config.json
+├── config/                           # Read data/config.json
+└── version.ts                        # Deployed build token (data/deploy-version) for kiosk self-update
 scripts/
-├── deploy.sh                         # SSH deploy (git pull → ci → build → restart)
+├── deploy.sh                         # SSH deploy (git pull → ci → build → stamp version → restart)
+├── kiosk-reload.sh                   # Force the wall kiosk to hard-refresh (bumps the build token)
 └── fetch-weather-icons.mjs           # Regenerates lib/weather/weather-icon-svgs.ts (npm run weather-icons)
 data/
 ├── config.example.json               # Committed template

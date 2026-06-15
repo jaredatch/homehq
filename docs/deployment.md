@@ -209,6 +209,7 @@ cd ~/homehq
 git pull
 npm ci
 npm run build
+git rev-parse --short HEAD > data/deploy-version   # so the kiosk auto-refreshes (see below)
 sudo systemctl restart homehq
 ```
 
@@ -232,6 +233,22 @@ This script is also the reusable core if you later want **GitHub Actions** deplo
 (tag/release → CI runs the same script over SSH) — the workflow is just a trigger around it.
 Start with the script; graduate to Actions only if you want deploys to run without your Mac,
 gate them on tests, or hand deploy access to someone else.
+
+### Refreshing the wall display
+
+The dashboard is a single-page app, so a deploy ships new code to the server but a kiosk
+that's already open keeps running the bundle it loaded at boot. To close that gap, `deploy.sh`
+stamps the deployed commit into `data/deploy-version`, and the dashboard polls `/api/version`
+once a minute and hard-reloads itself when that token changes. A normal deploy reaches the wall
+on its own within a minute — no need to touch the Pi.
+
+One catch the first time: a kiosk already running an *older* build has no version check yet, so
+it needs a single manual reload (or reboot) to pick up the self-updating bundle. Every deploy
+after that is hands-off.
+
+For a config-only change — you edited `data/config.json` but didn't redeploy code, so the
+commit token didn't move — run `./scripts/kiosk-reload.sh` from your Mac to bump the token by
+hand and trigger the same refresh.
 
 ### Backups
 
