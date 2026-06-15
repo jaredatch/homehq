@@ -4,6 +4,8 @@ import { useCallback, useEffect, useState } from 'react';
 import { describeWeather } from '@/lib/weather/wmo';
 import { isWeatherStale } from '@/lib/weather/staleness';
 import type { WeatherData } from '@/lib/weather/types';
+import type { WeatherIconSet } from '@/lib/config/types';
+import WeatherIcon from './WeatherIcon';
 
 const POLL_INTERVAL_MS = 5 * 60 * 1000;
 const DAY_NAMES = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
@@ -19,7 +21,7 @@ interface WeatherResponse {
   updatedAt: string | null;
 }
 
-export default function WeatherPanel() {
+export default function WeatherPanel({ iconSet }: { iconSet: WeatherIconSet }) {
   const [weather, setWeather] = useState<WeatherResponse | null>(null);
   const [stale, setStale] = useState(false);
 
@@ -64,7 +66,12 @@ export default function WeatherPanel() {
       {/* Current conditions — the live "now" reading. Rain lives on the forecast
           tiles below, so it isn't repeated here. */}
       <div className="flex items-center gap-2.5" title={current.label}>
-        <span className="text-3xl leading-none">{current.icon}</span>
+        <WeatherIcon
+          glyph={current.glyph}
+          set={iconSet}
+          className="text-3xl leading-none text-gray-200"
+          label={current.label}
+        />
         <span className="text-4xl font-semibold leading-none text-gray-300">
           {data.current.temperature}°
         </span>
@@ -93,7 +100,12 @@ export default function WeatherPanel() {
                   </span>
                 </div>
                 <div className="relative flex -translate-y-1 items-center">
-                  <span className="text-2xl leading-none">{desc.icon}</span>
+                  <WeatherIcon
+                    glyph={desc.glyph}
+                    set={iconSet}
+                    className="text-2xl leading-none text-gray-300"
+                    label={desc.label}
+                  />
                   <span
                     className={`absolute left-1/2 top-full -translate-x-1/2 text-[11px] font-medium leading-none ${wetClass}`}
                   >

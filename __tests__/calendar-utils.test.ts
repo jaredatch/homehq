@@ -68,8 +68,7 @@ describe('calendar rendering helpers', () => {
   it('formats timed all-day spans as one bar across the days covered', () => {
     // Mon 2026-04-27 … Sun 2026-05-03
     const week = generateRollingDays('2026-04-27', 7);
-    const allDay = (overrides: Partial<CalendarEvent>) =>
-      makeEvent({ all_day: 1, ...overrides });
+    const allDay = (overrides: Partial<CalendarEvent>) => makeEvent({ all_day: 1, ...overrides });
 
     // Single-day all-day event (end is exclusive next day) → span 1.
     const single = computeWeekSegments(
@@ -95,8 +94,7 @@ describe('calendar rendering helpers', () => {
 
   it('clips all-day spans to the week and flags continuation', () => {
     const week = generateRollingDays('2026-04-27', 7);
-    const allDay = (overrides: Partial<CalendarEvent>) =>
-      makeEvent({ all_day: 1, ...overrides });
+    const allDay = (overrides: Partial<CalendarEvent>) => makeEvent({ all_day: 1, ...overrides });
 
     // Starts before the week, ends Wed → clipped left, two columns.
     const left = computeWeekSegments(
@@ -115,8 +113,7 @@ describe('calendar rendering helpers', () => {
 
   it('stacks overlapping all-day events into separate slots', () => {
     const week = generateRollingDays('2026-04-27', 7);
-    const allDay = (overrides: Partial<CalendarEvent>) =>
-      makeEvent({ all_day: 1, ...overrides });
+    const allDay = (overrides: Partial<CalendarEvent>) => makeEvent({ all_day: 1, ...overrides });
 
     const { slotCount, segments } = computeWeekSegments(
       [
@@ -134,7 +131,9 @@ describe('calendar rendering helpers', () => {
   });
 
   it('keeps both meridiems when the range crosses noon', () => {
-    expect(formatEventTimeRange('2026-04-29T11:30:00', '2026-04-29T13:00:00')).toBe('11:30am – 1pm');
+    expect(formatEventTimeRange('2026-04-29T11:30:00', '2026-04-29T13:00:00')).toBe(
+      '11:30am – 1pm'
+    );
   });
 
   it('formats sync age labels', () => {

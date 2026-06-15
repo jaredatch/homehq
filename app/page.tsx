@@ -9,12 +9,18 @@ export default function DashboardPage() {
 
   return (
     <div className="flex h-screen flex-col">
-      <TopBar showWeather={config.display.showWeather} />
+      <TopBar
+        showWeather={config.display.showWeather}
+        timezone={config.display.timezone}
+        weatherIcons={config.display.weatherIcons ?? 'lucide'}
+      />
       <main className="flex-1 overflow-hidden">
         <CalendarGrid
           calendars={config.calendars}
           weeks={config.display.calendarWeeks}
           weekStartsOn={config.display.weekStartsOn ?? 'monday'}
+          timezone={config.display.timezone}
+          todayColor={config.display.todayColor ?? '#60a5fa'}
         />
       </main>
     </div>

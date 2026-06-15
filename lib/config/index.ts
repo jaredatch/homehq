@@ -48,6 +48,24 @@ function validate(data: unknown): AppConfig {
   if (d.weekStartsOn !== undefined && d.weekStartsOn !== 'monday' && d.weekStartsOn !== 'sunday') {
     throw new Error('Config: display.weekStartsOn must be "monday" or "sunday"');
   }
+  const ICON_SETS = ['lucide', 'meteocons', 'weather-icons', 'emoji'];
+  if (d.weatherIcons !== undefined && !ICON_SETS.includes(d.weatherIcons as string)) {
+    throw new Error(`Config: display.weatherIcons must be one of ${ICON_SETS.join(', ')}`);
+  }
+  if (d.todayColor !== undefined && typeof d.todayColor !== 'string') {
+    throw new Error('Config: display.todayColor must be a CSS color string');
+  }
+  if (d.timezone !== undefined) {
+    if (typeof d.timezone !== 'string') {
+      throw new Error('Config: display.timezone must be an IANA time-zone string');
+    }
+    // Reject typos early — a bad zone would otherwise throw at render time.
+    try {
+      new Intl.DateTimeFormat('en-US', { timeZone: d.timezone });
+    } catch {
+      throw new Error(`Config: display.timezone "${d.timezone}" is not a valid IANA time zone`);
+    }
+  }
 
   if (typeof obj.auth !== 'object' || obj.auth === null) {
     throw new Error('Config: "auth" must be an object');

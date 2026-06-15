@@ -14,7 +14,10 @@
   "display": {
     "calendarWeeks": 2,
     "showWeather": true,
-    "weekStartsOn": "monday"
+    "weekStartsOn": "monday",
+    "weatherIcons": "lucide",
+    "todayColor": "#60a5fa",
+    "timezone": "America/Chicago"
   },
   "auth": {
     "pin": "123456"

@@ -4,7 +4,11 @@ import { join } from 'path';
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import { getDb, _setDefaultDb } from '@/lib/db';
 import { getWeatherCache, saveWeatherCache } from '@/lib/db/weather';
-import { buildForecastUrl, normalizeWeather, type OpenMeteoResponse } from '@/lib/weather/openmeteo';
+import {
+  buildForecastUrl,
+  normalizeWeather,
+  type OpenMeteoResponse,
+} from '@/lib/weather/openmeteo';
 import { describeWeather } from '@/lib/weather/wmo';
 import { isWeatherStale, WEATHER_STALE_AFTER_MS } from '@/lib/weather/staleness';
 import type Database from 'better-sqlite3';
@@ -76,9 +80,9 @@ describe('describeWeather', () => {
     expect(describeWeather(95).label).toBe('Thunderstorm');
   });
 
-  it('uses a night icon for clear nights', () => {
-    expect(describeWeather(0, true).icon).toBe('☀️');
-    expect(describeWeather(0, false).icon).toBe('🌙');
+  it('uses a night glyph for clear nights', () => {
+    expect(describeWeather(0, true).glyph).toBe('clear-day');
+    expect(describeWeather(0, false).glyph).toBe('clear-night');
   });
 
   it('falls back gracefully on unknown codes', () => {

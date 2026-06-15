@@ -2,6 +2,7 @@
 
 import { useEffect, useLayoutEffect, useState, useCallback, useMemo, useRef } from 'react';
 import WeekRow from './WeekRow';
+import EventItem from './EventItem';
 import {
   assignEventsToDays,
   chunkWeeks,
@@ -10,6 +11,7 @@ import {
   formatSyncLabel,
   generateRollingDays,
   startOfWeek,
+  todayInZone,
   weekdayLabels,
   type CalendarEvent,
   type SyncStatus,
@@ -20,6 +22,10 @@ interface CalendarGridProps {
   calendars: { id: string; name: string; color: string; textColor?: string }[];
   weeks: number;
   weekStartsOn: WeekStart;
+  /** IANA zone for "today" + event times. Undefined = browser-local. */
+  timezone?: string;
+  /** Today's accent dot color (any CSS color). */
+  todayColor: string;
 }
 
 const POLL_INTERVAL_MS = 60_000;
@@ -31,15 +37,26 @@ const useIsoLayoutEffect = typeof window !== 'undefined' ? useLayoutEffect : use
 interface GridMetrics {
   availH: number; // calendar grid's usable height
   headerH: number; // a day cell's date-header height
-  rowH: number; // a single timed-event row's height
-  rowPitch: number; // timed row-to-row distance (height + inter-row gap)
+  rowGap: number; // inter-row gap between timed events (space-y-1.5)
   rowPadV: number; // timed events container's top+bottom padding
+  rowUnitPx: number; // representative single-line row height (floors the current week)
+  morePx: number; // height of the "+N more" line, reserved when cropping
   barH: number; // an all-day band bar's height
   barGap: number; // gap between band slots
   bandPadV: number; // band container's top+bottom padding
+  // Real per-day timed-row heights, in render order, from the hidden measurement
+  // layer. Variable (1- vs 2-line titles) — measuring each beats assuming a
+  // uniform row, which used to under-fill cells ("+5 more" with room for 2 more).
+  dayHeights: Record<string, number[]>;
 }
 
-export default function CalendarGrid({ calendars, weeks, weekStartsOn }: CalendarGridProps) {
+export default function CalendarGrid({
+  calendars,
+  weeks,
+  weekStartsOn,
+  timezone,
+  todayColor,
+}: CalendarGridProps) {
   const [events, setEvents] = useState<CalendarEvent[]>([]);
   const [sync, setSync] = useState<SyncStatus>({
     lastSuccess: null,
@@ -47,8 +64,10 @@ export default function CalendarGrid({ calendars, weeks, weekStartsOn }: Calenda
     lastError: null,
   });
   const [loading, setLoading] = useState(true);
-  const [today, setToday] = useState(() => formatLocalDate(new Date()));
+  const [today, setToday] = useState(() => todayInZone(timezone));
   const gridRef = useRef<HTMLDivElement>(null);
+  const measureRef = useRef<HTMLDivElement>(null);
+  const sigRef = useRef<string>('');
   const [metrics, setMetrics] = useState<GridMetrics | null>(null);
 
   // Footer calendar legend — on by default while the family learns the colors,
@@ -75,7 +94,7 @@ export default function CalendarGrid({ calendars, weeks, weekStartsOn }: Calenda
 
   const fetchEvents = useCallback(async () => {
     // Update today on each poll (handles midnight rollover)
-    const currentToday = formatLocalDate(new Date());
+    const currentToday = todayInZone(timezone);
     setToday(currentToday);
 
     // The grid is anchored to the start of the week, which can be a few days
@@ -97,7 +116,7 @@ export default function CalendarGrid({ calendars, weeks, weekStartsOn }: Calenda
     } finally {
       setLoading(false);
     }
-  }, [totalDays, weekStartsOn]);
+  }, [totalDays, weekStartsOn, timezone]);
 
   useEffect(() => {
     fetchEvents();
@@ -129,9 +148,10 @@ export default function CalendarGrid({ calendars, weeks, weekStartsOn }: Calenda
 
   const labels = useMemo(() => weekdayLabels(weekStartsOn), [weekStartsOn]);
 
-  // Measure the calendar's available height plus the (uniform) header, timed-row,
-  // and band-bar sizes, so rows can be sized and overflow cropped in JS. Re-runs
-  // on resize and whenever the rendered events change.
+  // Measure the grid's usable height and chrome (header/band) from the visible
+  // grid, plus the REAL per-day timed-row heights from the hidden measurement
+  // layer (which always renders every event, so heights are never truncated by
+  // cropping). Re-runs on resize and whenever the rendered events change.
   useIsoLayoutEffect(() => {
     const grid = gridRef.current;
     if (!grid) return;
@@ -140,32 +160,6 @@ export default function CalendarGrid({ calendars, weeks, weekStartsOn }: Calenda
       const availH = grid.clientHeight;
       const headerEl = grid.querySelector('[data-day-header]') as HTMLElement | null;
       const headerH = headerEl?.getBoundingClientRect().height ?? 0;
-
-      const containers = grid.querySelectorAll('[data-events]');
-      let rowPadV = 0;
-      if (containers[0]) {
-        const cs = getComputedStyle(containers[0] as HTMLElement);
-        rowPadV = parseFloat(cs.paddingTop) + parseFloat(cs.paddingBottom);
-      }
-
-      // Timed rows aren't perfectly uniform, so size to the TALLEST — a protected
-      // day must never clip. Gap is the constant inter-row margin (space-y-1.5).
-      const rowEls = grid.querySelectorAll('[data-event-row]');
-      let rowH = 0;
-      for (let i = 0; i < rowEls.length; i++) {
-        rowH = Math.max(rowH, (rowEls[i] as HTMLElement).getBoundingClientRect().height);
-      }
-      let rowGap = 0;
-      for (let i = 0; i < containers.length; i++) {
-        const rows = containers[i].querySelectorAll('[data-event-row]');
-        if (rows.length >= 2) {
-          const r0 = (rows[0] as HTMLElement).getBoundingClientRect();
-          const r1 = (rows[1] as HTMLElement).getBoundingClientRect();
-          rowGap = Math.max(0, r1.top - r0.top - r0.height);
-          break;
-        }
-      }
-      const rowPitch = rowH + rowGap;
 
       // All-day band metrics — only present when some week has all-day events.
       const bandEl = grid.querySelector('[data-band]') as HTMLElement | null;
@@ -182,20 +176,73 @@ export default function CalendarGrid({ calendars, weeks, weekStartsOn }: Calenda
         }
       }
 
-      if (availH && headerH && rowH) {
-        setMetrics((prev) =>
-          prev &&
-          prev.availH === availH &&
-          prev.headerH === headerH &&
-          prev.rowH === rowH &&
-          prev.rowPitch === rowPitch &&
-          prev.rowPadV === rowPadV &&
-          prev.barH === barH &&
-          prev.barGap === barGap &&
-          prev.bandPadV === bandPadV
-            ? prev
-            : { availH, headerH, rowH, rowPitch, rowPadV, barH, barGap, bandPadV }
-        );
+      // Per-day timed heights + the row gap / container padding / "+N more" line,
+      // all from the hidden layer (full event stacks at the real column width).
+      const layer = measureRef.current;
+      const dayHeights: Record<string, number[]> = {};
+      let rowGap = 0;
+      let rowPadV = 0;
+      let rowUnitPx = 0;
+      let morePx = 0;
+      if (layer) {
+        const dayEls = layer.querySelectorAll('[data-measure-day]');
+        let minRow = Infinity;
+        for (let i = 0; i < dayEls.length; i++) {
+          const el = dayEls[i] as HTMLElement;
+          const date = el.getAttribute('data-measure-day') ?? '';
+          const rows = el.querySelectorAll('[data-event-row]');
+          const hs: number[] = [];
+          for (let j = 0; j < rows.length; j++) {
+            const h = Math.round((rows[j] as HTMLElement).getBoundingClientRect().height);
+            hs.push(h);
+            if (h > 0) minRow = Math.min(minRow, h);
+          }
+          dayHeights[date] = hs;
+          if (rowGap === 0 && rows.length >= 2) {
+            const r0 = (rows[0] as HTMLElement).getBoundingClientRect();
+            const r1 = (rows[1] as HTMLElement).getBoundingClientRect();
+            rowGap = Math.max(0, Math.round(r1.top - r0.top - r0.height));
+          }
+        }
+        if (dayEls[0]) {
+          const cs = getComputedStyle(dayEls[0] as HTMLElement);
+          rowPadV = parseFloat(cs.paddingTop) + parseFloat(cs.paddingBottom);
+        }
+        rowUnitPx = Number.isFinite(minRow) ? minRow : 0;
+        const moreEl = layer.querySelector('[data-more-sample]') as HTMLElement | null;
+        if (moreEl) morePx = Math.round(moreEl.getBoundingClientRect().height);
+      }
+      if (!morePx) morePx = 18;
+      if (!rowPadV) rowPadV = 8;
+
+      if (availH && headerH) {
+        const sig = [
+          Math.round(availH),
+          Math.round(headerH),
+          rowGap,
+          Math.round(rowPadV),
+          morePx,
+          rowUnitPx,
+          Math.round(barH),
+          barGap,
+          Math.round(bandPadV),
+          JSON.stringify(dayHeights),
+        ].join('|');
+        if (sig !== sigRef.current) {
+          sigRef.current = sig;
+          setMetrics({
+            availH,
+            headerH,
+            rowGap,
+            rowPadV,
+            rowUnitPx,
+            morePx,
+            barH,
+            barGap,
+            bandPadV,
+            dayHeights,
+          });
+        }
       }
     };
 
@@ -203,60 +250,91 @@ export default function CalendarGrid({ calendars, weeks, weekStartsOn }: Calenda
     const ro = new ResizeObserver(measure);
     ro.observe(grid);
     return () => ro.disconnect();
-  }, [days, events]);
+  }, [days, events, timezone]);
 
-  // Space policy: today + the remaining days of THIS week always show every
-  // event (they set the current-week height); past days and later weeks crop
-  // their timed lists with "+N more". All-day bands are always shown in full.
+  // Space policy, by priority:
+  //   1. today + later days of THIS week ("protected") always show every event,
+  //      and their real content sets the current-week track height;
+  //   2. next/later weeks get all the remaining height (maximize what they show);
+  //   3. past days of the current week crop to whatever's left in the current
+  //      week's track — lowest priority, so they never steal from next week.
+  // Per-day visible counts come from greedy-packing the REAL row heights, so a
+  // cell fills with as many events as actually fit. All-day bands always show.
   const layout = useMemo(() => {
     if (!metrics) return null;
-    const { availH, headerH, rowH, rowPitch, rowPadV, barH, barGap, bandPadV } = metrics;
-    const rowGap = Math.max(0, rowPitch - rowH);
+    const {
+      availH,
+      headerH,
+      rowGap,
+      rowPadV,
+      rowUnitPx,
+      morePx,
+      barH,
+      barGap,
+      bandPadV,
+      dayHeights,
+    } = metrics;
 
-    const timedHeightFor = (n: number) => rowPadV + (n > 0 ? n * rowH + (n - 1) * rowGap : 0);
     const bandHeightFor = (slots: number) =>
       slots > 0 ? bandPadV + slots * barH + (slots - 1) * barGap : 0;
-    const capTimedFor = (cellPx: number, slots: number) => {
-      const inner = cellPx - headerH - bandHeightFor(slots) - rowPadV;
-      if (inner < rowH) return 0;
-      return Math.floor((inner + rowGap) / rowPitch);
+    const stackHeight = (hs: number[]) =>
+      hs.length ? rowPadV + hs.reduce((a, b) => a + b, 0) + (hs.length - 1) * rowGap : rowPadV;
+
+    // How many of `hs` fit in `innerPx` (a cell's height below header+band).
+    // When not all fit, reserve a line for "+N more".
+    const fitCount = (hs: number[], innerPx: number): number => {
+      const avail = innerPx - rowPadV;
+      if (avail <= 0 || hs.length === 0) return 0;
+      let full = 0;
+      for (let i = 0; i < hs.length; i++) full += hs[i] + (i > 0 ? rowGap : 0);
+      if (full <= avail) return hs.length;
+      let used = 0;
+      let count = 0;
+      for (let i = 0; i < hs.length; i++) {
+        const add = hs[i] + (count > 0 ? rowGap : 0);
+        if (used + add + rowGap + morePx <= avail) {
+          used += add;
+          count += 1;
+        } else break;
+      }
+      return count;
     };
 
-    // Busiest protected day sets the current-week timed height.
-    let protectedTimedMax = 0;
-    (weeksOfDays[0] ?? []).forEach((date) => {
-      if (date >= today) {
-        protectedTimedMax = Math.max(protectedTimedMax, timedByDay.get(date)?.length ?? 0);
-      }
-    });
+    const week0 = weeksOfDays[0] ?? [];
     const currSlots = slotCounts[0] ?? 0;
 
-    // Current week: header + its full all-day band + enough rows for its busiest
-    // protected day (floored at ~2 rows, 2px subpixel buffer), capped at the grid.
+    // Priority 1: busiest protected day's real stack sets the current-week height.
+    let protectedPx = 0;
+    for (const date of week0) {
+      if (date >= today) protectedPx = Math.max(protectedPx, stackHeight(dayHeights[date] ?? []));
+    }
+    // Keep the current week at least ~2 rows tall so it never collapses to a sliver.
+    const floorPx = rowPadV + (rowUnitPx > 0 ? 2 * rowUnitPx + rowGap : 0);
     const currentWeekPx = Math.min(
-      Math.ceil(
-        Math.max(
-          headerH + bandHeightFor(currSlots) + timedHeightFor(protectedTimedMax),
-          headerH + bandHeightFor(currSlots) + timedHeightFor(2)
-        ) + 4
-      ),
+      Math.ceil(headerH + bandHeightFor(currSlots) + Math.max(protectedPx, floorPx) + 6),
       availH
     );
     const laterWeeks = Math.max(0, weeks - 1);
     const laterWeekPx = laterWeeks > 0 ? Math.max(0, availH - currentWeekPx) / laterWeeks : 0;
 
-    // Each later week's timed capacity depends on its own band height.
-    const capLater = slotCounts.map((slots, wi) =>
-      wi === 0 ? Infinity : capTimedFor(laterWeekPx, slots)
-    );
-    const capPastCurrent = capTimedFor(currentWeekPx, currSlots);
+    // Per-day visible counts. Protected days = all (Infinity); others greedily packed.
+    const visibleByDay: Record<string, number> = {};
+    const currInner = currentWeekPx - headerH - bandHeightFor(currSlots);
+    for (const date of week0) {
+      visibleByDay[date] = date >= today ? Infinity : fitCount(dayHeights[date] ?? [], currInner);
+    }
+    for (let wi = 1; wi < weeksOfDays.length; wi++) {
+      const inner = laterWeekPx - headerH - bandHeightFor(slotCounts[wi] ?? 0);
+      for (const date of weeksOfDays[wi]) {
+        visibleByDay[date] = fitCount(dayHeights[date] ?? [], inner);
+      }
+    }
 
     return {
       gridRows: `${currentWeekPx}px repeat(${laterWeeks}, minmax(0, 1fr))`,
-      capPastCurrent,
-      capLater,
+      visibleByDay,
     };
-  }, [metrics, weeksOfDays, slotCounts, timedByDay, today, weeks]);
+  }, [metrics, weeksOfDays, slotCounts, today, weeks]);
 
   return (
     <div className="flex h-full flex-col">
@@ -275,16 +353,14 @@ export default function CalendarGrid({ calendars, weeks, weekStartsOn }: Calenda
       {/* Calendar grid — one WeekRow per row; 1px gaps separate weeks */}
       <div
         ref={gridRef}
-        className="grid min-h-0 flex-1 gap-px bg-gray-800"
+        className="relative grid min-h-0 flex-1 gap-px bg-gray-800"
         style={{ gridTemplateRows: layout?.gridRows ?? `repeat(${weeks}, minmax(0, 1fr))` }}
       >
         {weeksOfDays.map((weekDays, wi) => {
           const { segments, slotCount } = weekSegments[wi];
-          const capacities = weekDays.map((date) => {
-            if (!layout) return Infinity;
-            if (wi === 0) return date < today ? layout.capPastCurrent : Infinity;
-            return layout.capLater[wi];
-          });
+          const capacities = weekDays.map((date) =>
+            layout ? (layout.visibleByDay[date] ?? Infinity) : Infinity
+          );
           return (
             <WeekRow
               key={weekDays[0]}
@@ -296,9 +372,38 @@ export default function CalendarGrid({ calendars, weeks, weekStartsOn }: Calenda
               timedByDay={timedByDay}
               colorMap={colorMap}
               capacities={capacities}
+              timezone={timezone}
+              todayColor={todayColor}
             />
           );
         })}
+
+        {/* Hidden measurement layer — full (uncropped) event stacks at the real
+            column width, so the layout can read true per-day heights no matter
+            what the visible cells crop. Out of flow, so it adds no height. */}
+        <div
+          ref={measureRef}
+          aria-hidden
+          className="pointer-events-none invisible absolute inset-0 -z-10"
+        >
+          <div className="grid grid-cols-7 gap-px">
+            {days.map((date) => (
+              <div key={date} data-measure-day={date} className="space-y-1.5 px-1 py-1">
+                {(timedByDay.get(date) ?? []).map((event) => (
+                  <EventItem
+                    key={`${event.event_id}-${event.calendar_id}`}
+                    event={event}
+                    color={colorMap.get(event.calendar_id)?.color ?? '#6b7280'}
+                    timeZone={timezone}
+                  />
+                ))}
+              </div>
+            ))}
+            <div data-more-sample className="px-2 pt-0.5 text-xs font-semibold text-gray-500">
+              +0 more
+            </div>
+          </div>
+        </div>
       </div>
 
       {/* Footer — calendar legend (left, toggleable) + sync indicator (right) */}

@@ -9,10 +9,12 @@ interface EventItemProps {
     end_time: string;
   };
   color: string;
+  /** IANA zone for the time range. Undefined = browser-local. */
+  timeZone?: string;
 }
 
 // Timed events only — all-day events render as spanning bars in WeekRow's band.
-export default function EventItem({ event, color }: EventItemProps) {
+export default function EventItem({ event, color, timeZone }: EventItemProps) {
   return (
     <div data-event-row className="relative py-1 pl-3 pr-1.5 leading-snug" title={event.summary}>
       {/* Accent bar, inset top/bottom so events read as slightly more spaced. */}
@@ -22,7 +24,7 @@ export default function EventItem({ event, color }: EventItemProps) {
         aria-hidden
       />
       <div className="text-xs font-medium tabular-nums" style={{ color }}>
-        {formatEventTimeRange(event.start_time, event.end_time)}
+        {formatEventTimeRange(event.start_time, event.end_time, timeZone)}
       </div>
       <div className="line-clamp-2 text-sm font-medium text-gray-100">
         {event.summary || '(No title)'}

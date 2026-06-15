@@ -32,6 +32,13 @@ cp .env.example .env
 
 Edit to match your household — calendar IDs, weather location, PIN. See `data/config.example.json` for the expected shape.
 
+Optional `display` settings (all default sensibly; the example file lists them):
+
+- `timezone` — IANA zone (e.g. `"America/Chicago"`) for the clock + event times, independent of the machine's OS clock. Omit for browser-local.
+- `weatherIcons` — `lucide` (default) · `meteocons` · `weather-icons` · `emoji`.
+- `todayColor` — today's marker dot color (any CSS color; default blue).
+- `weekStartsOn` — `monday` (default) or `sunday`.
+
 ## Development
 
 ```bash
@@ -89,3 +96,5 @@ The app validates `data/config.json` on load. Common issues:
 - File missing — copy from `data/config.example.json`
 - Invalid PIN — must be exactly 6 digits (as a string, e.g. `"123456"`)
 - Missing fields — compare against the example template
+- Invalid `display.weatherIcons` — must be one of `lucide`, `meteocons`, `weather-icons`, `emoji`
+- Invalid `display.timezone` — must be a valid IANA zone (e.g. `America/Chicago`)

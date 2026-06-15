@@ -1,5 +1,10 @@
 import EventItem from './EventItem';
-import { contrastText, isWeekendDate, type AllDaySegment, type CalendarEvent } from './calendar-utils';
+import {
+  contrastText,
+  isWeekendDate,
+  type AllDaySegment,
+  type CalendarEvent,
+} from './calendar-utils';
 
 interface WeekRowProps {
   weekDays: string[]; // 7 date strings (YYYY-MM-DD)
@@ -9,13 +14,14 @@ interface WeekRowProps {
   slotCount: number; // band rows used
   timedByDay: Map<string, CalendarEvent[]>;
   colorMap: Map<string, { color: string; textColor?: string }>;
-  /** Per-column max timed rows before "+N more". Infinity = show all. */
+  /** Per-column count of timed events to show; the rest collapse to "+N more".
+   * Infinity = show all (protected days). */
   capacities: number[];
+  /** IANA zone for event times. Undefined = browser-local. */
+  timezone?: string;
+  /** Today's accent dot color (any CSS color), from config.display.todayColor. */
+  todayColor: string;
 }
-
-// Today's marker — a small dot beside the date. Tweak the color here (could
-// later move to config alongside the calendar colors).
-const TODAY_DOT = 'bg-blue-400';
 
 const MONTH_NAMES = [
   'Jan',
@@ -46,6 +52,8 @@ export default function WeekRow({
   timedByDay,
   colorMap,
   capacities,
+  timezone,
+  todayColor,
 }: WeekRowProps) {
   return (
     <div className="relative grid min-h-0 grid-rows-[auto_auto_minmax(0,1fr)] overflow-hidden">
@@ -81,7 +89,11 @@ export default function WeekRow({
                   {showMonth ? `${monthName} ${dayNum}` : dayNum}
                 </span>
                 {isToday && (
-                  <span className={`h-2 w-2 shrink-0 rounded-full ${TODAY_DOT}`} aria-hidden />
+                  <span
+                    className="h-2 w-2 shrink-0 rounded-full"
+                    style={{ backgroundColor: todayColor }}
+                    aria-hidden
+                  />
                 )}
               </span>
             </div>
@@ -107,11 +119,14 @@ export default function WeekRow({
               <div
                 key={`${seg.event.event_id}-${seg.event.calendar_id}`}
                 className={`min-w-0 ${isPast ? 'opacity-40' : ''}`}
-                style={{ gridColumn: `${seg.startCol + 1} / span ${seg.span}`, gridRow: seg.slot + 1 }}
+                style={{
+                  gridColumn: `${seg.startCol + 1} / span ${seg.span}`,
+                  gridRow: seg.slot + 1,
+                }}
               >
                 <div
                   data-band-row
-                  className="truncate px-2 py-1 text-sm font-semibold leading-snug"
+                  className="truncate px-2 py-0.5 text-[0.8125rem] font-semibold leading-snug"
                   style={{ backgroundColor: color, color: text }}
                   title={seg.event.summary}
                 >
@@ -129,8 +144,7 @@ export default function WeekRow({
           const isPast = date < today;
           const timed = timedByDay.get(date) ?? [];
           const capacity = capacities[col] ?? Infinity;
-          const overflowing = timed.length > capacity;
-          const visible = overflowing ? timed.slice(0, Math.max(0, capacity - 1)) : timed;
+          const visible = timed.slice(0, Math.max(0, capacity));
           const hiddenCount = timed.length - visible.length;
           return (
             <div
@@ -145,6 +159,7 @@ export default function WeekRow({
                     key={`${event.event_id}-${event.calendar_id}`}
                     event={event}
                     color={cal?.color ?? '#6b7280'}
+                    timeZone={timezone}
                   />
                 );
               })}

@@ -29,6 +29,55 @@ export function formatLocalDate(date: Date): string {
   return `${y}-${m}-${d}`;
 }
 
+const WEEKDAY_INDEX = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+
+/**
+ * Wall-clock parts of an instant as seen in `timeZone`, or the browser's local
+ * zone when `timeZone` is undefined (identical to the bare Date getters). Lets
+ * the kiosk render one fixed zone regardless of the machine's OS clock — the
+ * Pi was an hour off because its OS was on Eastern. See display.timezone.
+ */
+export function zonedParts(
+  date: Date,
+  timeZone?: string
+): { year: number; month: number; day: number; hours: number; minutes: number; weekday: number } {
+  if (!timeZone) {
+    return {
+      year: date.getFullYear(),
+      month: date.getMonth() + 1,
+      day: date.getDate(),
+      hours: date.getHours(),
+      minutes: date.getMinutes(),
+      weekday: date.getDay(),
+    };
+  }
+  const parts = new Intl.DateTimeFormat('en-US', {
+    timeZone,
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+    weekday: 'short',
+    hour12: false,
+  }).formatToParts(date);
+  const get = (t: string) => parts.find((p) => p.type === t)?.value ?? '';
+  return {
+    year: Number(get('year')),
+    month: Number(get('month')),
+    day: Number(get('day')),
+    hours: Number(get('hour')) % 24, // hour12:false yields "24" at midnight in some ICU builds
+    minutes: Number(get('minute')),
+    weekday: WEEKDAY_INDEX.indexOf(get('weekday')),
+  };
+}
+
+/** Today as YYYY-MM-DD in `timeZone` (or browser-local). */
+export function todayInZone(timeZone?: string): string {
+  const { year, month, day } = zonedParts(new Date(), timeZone);
+  return `${year}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+}
+
 export function addDays(dateStr: string, n: number): string {
   const [y, m, d] = dateStr.split('-').map(Number);
   const date = new Date(y, m - 1, d);
@@ -244,26 +293,23 @@ export function contrastText(hex: string): string {
   return luminance > 0.55 ? '#0a0a0a' : '#f5f5f5';
 }
 
-export function formatEventTime(isoString: string): string {
-  const date = new Date(isoString);
-  let hours = date.getHours();
-  const minutes = date.getMinutes();
-  const ampm = hours >= 12 ? 'pm' : 'am';
-
-  hours = hours % 12 || 12;
+export function formatEventTime(isoString: string, timeZone?: string): string {
+  const { hours: h24, minutes } = zonedParts(new Date(isoString), timeZone);
+  const ampm = h24 >= 12 ? 'pm' : 'am';
+  const hours = h24 % 12 || 12;
   if (minutes === 0) return `${hours}${ampm}`;
   return `${hours}:${minutes.toString().padStart(2, '0')}${ampm}`;
 }
 
-export function formatEventTimeRange(start: string, end: string): string {
-  const startMeridiem = new Date(start).getHours() >= 12 ? 'pm' : 'am';
-  const endMeridiem = new Date(end).getHours() >= 12 ? 'pm' : 'am';
+export function formatEventTimeRange(start: string, end: string, timeZone?: string): string {
+  const startMeridiem = zonedParts(new Date(start), timeZone).hours >= 12 ? 'pm' : 'am';
+  const endMeridiem = zonedParts(new Date(end), timeZone).hours >= 12 ? 'pm' : 'am';
   // Drop the start meridiem when it matches the end's — "8 – 9:30am" reads
   // cleaner than "8am – 9:30am". Spaces around the dash aid skimming on the
   // full-width row (the column has room for it).
   const startLabel =
     startMeridiem === endMeridiem
-      ? formatEventTime(start).replace(/[ap]m$/, '')
-      : formatEventTime(start);
-  return `${startLabel} – ${formatEventTime(end)}`;
+      ? formatEventTime(start, timeZone).replace(/[ap]m$/, '')
+      : formatEventTime(start, timeZone);
+  return `${startLabel} – ${formatEventTime(end, timeZone)}`;
 }

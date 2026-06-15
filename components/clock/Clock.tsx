@@ -1,6 +1,7 @@
 'use client';
 
 import { useSyncExternalStore } from 'react';
+import { zonedParts } from '@/components/calendar/calendar-utils';
 
 const DAY_NAMES = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
 const MONTH_NAMES = [
@@ -18,16 +19,16 @@ const MONTH_NAMES = [
   'December',
 ];
 
-export function formatClockTime(date: Date): { time: string; ampm: string } {
-  let hours = date.getHours();
-  const ampm = hours >= 12 ? 'PM' : 'AM';
-  hours = hours % 12 || 12;
-  const minutes = String(date.getMinutes()).padStart(2, '0');
-  return { time: `${hours}:${minutes}`, ampm };
+export function formatClockTime(date: Date, timeZone?: string): { time: string; ampm: string } {
+  const { hours: h24, minutes } = zonedParts(date, timeZone);
+  const ampm = h24 >= 12 ? 'PM' : 'AM';
+  const hours = h24 % 12 || 12;
+  return { time: `${hours}:${String(minutes).padStart(2, '0')}`, ampm };
 }
 
-export function formatClockDate(date: Date): string {
-  return `${DAY_NAMES[date.getDay()]}, ${MONTH_NAMES[date.getMonth()]} ${date.getDate()}`;
+export function formatClockDate(date: Date, timeZone?: string): string {
+  const { month, day, weekday } = zonedParts(date, timeZone);
+  return `${DAY_NAMES[weekday]}, ${MONTH_NAMES[month - 1]} ${day}`;
 }
 
 // The wall clock is an external store: subscribe to its ticks rather than
@@ -49,7 +50,7 @@ function getServerSnapshot(): number {
   return 0;
 }
 
-export default function Clock() {
+export default function Clock({ timeZone }: { timeZone?: string }) {
   const minute = useSyncExternalStore(subscribe, getSnapshot, getServerSnapshot);
 
   if (minute === 0) {
@@ -57,7 +58,7 @@ export default function Clock() {
   }
 
   const now = new Date(minute * 60000);
-  const { time, ampm } = formatClockTime(now);
+  const { time, ampm } = formatClockTime(now, timeZone);
 
   return (
     <div className="flex items-baseline gap-4">
@@ -67,7 +68,7 @@ export default function Clock() {
         </span>
         <span className="text-lg font-medium text-gray-400">{ampm}</span>
       </div>
-      <span className="text-xl text-gray-300">{formatClockDate(now)}</span>
+      <span className="text-xl text-gray-300">{formatClockDate(now, timeZone)}</span>
     </div>
   );
 }

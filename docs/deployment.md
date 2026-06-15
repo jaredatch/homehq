@@ -7,7 +7,7 @@ client** (Raspberry Pi) pointing Chromium at it in kiosk mode.
 > live deployment runs a DigitalOcean droplet behind Cloudflare, deployed with
 > `./scripts/deploy.sh`. Replace the `your-domain.com` / `<ip>` placeholders below with your
 > own; for multiple displays, give each a subdomain (`<room>.your-domain.com`).
-> *(Maintainers: the live host/IP, SSH access, and ops specifics are in `private/ops/droplet.md`.)*
+> _(Maintainers: the live host/IP, SSH access, and ops specifics are in `private/ops/droplet.md`.)_
 
 ## Server (DigitalOcean droplet)
 
@@ -52,12 +52,27 @@ NEXT_PUBLIC_BASE_URL=https://your-domain.com
 Add `https://your-domain.com/api/oauth/callback` to the OAuth client's authorized redirect
 URIs in Google Cloud Console (you can keep the localhost one for dev).
 
+### Display options (`data/config.json`)
+
+The `display` block carries optional presentation settings — all default sensibly, so you only
+set what you want to change (see `data/config.example.json`):
+
+- `timezone` — IANA zone (e.g. `"America/Chicago"`) for the clock and event times. The app
+  formats via `Intl` in this zone, **independent of the host/kiosk OS clock** — set it and the
+  wall display is correct even if the Pi's system time zone is wrong. Omit to use the browser's
+  local zone.
+- `weatherIcons` — `"lucide"` (default; self-hosted line-art SVGs that render reliably on the
+  Pi) · `"meteocons"` (color) · `"weather-icons"` · `"emoji"` (needs a color-emoji font like
+  `fonts-noto-color-emoji` installed on the Pi).
+- `todayColor` — accent color for today's marker dot (any CSS color; default blue).
+- `weekStartsOn` — `"monday"` (default) or `"sunday"`.
+
 ### Hardening (applied to the live droplet)
 
 Done beyond the basic setup above — replicate for future room droplets:
 
 - **Swap:** 2 GB swapfile + `vm.swappiness=10`, persisted in `/etc/fstab` and `/etc/sysctl.d/99-homehq.conf`.
-- **Users:** the app runs as an unprivileged **`homehq`** user; **`ubuntu`** is the admin / break-glass user. `homehq` has only a *narrow* `NOPASSWD` sudoers rule for `systemctl {restart,start,stop,status} homehq` (`/etc/sudoers.d/homehq`) — no general sudo.
+- **Users:** the app runs as an unprivileged **`homehq`** user; **`ubuntu`** is the admin / break-glass user. `homehq` has only a _narrow_ `NOPASSWD` sudoers rule for `systemctl {restart,start,stop,status} homehq` (`/etc/sudoers.d/homehq`) — no general sudo.
 - **SSH:** key-only (`PasswordAuthentication no`), **`PermitRootLogin no`**, `KbdInteractiveAuthentication no`, `X11Forwarding no` via `/etc/ssh/sshd_config.d/99-homehq-hardening.conf`. **Connect as `ssh ubuntu@<ip>` — root SSH is closed.** Validate any change with `sshd -t` before `systemctl reload ssh`, and keep a second session open.
 - **Firewall:** `ufw` default-deny inbound, allowing only 22 / 80 / 443 (v4 + v6).
 - **fail2ban:** sshd jail on the systemd/journald backend (Ubuntu 24.04 logs auth to the journal, not `/var/log/auth.log`, so `backend = systemd` in `/etc/fail2ban/jail.local` is required).
@@ -241,13 +256,13 @@ Raspberry Pi OS (64-bit, **with desktop**) + Chromium in kiosk mode.
   use the dedicated supply for stable peripherals). Older Pis work, but the Pi 5 drives 4K@60
   comfortably.
 - A **micro-HDMI → HDMI** cable to your display. The Pi 5 outputs video only over its
-  **micro-HDMI** ports — its USB-C port is power *in*, not video — so drive the panel over its
+  **micro-HDMI** ports — its USB-C port is power _in_, not video — so drive the panel over its
   HDMI input. A 27" 4K panel is what this UI is tuned for, but it scales to other sizes.
 - A USB/Bluetooth **keyboard with trackpad** for the one-time PIN entry and any debugging.
 
 ### Flashing the image
 
-Use **Raspberry Pi Imager** on your Mac. Choose *Raspberry Pi OS (64-bit)*. Before writing,
+Use **Raspberry Pi Imager** on your Mac. Choose _Raspberry Pi OS (64-bit)_. Before writing,
 open the **settings (gear)** and pre-configure — this is what lets you finish from your Mac
 over SSH instead of fumbling at the monitor:
 
@@ -255,7 +270,9 @@ over SSH instead of fumbling at the monitor:
 - **Enable SSH**
 - **Username / password**
 - **Wi-Fi** — your network + country code
-- **Locale / timezone**
+- **Locale / timezone** — sets the OS clock. Note the _dashboard_ clock is driven by
+  `display.timezone` in `config.json` (see Display options), so it stays correct even if the OS
+  zone is wrong — that's how the kiosk clock is pinned.
 
 First boot, then update:
 
@@ -266,7 +283,7 @@ sudo reboot
 
 ### Dual Wi-Fi (two networks)
 
-Bookworm manages Wi-Fi with **NetworkManager**, which auto-connects to whichever *saved*
+Bookworm manages Wi-Fi with **NetworkManager**, which auto-connects to whichever _saved_
 network is in range — no detection logic to write. The Imager seeds your first network; add a
 second as another saved profile. You can add it **while out of range** — the profile just
 waits until that network is reachable:
@@ -283,7 +300,7 @@ move it between locations. (If both were ever in range at once, break the tie wi
 
 ### Kiosk autostart
 
-Point this at your **Mac's dev server** while testing (see *Testing on the Pi* below), then
+Point this at your **Mac's dev server** while testing (see _Testing on the Pi_ below), then
 swap the URL to your production domain once the droplet is live — that one line is the only
 difference between a test setup and the wall.
 
@@ -313,7 +330,7 @@ desktop the way macOS does — so at native resolution everything renders physic
 events); size things up with scaling instead:
 
 - **Dashboard size** — `--force-device-scale-factor` on the Chromium launch (above) scales
-  the *page* while keeping 4K crispness. `2` ≈ a 1920-wide layout; `1.5` is denser (more
+  the _page_ while keeping 4K crispness. `2` ≈ a 1920-wide layout; `1.5` is denser (more
   events, smaller text). Tune it on the wall — that's what the dev-server test loop is for.
 - **Mouse cursor** — the scale factor does **not** affect the OS cursor, which is
   microscopic at 4K. Enlarge it by setting `XCURSOR_SIZE` in `~/.config/labwc/environment`,
@@ -328,7 +345,7 @@ events); size things up with scaling instead:
 
 ### Testing on the Pi before the server exists
 
-You can demo the in-progress app on the real monitor *before* the droplet is provisioned —
+You can demo the in-progress app on the real monitor _before_ the droplet is provisioned —
 no DigitalOcean, no domain, no PIN/OAuth setup required:
 
 1. On your Mac, run the dev server with the auth bypass enabled:
