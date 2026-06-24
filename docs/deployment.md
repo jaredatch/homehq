@@ -252,16 +252,73 @@ hand and trigger the same refresh.
 
 ### Backups
 
-Everything worth backing up lives in three files:
+Everything worth backing up lives in three files: `data/homehq.db` (the OAuth refresh token
++ cached events), `data/config.json`, and `.env`. Losing the DB only costs the Google
+connection (reconnect at `/setup`) and cached data — it rebuilds itself; losing `.env` means
+re-creating credentials. Low stakes, but cheap to automate.
+
+The DB runs in WAL mode, so never `cp homehq.db` — recent writes live in the `-wal` file and a
+plain copy silently drops them. Use sqlite's online `.backup`, which folds the WAL into a
+single consistent file while the app keeps running. Needs the `sqlite3` CLI (`apt install
+sqlite3`).
+
+A daily systemd timer handles it. `/home/homehq/backups/backup.sh` (owned `homehq`, mode 700):
 
 ```bash
-sqlite3 data/homehq.db ".backup /path/to/backup/homehq.db"   # safe while running (WAL)
-cp data/config.json .env /path/to/backup/
+#!/usr/bin/env bash
+set -euo pipefail
+APP_DIR="/home/homehq/homehq"; DATA_DIR="$APP_DIR/data"
+BACKUP_DIR="/home/homehq/backups"; KEEP=7
+
+ts="$(date +%Y%m%d-%H%M%S)"; work="$(mktemp -d)"; trap 'rm -rf "$work"' EXIT
+sqlite3 "$DATA_DIR/homehq.db" ".backup '$work/homehq.db'"
+[ "$(sqlite3 "$work/homehq.db" 'PRAGMA integrity_check;')" = "ok" ] || { echo "integrity FAILED" >&2; exit 1; }
+cp "$DATA_DIR/config.json" "$work/config.json"; cp "$APP_DIR/.env" "$work/.env"
+archive="$BACKUP_DIR/homehq-backup-$ts.tar.gz"
+tar -czf "$archive" -C "$work" homehq.db config.json .env; chmod 600 "$archive"
+ls -1t "$BACKUP_DIR"/homehq-backup-*.tar.gz 2>/dev/null | tail -n +"$((KEEP + 1))" | xargs -r rm -f
 ```
 
-Losing `homehq.db` only costs the Google connection (reconnect at `/setup`) and cached
-data — it rebuilds itself. Losing `.env` means re-creating credentials. Low stakes, but a
-weekly cron backup is cheap.
+`/etc/systemd/system/homehq-backup.service` (oneshot, runs as `homehq`):
+
+```ini
+[Unit]
+Description=HomeHQ backup (online sqlite .backup + config.json + .env, keep last 7)
+After=homehq.service
+
+[Service]
+Type=oneshot
+User=homehq
+Group=homehq
+ExecStart=/home/homehq/backups/backup.sh
+```
+
+`/etc/systemd/system/homehq-backup.timer` (daily, catches up after downtime):
+
+```ini
+[Unit]
+Description=Daily HomeHQ backup
+
+[Timer]
+OnCalendar=*-*-* 03:30:00
+Persistent=true
+
+[Install]
+WantedBy=timers.target
+```
+
+```bash
+sudo systemctl daemon-reload
+sudo systemctl enable --now homehq-backup.timer
+sudo systemctl start homehq-backup.service       # run once now to verify
+systemctl list-timers homehq-backup.timer        # confirm the next run
+```
+
+Each run bundles one timestamped `homehq-backup-<ts>.tar.gz` (mode 600) into
+`/home/homehq/backups/` and prunes to the newest 7. Backups stay on the same droplet — fine
+for the dominant failure mode (a bad write/migration); off-box copies are a future nicety.
+To restore: `tar -xzf homehq-backup-<ts>.tar.gz`, stop `homehq`, drop the files back in
+(clear any stale `homehq.db-wal`/`-shm` first), restart.
 
 ## Display client (Raspberry Pi)
 
