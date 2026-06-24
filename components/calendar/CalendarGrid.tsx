@@ -26,6 +26,9 @@ interface CalendarGridProps {
   timezone?: string;
   /** Today's accent dot color (any CSS color). */
   todayColor: string;
+  /** How long "expand next week" stays up before auto-reverting to the current
+   * week (ms). 0 disables auto-revert. From config.display.expandResetSeconds. */
+  expandResetMs: number;
   /** Build token this page was served by; the grid hard-reloads when the server
    * later reports a different one (a deploy or a manual kiosk-reload). */
   appVersion: string;
@@ -59,6 +62,7 @@ export default function CalendarGrid({
   weekStartsOn,
   timezone,
   todayColor,
+  expandResetMs,
   appVersion,
 }: CalendarGridProps) {
   const [events, setEvents] = useState<CalendarEvent[]>([]);
@@ -73,6 +77,30 @@ export default function CalendarGrid({
   const measureRef = useRef<HTMLDivElement>(null);
   const sigRef = useRef<string>('');
   const [metrics, setMetrics] = useState<GridMetrics | null>(null);
+
+  // "Expand next week" — flips the layout priority so next week shows every
+  // event and the current week crops to the remaining space. Ephemeral on
+  // purpose (no persistence): the always-on wall kiosk must never boot stuck in
+  // this mode, and a reload always returns to the default current-week view.
+  const [expanded, setExpanded] = useState(false);
+  // Clicking a day's "+N more" toggles the expand state by week: a next-week
+  // (week ≥ 1) "+N more" expands next week; a current-week (week 0) one returns
+  // to the normal view. Pairs with the footer toggle.
+  const handleMoreClick = useCallback((weekIndex: number) => {
+    setExpanded(weekIndex !== 0);
+  }, []);
+
+  // Auto-revert: the current week is the default, most-important view, so a peek
+  // at next week must never stick on the always-on wall. A fresh timer starts
+  // whenever `expanded` turns true; collapsing (via the toggle or a current-week
+  // "+N more") trips the cleanup and clears it. If still expanded when the timer
+  // fires, snap back to the current week. Re-expanding restarts the clock, so it
+  // can never get stuck. 0 disables (config.display.expandResetSeconds = 0).
+  useEffect(() => {
+    if (!expanded || expandResetMs <= 0) return;
+    const t = setTimeout(() => setExpanded(false), expandResetMs);
+    return () => clearTimeout(t);
+  }, [expanded, expandResetMs]);
 
   // Footer calendar legend — on by default while the family learns the colors,
   // collapsible to a faint dot cluster once it's just noise. Choice persists.
@@ -286,11 +314,17 @@ export default function CalendarGrid({
   }, [days, events, timezone]);
 
   // Space policy, by priority:
-  //   1. today + later days of THIS week ("protected") always show every event,
-  //      and their real content sets the current-week track height;
-  //   2. next/later weeks get all the remaining height (maximize what they show);
-  //   3. past days of the current week crop to whatever's left in the current
-  //      week's track — lowest priority, so they never steal from next week.
+  //   1. the "protected" days of the ANCHOR week always show every event, and
+  //      their real content sets the anchor week's track height;
+  //   2. every other week gets an even share of the remaining height (maximize
+  //      what it shows);
+  //   3. non-protected days of the anchor week crop to whatever's left in its
+  //      track — lowest priority, so they never steal from the other weeks.
+  // The anchor is the current week by default (protected = today-onward). When
+  // "Expand next week" is on, the anchor becomes next week — and because all of
+  // next week is in the future, the SAME `date >= today` predicate protects the
+  // whole row, while the current week falls to a remaining-height share that
+  // crops behind "+N more".
   // Per-day visible counts come from greedy-packing the REAL row heights, so a
   // cell fills with as many events as actually fit. All-day bands always show.
   const layout = useMemo(() => {
@@ -336,50 +370,59 @@ export default function CalendarGrid({
       return count;
     };
 
-    const week0 = weeksOfDays[0] ?? [];
-    const lanes0 = laneByWeek[0] ?? [];
+    // Which week is maximized. Default = current week (0); "Expand next week"
+    // moves the anchor to week 1 (guarded so it can't point past the grid).
+    const anchorWeek = expanded ? Math.min(1, weeksOfDays.length - 1) : 0;
+    const anchorDays = weeksOfDays[anchorWeek] ?? [];
+    const anchorLanes = laneByWeek[anchorWeek] ?? [];
 
-    // Priority 1: busiest protected day sets the current-week height — and its
-    // band now counts per-column, since today's own all-day rows sit in its cell.
+    // Priority 1: busiest protected day sets the anchor week's height — its band
+    // counts per-column, since a protected day's own all-day rows sit in its cell.
     let protectedPx = 0;
-    week0.forEach((date, col) => {
+    anchorDays.forEach((date, col) => {
       if (date >= today) {
         protectedPx = Math.max(
           protectedPx,
-          bandHeightFor(lanes0[col] ?? 0) + stackHeight(dayHeights[date] ?? [])
+          bandHeightFor(anchorLanes[col] ?? 0) + stackHeight(dayHeights[date] ?? [])
         );
       }
     });
-    // Keep the current week at least ~2 rows tall so it never collapses to a sliver.
+    // Keep a week at least ~2 rows tall so it never collapses to a sliver.
     const floorPx = rowPadV + (rowUnitPx > 0 ? 2 * rowUnitPx + rowGap : 0);
-    const currentWeekPx = Math.min(Math.ceil(headerH + Math.max(protectedPx, floorPx) + 6), availH);
-    const laterWeeks = Math.max(0, weeks - 1);
-    const laterWeekPx = laterWeeks > 0 ? Math.max(0, availH - currentWeekPx) / laterWeeks : 0;
+    const otherWeeks = Math.max(0, weeks - 1);
+    // In expanded mode the de-prioritized weeks keep a readable floor, so a very
+    // busy next week can't swallow the whole screen. Default mode is unchanged —
+    // the protected current week may still take up to the full height.
+    const minOtherPx = expanded && otherWeeks > 0 ? otherWeeks * (headerH + floorPx) : 0;
+    const maxAnchorPx = Math.max(0, availH - minOtherPx);
+    const anchorPx = Math.min(Math.ceil(headerH + Math.max(protectedPx, floorPx) + 6), maxAnchorPx);
+    const otherWeekPx = otherWeeks > 0 ? Math.max(0, availH - anchorPx) / otherWeeks : 0;
 
-    // Per-day visible counts. Protected days = all (Infinity); others greedily
-    // packed into whatever's left below the header and that column's own band.
+    // Per-day visible counts. Protected days (anchor week, today-onward) = all
+    // (Infinity); every other day greedily packs into whatever its track leaves
+    // below the header and that column's own band.
     const visibleByDay: Record<string, number> = {};
-    week0.forEach((date, col) => {
-      if (date >= today) {
-        visibleByDay[date] = Infinity;
-      } else {
-        const inner = currentWeekPx - headerH - bandHeightFor(lanes0[col] ?? 0);
-        visibleByDay[date] = fitCount(dayHeights[date] ?? [], inner);
-      }
-    });
-    for (let wi = 1; wi < weeksOfDays.length; wi++) {
+    weeksOfDays.forEach((weekDays, wi) => {
+      const isAnchor = wi === anchorWeek;
+      const trackPx = isAnchor ? anchorPx : otherWeekPx;
       const lanes = laneByWeek[wi] ?? [];
-      weeksOfDays[wi].forEach((date, col) => {
-        const inner = laterWeekPx - headerH - bandHeightFor(lanes[col] ?? 0);
-        visibleByDay[date] = fitCount(dayHeights[date] ?? [], inner);
+      weekDays.forEach((date, col) => {
+        if (isAnchor && date >= today) {
+          visibleByDay[date] = Infinity;
+        } else {
+          const inner = trackPx - headerH - bandHeightFor(lanes[col] ?? 0);
+          visibleByDay[date] = fitCount(dayHeights[date] ?? [], inner);
+        }
       });
-    }
+    });
 
     return {
-      gridRows: `${currentWeekPx}px repeat(${laterWeeks}, minmax(0, 1fr))`,
+      gridRows: weeksOfDays
+        .map((_, wi) => (wi === anchorWeek ? `${anchorPx}px` : 'minmax(0, 1fr)'))
+        .join(' '),
       visibleByDay,
     };
-  }, [metrics, weeksOfDays, laneByWeek, today, weeks]);
+  }, [metrics, weeksOfDays, laneByWeek, today, weeks, expanded]);
 
   return (
     <div className="cal-grid">
@@ -417,6 +460,7 @@ export default function CalendarGrid({
               capacities={capacities}
               timezone={timezone}
               todayColor={todayColor}
+              onMoreClick={handleMoreClick}
             />
           );
         })}
@@ -450,41 +494,61 @@ export default function CalendarGrid({
         const label = loading ? { text: 'Loading…', isError: false } : formatSyncLabel(sync);
         return (
           <div className="cal-footer">
-            {showLegend ? (
-              <button
-                type="button"
-                onClick={toggleLegend}
-                title="Hide calendar legend"
-                className="cal-legend"
-              >
-                {calendars.map((c) => (
-                  <span key={c.id} className="cal-legend-item">
+            <div className="cal-footer-left">
+              {showLegend ? (
+                <button
+                  type="button"
+                  onClick={toggleLegend}
+                  title="Hide calendar legend"
+                  className="cal-legend"
+                >
+                  {calendars.map((c) => (
+                    <span key={c.id} className="cal-legend-item">
+                      <span
+                        className="cal-legend-dot"
+                        style={{ backgroundColor: c.color }}
+                        aria-hidden
+                      />
+                      {c.name}
+                    </span>
+                  ))}
+                </button>
+              ) : (
+                <button
+                  type="button"
+                  onClick={toggleLegend}
+                  title="Show calendar legend"
+                  className="cal-legend-collapsed"
+                >
+                  {calendars.map((c) => (
                     <span
-                      className="cal-legend-dot"
+                      key={c.id}
+                      className="cal-legend-dot--sm"
                       style={{ backgroundColor: c.color }}
                       aria-hidden
                     />
-                    {c.name}
-                  </span>
-                ))}
-              </button>
-            ) : (
-              <button
-                type="button"
-                onClick={toggleLegend}
-                title="Show calendar legend"
-                className="cal-legend-collapsed"
-              >
-                {calendars.map((c) => (
-                  <span
-                    key={c.id}
-                    className="cal-legend-dot--sm"
-                    style={{ backgroundColor: c.color }}
-                    aria-hidden
-                  />
-                ))}
-              </button>
-            )}
+                  ))}
+                </button>
+              )}
+              {weeks > 1 && (
+                <>
+                  <span className="cal-footer-sep" aria-hidden />
+                  <button
+                    type="button"
+                    onClick={() => setExpanded((v) => !v)}
+                    title={
+                      expanded
+                        ? 'Show the current week in full'
+                        : 'Expand next week to show all its events'
+                    }
+                    aria-pressed={expanded}
+                    className="cal-expand"
+                  >
+                    {expanded ? '‹ Current week' : 'Expand next week ›'}
+                  </button>
+                </>
+              )}
+            </div>
             <span className={label.isError ? 'cal-sync--error' : 'cal-sync'}>{label.text}</span>
           </div>
         );

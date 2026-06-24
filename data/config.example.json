@@ -17,7 +17,8 @@
     "weekStartsOn": "monday",
     "weatherIcons": "lucide",
     "todayColor": "#60a5fa",
-    "timezone": "America/Chicago"
+    "timezone": "America/Chicago",
+    "expandResetSeconds": 300
   },
   "auth": {
     "pin": "123456"

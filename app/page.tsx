@@ -25,6 +25,7 @@ export default function DashboardPage() {
           weekStartsOn={config.display.weekStartsOn ?? 'monday'}
           timezone={config.display.timezone}
           todayColor={config.display.todayColor ?? '#60a5fa'}
+          expandResetMs={(config.display.expandResetSeconds ?? 300) * 1000}
           appVersion={appVersion}
         />
       </main>

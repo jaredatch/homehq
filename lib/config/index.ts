@@ -55,6 +55,16 @@ function validate(data: unknown): AppConfig {
   if (d.todayColor !== undefined && typeof d.todayColor !== 'string') {
     throw new Error('Config: display.todayColor must be a CSS color string');
   }
+  if (
+    d.expandResetSeconds !== undefined &&
+    (typeof d.expandResetSeconds !== 'number' ||
+      !Number.isFinite(d.expandResetSeconds) ||
+      d.expandResetSeconds < 0)
+  ) {
+    throw new Error(
+      'Config: display.expandResetSeconds must be a non-negative number (0 disables auto-revert)'
+    );
+  }
   if (d.timezone !== undefined) {
     if (typeof d.timezone !== 'string') {
       throw new Error('Config: display.timezone must be an IANA time-zone string');

@@ -168,13 +168,20 @@
 	margin-top: 0.375rem;
 }
 
-/* "+N more" overflow line (also the measurement sample). */
+/* "+N more" overflow line (also the measurement sample). The real ones are
+   buttons that toggle the expand state — this class keeps the same box, and the
+   button reset adds the pointer; hover brightens it as a click cue. */
 .cal-more {
 	padding: 0.125rem 0.5rem 0;
 	font-size: var(--text-xs);
 	line-height: var(--text-xs-lh);
 	font-weight: var(--weight-semibold);
 	color: var(--gray-500);
+	text-align: left;
+	transition: color 150ms cubic-bezier(0.4, 0, 0.2, 1);
+}
+.cal-more:hover {
+	color: var(--gray-300);
 }
 
 /* All-day band overlay — bars span the days they cover. Drawn on top; aligned
@@ -299,6 +306,31 @@
 	height: 0.375rem;
 	width: 0.375rem;
 	border-radius: var(--radius-full);
+}
+
+/* Left footer group — calendar legend, a thin separator, then the expand toggle. */
+.cal-footer-left {
+	display: flex;
+	align-items: center;
+	gap: 0.75rem;
+}
+.cal-footer-sep {
+	width: 1px;
+	height: 0.875rem;
+	background: var(--gray-700);
+}
+
+/* "Expand next week" toggle — muted footer chrome, brighter while active so the
+   state reads at a glance (and on hover for the mouse era). */
+.cal-expand {
+	color: var(--gray-500);
+	transition: color 150ms cubic-bezier(0.4, 0, 0.2, 1);
+}
+.cal-expand:hover {
+	color: var(--gray-200);
+}
+.cal-expand[aria-pressed='true'] {
+	color: var(--gray-300);
 }
 
 .cal-sync {

@@ -23,6 +23,9 @@ interface WeekRowProps {
   timezone?: string;
   /** Today's accent dot color (any CSS color), from config.display.todayColor. */
   todayColor: string;
+  /** Click handler for a day's "+N more" — receives this row's week index so the
+   * grid can expand next week (week ≥ 1) or return to normal (week 0). */
+  onMoreClick: (weekIndex: number) => void;
 }
 
 const MONTH_NAMES = [
@@ -57,6 +60,7 @@ export default function WeekRow({
   capacities,
   timezone,
   todayColor,
+  onMoreClick,
 }: WeekRowProps) {
   return (
     <div className="cal-week">
@@ -139,7 +143,20 @@ export default function WeekRow({
                       />
                     );
                   })}
-                  {hiddenCount > 0 && <div className="cal-more">+{hiddenCount} more</div>}
+                  {hiddenCount > 0 && (
+                    <button
+                      type="button"
+                      className="cal-more"
+                      onClick={() => onMoreClick(weekIndex)}
+                      title={
+                        weekIndex === 0
+                          ? 'Back to the normal view'
+                          : 'Expand next week to show all its events'
+                      }
+                    >
+                      +{hiddenCount} more
+                    </button>
+                  )}
                 </div>
               </div>
             );

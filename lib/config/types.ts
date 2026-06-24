@@ -29,6 +29,10 @@ export interface DisplayConfig {
    * Defaults to the browser's local zone — set it to pin the display to one
    * zone regardless of the kiosk machine's OS clock. */
   timezone?: string;
+  /** Seconds the "expand next week" view stays up before auto-reverting to the
+   * default current-week view, so a transient peek never sticks on the
+   * always-on kiosk. Defaults to 300 (5 min). Set to 0 to disable auto-revert. */
+  expandResetSeconds?: number;
 }
 
 export interface AuthConfig {
