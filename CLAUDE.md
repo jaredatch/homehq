@@ -10,13 +10,12 @@ A self-hosted family dashboard web app replacing Dakboard. Displays family calen
 
 ## Key Documents
 
-- `PLAN.md` — Implementation plan, MVP scope, build phases, roadmap, and all technical decisions
-- `private/TODO.md` — running punch list (System/Ops + Web App); maintainer-local (gitignored — carries live ops + household specifics), complements PLAN.md's roadmap
+- `private/TODO.md` — running punch list (System/Ops + Web App) **plus the post-MVP roadmap**; maintainer-local (gitignored — carries live ops + household specifics)
 - `BOOTSTRAP.md` — Setup, dev commands, and troubleshooting
 - `docs/deployment.md` — DO droplet + Raspberry Pi kiosk deployment
 - `docs/google-oauth-setup.md` — Google Cloud OAuth walkthrough
 
-This guide (CLAUDE.md) and PLAN.md are the living source of truth. (Historical docs — the original spec, the project-restart review, and the setup handoff — live in `private/archive/`, gitignored.)
+This guide (CLAUDE.md), together with the code, is the living source of truth. (Historical docs — the original spec, the implementation plan (`PLAN.md`, archived once the MVP shipped), the project-restart review, and the setup handoff — live in `private/archive/`, gitignored.)
 `AGENTS.md` is a thin pointer to this file so Codex/other agents read the same guidance.
 
 ## Tech Stack
