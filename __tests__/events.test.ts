@@ -5,6 +5,7 @@ import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import { getDb, _setDefaultDb } from '@/lib/db';
 import {
   upsertCalendarEvents,
+  upsertEvent,
   getEventsInRange,
   deleteEventsNotInCalendars,
 } from '@/lib/db/events';
@@ -136,5 +137,33 @@ describe('calendar event queries', () => {
     upsertCalendarEvents('primary', [makeEvent({ event_id: 'evt_1' })]);
     deleteEventsNotInCalendars([]);
     expect(getEventsInRange('2026-03-12', '2026-03-13')).toHaveLength(0);
+  });
+
+  // Single-event write-through (event creation) — must NOT clear the calendar.
+  it('upsertEvent adds one event without wiping the calendar (the cache-wipe trap)', () => {
+    upsertCalendarEvents('primary', [
+      makeEvent({ event_id: 'evt_1', summary: 'Existing A' }),
+      makeEvent({ event_id: 'evt_2', summary: 'Existing B' }),
+    ]);
+    upsertEvent(makeEvent({ event_id: 'evt_new', summary: 'Freshly Created' }));
+    const summaries = getEventsInRange('2026-03-12', '2026-03-13')
+      .map((e) => e.summary)
+      .sort();
+    expect(summaries).toEqual(['Existing A', 'Existing B', 'Freshly Created']);
+  });
+
+  it('upsertEvent updates in place on an (event_id, calendar_id) conflict', () => {
+    upsertEvent(makeEvent({ event_id: 'evt_1', summary: 'Before', location: null }));
+    upsertEvent(makeEvent({ event_id: 'evt_1', summary: 'After', location: 'Room 2' }));
+    const events = getEventsInRange('2026-03-12', '2026-03-13');
+    expect(events).toHaveLength(1);
+    expect(events[0].summary).toBe('After');
+    expect(events[0].location).toBe('Room 2');
+  });
+
+  it('upsertEvent keys on calendar too — same event_id on two calendars coexists', () => {
+    upsertEvent(makeEvent({ event_id: 'dup', calendar_id: 'primary', summary: 'On Primary' }));
+    upsertEvent(makeEvent({ event_id: 'dup', calendar_id: 'work', summary: 'On Work' }));
+    expect(getEventsInRange('2026-03-12', '2026-03-13')).toHaveLength(2);
   });
 });

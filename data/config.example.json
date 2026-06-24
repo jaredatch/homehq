@@ -22,5 +22,8 @@
   },
   "auth": {
     "pin": "123456"
+  },
+  "google": {
+    "calendarAccess": "readonly"
   }
 }

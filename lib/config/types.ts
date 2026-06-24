@@ -39,9 +39,21 @@ export interface AuthConfig {
   pin: string;
 }
 
+export type CalendarAccess = 'readonly' | 'readwrite';
+
+export interface GoogleConfig {
+  /** Calendar access mode. "readonly" (the default) requests only the
+   * calendar.readonly OAuth scope and disables event creation — the dashboard
+   * behaves exactly as a read-only display. "readwrite" requests calendar.events
+   * and turns on the "+ Add event" flow. Switching readonly → readwrite needs a
+   * re-consent at /setup (the stored token keeps the old scope until then). */
+  calendarAccess?: CalendarAccess;
+}
+
 export interface AppConfig {
   calendars: CalendarConfig[];
   weather: WeatherConfig;
   display: DisplayConfig;
   auth: AuthConfig;
+  google?: GoogleConfig;
 }

@@ -2,7 +2,7 @@ import { mkdtempSync, writeFileSync, rmSync } from 'fs';
 import { tmpdir } from 'os';
 import { join } from 'path';
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
-import { getConfig, reloadConfig } from '@/lib/config';
+import { getConfig, reloadConfig, isCalendarWriteEnabled } from '@/lib/config';
 
 describe('config loader', () => {
   let tmpDir: string;
@@ -87,5 +87,41 @@ describe('config loader', () => {
     const config1 = getConfig(path);
     const config2 = getConfig(path);
     expect(config1).toEqual(config2);
+  });
+
+  // google.calendarAccess — the read-only/read-write gate for event creation.
+  const writeConfig = (access?: unknown) => ({
+    ...validConfig,
+    ...(access === undefined ? {} : { google: { calendarAccess: access } }),
+  });
+
+  it('defaults to read-only (write disabled) when google is absent', () => {
+    const path = join(tmpDir, 'config.json');
+    writeFileSync(path, JSON.stringify(writeConfig()));
+    expect(isCalendarWriteEnabled(getConfig(path))).toBe(false);
+  });
+
+  it('reports write enabled only for "readwrite"', () => {
+    const path = join(tmpDir, 'config.json');
+    writeFileSync(path, JSON.stringify(writeConfig('readwrite')));
+    expect(isCalendarWriteEnabled(getConfig(path))).toBe(true);
+  });
+
+  it('treats explicit "readonly" as write disabled', () => {
+    const path = join(tmpDir, 'config.json');
+    writeFileSync(path, JSON.stringify(writeConfig('readonly')));
+    expect(isCalendarWriteEnabled(getConfig(path))).toBe(false);
+  });
+
+  it('throws on an invalid google.calendarAccess value', () => {
+    const path = join(tmpDir, 'config.json');
+    writeFileSync(path, JSON.stringify(writeConfig('write')));
+    expect(() => getConfig(path)).toThrow('google.calendarAccess must be');
+  });
+
+  it('throws when google is not an object', () => {
+    const path = join(tmpDir, 'config.json');
+    writeFileSync(path, JSON.stringify({ ...validConfig, google: 'nope' }));
+    expect(() => getConfig(path)).toThrow('"google" must be an object');
   });
 });

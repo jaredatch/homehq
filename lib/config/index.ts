@@ -92,6 +92,20 @@ function validate(data: unknown): AppConfig {
     );
   }
 
+  if (obj.google !== undefined) {
+    if (typeof obj.google !== 'object' || obj.google === null) {
+      throw new Error('Config: "google" must be an object');
+    }
+    const g = obj.google as Record<string, unknown>;
+    if (
+      g.calendarAccess !== undefined &&
+      g.calendarAccess !== 'readonly' &&
+      g.calendarAccess !== 'readwrite'
+    ) {
+      throw new Error('Config: google.calendarAccess must be "readonly" or "readwrite"');
+    }
+  }
+
   return data as AppConfig;
 }
 
@@ -128,4 +142,11 @@ export function getConfig(configPath?: string): AppConfig {
 
 export function reloadConfig(): void {
   cached = null;
+}
+
+/** Whether event creation is enabled — i.e. google.calendarAccess is "readwrite".
+ * Gates the OAuth scope (calendar.events vs calendar.readonly), the create API
+ * route, and the "+ Add event" button. Defaults to false (read-only). */
+export function isCalendarWriteEnabled(config?: AppConfig): boolean {
+  return (config ?? getConfig()).google?.calendarAccess === 'readwrite';
 }

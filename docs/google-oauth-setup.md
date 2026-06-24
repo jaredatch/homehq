@@ -26,8 +26,14 @@
    - **Developer contact email:** your email
 5. Click **Save and Continue**
 6. On the **Scopes** step, click **Add or Remove Scopes**
-   - Search for and add: `https://www.googleapis.com/auth/calendar.readonly`
-   - This is the only scope needed for MVP (read-only calendar access)
+   - Add the scope that matches your `google.calendarAccess` config setting:
+     - **read-only (default):** `https://www.googleapis.com/auth/calendar.readonly`
+     - **read-write (event creation):** `https://www.googleapis.com/auth/calendar.events`
+   - `calendar.events` grants read **and write** to events (display the calendar **and**
+     create events from the dashboard); `calendar.readonly` is display-only. Neither grants
+     calendar-list/settings management (the broader `…/auth/calendar` scope would).
+   - Switching an existing deployment from read-only to read-write means re-running the
+     OAuth flow at `/setup` so Google re-issues a token carrying the new scope.
    - Click **Update** → **Save and Continue**
 7. **External only:** On the **Test users** step, click **Add Users** and add the Google account email that owns the family calendars. (Internal apps skip this — all Workspace users are already authorized.)
 8. Click **Save and Continue** → **Back to Dashboard**
@@ -80,7 +86,7 @@ openssl rand -hex 32
 - [ ] Google Calendar API enabled
 - [ ] OAuth consent screen configured (Internal for Workspace, or External with test user added)
 - [ ] **External only:** app published to production (avoids 7-day refresh token expiry)
-- [ ] `calendar.readonly` scope added
+- [ ] `calendar.readonly` or `calendar.events` scope added (matching `google.calendarAccess`)
 - [ ] OAuth client ID created (Web application type)
 - [ ] Redirect URI set to `http://localhost:3000/api/oauth/callback`
 - [ ] `GOOGLE_CLIENT_ID` added to `.env`

@@ -31,6 +31,28 @@ export function upsertCalendarEvents(
 }
 
 /**
+ * Upsert a SINGLE event without touching the calendar's other cached rows.
+ * Unlike upsertCalendarEvents (which clears the whole calendar first), this is a
+ * conflict-keyed upsert on (event_id, calendar_id) — used to write a freshly
+ * created event straight into the cache so it shows before the next full sync.
+ */
+export function upsertEvent(event: Omit<CalendarEventRow, 'id' | 'updated_at'>): void {
+  const db = getDb();
+  db.prepare(
+    `INSERT INTO calendar_events (event_id, calendar_id, summary, description, location, start_time, end_time, all_day)
+     VALUES (@event_id, @calendar_id, @summary, @description, @location, @start_time, @end_time, @all_day)
+     ON CONFLICT(event_id, calendar_id) DO UPDATE SET
+       summary = excluded.summary,
+       description = excluded.description,
+       location = excluded.location,
+       start_time = excluded.start_time,
+       end_time = excluded.end_time,
+       all_day = excluded.all_day,
+       updated_at = datetime('now')`
+  ).run(event);
+}
+
+/**
  * Drop cached events for any calendar no longer listed in config. Without
  * this, removing a calendar from data/config.json leaves its events on the
  * dashboard forever — sync only ever replaces calendars it still knows about.

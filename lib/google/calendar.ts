@@ -3,6 +3,17 @@ import { fetchWithTimeout } from '@/lib/http';
 
 const CALENDAR_API = 'https://www.googleapis.com/calendar/v3';
 
+/** A non-OK response from the Google Calendar API, carrying the HTTP status so
+ * callers can map it (e.g. 403 → no write permission, 401 → re-consent). */
+export class CalendarApiError extends Error {
+  status: number;
+  constructor(status: number, message: string) {
+    super(message);
+    this.name = 'CalendarApiError';
+    this.status = status;
+  }
+}
+
 interface GoogleEventPerson {
   email?: string;
   self?: boolean;
@@ -65,6 +76,47 @@ export async function fetchCalendarEvents(
   } while (pageToken);
 
   return events;
+}
+
+export interface CreateEventInput {
+  summary: string;
+  description?: string;
+  location?: string;
+  start: { date?: string; dateTime?: string; timeZone?: string };
+  end: { date?: string; dateTime?: string; timeZone?: string };
+}
+
+/**
+ * Create a single event on a calendar (Google events.insert). Returns the
+ * created event resource — pass it through normalizeEvent() to cache it. Throws
+ * CalendarApiError carrying the HTTP status on a non-OK response.
+ */
+export async function createCalendarEvent(
+  accessToken: string,
+  calendarId: string,
+  event: CreateEventInput
+): Promise<GoogleEvent> {
+  const res = await fetchWithTimeout(
+    `${CALENDAR_API}/calendars/${encodeURIComponent(calendarId)}/events`,
+    {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${accessToken}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(event),
+    }
+  );
+
+  if (!res.ok) {
+    const text = await res.text();
+    throw new CalendarApiError(
+      res.status,
+      `Calendar API create error for ${calendarId}: ${res.status} ${text}`
+    );
+  }
+
+  return res.json();
 }
 
 /**

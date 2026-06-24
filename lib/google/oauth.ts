@@ -1,10 +1,21 @@
 import { getToken, saveToken } from '@/lib/db/tokens';
 import { fetchWithTimeout } from '@/lib/http';
+import { isCalendarWriteEnabled } from '@/lib/config';
 
 const PROVIDER = 'google';
 const TOKEN_URL = 'https://oauth2.googleapis.com/token';
 const AUTH_URL = 'https://accounts.google.com/o/oauth2/v2/auth';
-const SCOPES = 'https://www.googleapis.com/auth/calendar.readonly';
+// Scope is chosen by config.google.calendarAccess. Read-only deployments (the
+// default) request only calendar.readonly and never ask Google for write access
+// they won't use. Read-write deployments request calendar.events (read + event
+// create/update/delete, but not the broader calendar-list/settings management the
+// plain `…/auth/calendar` scope carries).
+const SCOPE_READONLY = 'https://www.googleapis.com/auth/calendar.readonly';
+const SCOPE_READWRITE = 'https://www.googleapis.com/auth/calendar.events';
+
+function getScope(): string {
+  return isCalendarWriteEnabled() ? SCOPE_READWRITE : SCOPE_READONLY;
+}
 
 /** Cookie carrying the OAuth CSRF state between /api/oauth and the callback. */
 export const OAUTH_STATE_COOKIE = 'homehq_oauth_state';
@@ -25,7 +36,7 @@ export function getAuthUrl(state: string): string {
     client_id: clientId,
     redirect_uri: redirectUri,
     response_type: 'code',
-    scope: SCOPES,
+    scope: getScope(),
     access_type: 'offline',
     prompt: 'consent',
     state,
