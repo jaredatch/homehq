@@ -65,6 +65,16 @@ function validate(data: unknown): AppConfig {
       'Config: display.expandResetSeconds must be a non-negative number (0 disables auto-revert)'
     );
   }
+  if (
+    d.createFormResetSeconds !== undefined &&
+    (typeof d.createFormResetSeconds !== 'number' ||
+      !Number.isFinite(d.createFormResetSeconds) ||
+      d.createFormResetSeconds < 0)
+  ) {
+    throw new Error(
+      'Config: display.createFormResetSeconds must be a non-negative number (0 disables auto-close)'
+    );
+  }
   if (d.timezone !== undefined) {
     if (typeof d.timezone !== 'string') {
       throw new Error('Config: display.timezone must be an IANA time-zone string');

@@ -78,6 +78,19 @@ export function todayInZone(timeZone?: string): string {
   return `${year}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
 }
 
+/**
+ * Default times for a new event: the next whole hour and the hour after, as
+ * HH:mm in `timeZone`. Clamps the end to 23:59 rather than wrapping past
+ * midnight, so the default always satisfies end > start on a single day.
+ */
+export function nextHourRange(timeZone?: string): { start: string; end: string } {
+  const { hours } = zonedParts(new Date(), timeZone);
+  const fmt = (h: number) => `${String(h).padStart(2, '0')}:00`;
+  const startH = (hours + 1) % 24;
+  const endH = startH + 1;
+  return { start: fmt(startH), end: endH >= 24 ? '23:59' : fmt(endH) };
+}
+
 export function addDays(dateStr: string, n: number): string {
   const [y, m, d] = dateStr.split('-').map(Number);
   const date = new Date(y, m - 1, d);

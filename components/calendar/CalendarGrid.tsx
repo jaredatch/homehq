@@ -3,6 +3,7 @@
 import { useEffect, useLayoutEffect, useState, useCallback, useMemo, useRef } from 'react';
 import WeekRow from './WeekRow';
 import EventItem from './EventItem';
+import EventCreateModal from './EventCreateModal';
 import {
   assignEventsToDays,
   chunkWeeks,
@@ -29,6 +30,12 @@ interface CalendarGridProps {
   /** How long "expand next week" stays up before auto-reverting to the current
    * week (ms). 0 disables auto-revert. From config.display.expandResetSeconds. */
   expandResetMs: number;
+  /** Whether event creation is on (config.google.calendarAccess === "readwrite").
+   * Gates the "+ Add event" button + modal. */
+  calendarWriteEnabled: boolean;
+  /** How long the "Add event" modal stays open with no interaction before it
+   * auto-closes (ms). 0 disables. From config.display.createFormResetSeconds. */
+  createFormResetMs: number;
   /** Build token this page was served by; the grid hard-reloads when the server
    * later reports a different one (a deploy or a manual kiosk-reload). */
   appVersion: string;
@@ -63,6 +70,8 @@ export default function CalendarGrid({
   timezone,
   todayColor,
   expandResetMs,
+  calendarWriteEnabled,
+  createFormResetMs,
   appVersion,
 }: CalendarGridProps) {
   const [events, setEvents] = useState<CalendarEvent[]>([]);
@@ -116,6 +125,10 @@ export default function CalendarGrid({
       return next;
     });
   }, []);
+
+  // "Add event" modal open state — ephemeral, like the expand toggle, so the
+  // wall never boots with a form open.
+  const [createOpen, setCreateOpen] = useState(false);
 
   const totalDays = weeks * 7;
 
@@ -548,11 +561,35 @@ export default function CalendarGrid({
                   </button>
                 </>
               )}
+              {calendarWriteEnabled && (
+                <>
+                  <span className="cal-footer-sep" aria-hidden />
+                  <button
+                    type="button"
+                    onClick={() => setCreateOpen(true)}
+                    title="Add a calendar event"
+                    className="cal-addbtn"
+                  >
+                    + Add event
+                  </button>
+                </>
+              )}
             </div>
             <span className={label.isError ? 'cal-sync--error' : 'cal-sync'}>{label.text}</span>
           </div>
         );
       })()}
+
+      {calendarWriteEnabled && createOpen && (
+        <EventCreateModal
+          calendars={calendars}
+          timezone={timezone}
+          defaultDate={today}
+          resetMs={createFormResetMs}
+          onClose={() => setCreateOpen(false)}
+          onCreated={fetchEvents}
+        />
+      )}
     </div>
   );
 }

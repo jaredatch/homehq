@@ -1,6 +1,6 @@
 import TopBar from '@/components/dashboard/TopBar';
 import CalendarGrid from '@/components/calendar/CalendarGrid';
-import { getConfig } from '@/lib/config';
+import { getConfig, isCalendarWriteEnabled } from '@/lib/config';
 import { getDeployVersion } from '@/lib/version';
 
 export const dynamic = 'force-dynamic';
@@ -26,6 +26,8 @@ export default function DashboardPage() {
           timezone={config.display.timezone}
           todayColor={config.display.todayColor ?? '#60a5fa'}
           expandResetMs={(config.display.expandResetSeconds ?? 300) * 1000}
+          calendarWriteEnabled={isCalendarWriteEnabled(config)}
+          createFormResetMs={(config.display.createFormResetSeconds ?? 120) * 1000}
           appVersion={appVersion}
         />
       </main>

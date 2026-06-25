@@ -33,6 +33,10 @@ export interface DisplayConfig {
    * default current-week view, so a transient peek never sticks on the
    * always-on kiosk. Defaults to 300 (5 min). Set to 0 to disable auto-revert. */
   expandResetSeconds?: number;
+  /** Seconds the "Add event" modal stays open with no interaction before it
+   * auto-closes (discarding input), so an abandoned form never sticks on the
+   * always-on kiosk. Defaults to 120. Set to 0 to disable auto-close. */
+  createFormResetSeconds?: number;
 }
 
 export interface AuthConfig {
