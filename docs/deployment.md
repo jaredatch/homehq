@@ -412,8 +412,9 @@ events); size things up with scaling instead:
   ```
   XCURSOR_SIZE=48
   ```
-  Bump to 64–96 to make it really obvious. This matters once the dashboard gains interactive
-  features (tabs, mouse) — for a pure read-only display you may instead prefer to hide it.
+  Bump to 64–96 to make it really obvious. This matters now that the dashboard is interactive
+  (add / edit / delete events via the wall's trackpad when `calendarAccess` is `readwrite`) — for a
+  pure read-only display you may instead prefer to hide it.
 - **Black desktop background** — set the wallpaper to solid black (Appearance Settings →
   Desktop) so any flash during boot or before Chromium loads is black, not white, on the wall.
 

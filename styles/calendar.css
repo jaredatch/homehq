@@ -340,7 +340,7 @@
 	color: color-mix(in oklab, var(--amber-500) 90%, transparent);
 }
 
-/* ---- Add event: footer button + modal (EventCreateModal) -------------- */
+/* ---- Add/edit event: footer button + modal (EventModal) --------------- */
 /* "+ Add event" — footer chrome like the expand toggle, brighter on hover. */
 .cal-addbtn {
 	display: flex;

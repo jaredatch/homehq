@@ -28,10 +28,10 @@
 6. On the **Scopes** step, click **Add or Remove Scopes**
    - Add the scope that matches your `google.calendarAccess` config setting:
      - **read-only (default):** `https://www.googleapis.com/auth/calendar.readonly`
-     - **read-write (event creation):** `https://www.googleapis.com/auth/calendar.events`
+     - **read-write (create / edit / delete events):** `https://www.googleapis.com/auth/calendar.events`
    - `calendar.events` grants read **and write** to events (display the calendar **and**
-     create events from the dashboard); `calendar.readonly` is display-only. Neither grants
-     calendar-list/settings management (the broader `…/auth/calendar` scope would).
+     create, edit, and delete events from the dashboard); `calendar.readonly` is display-only.
+     Neither grants calendar-list/settings management (the broader `…/auth/calendar` scope would).
    - Switching an existing deployment from read-only to read-write means re-running the
      OAuth flow at `/setup` so Google re-issues a token carrying the new scope.
    - Click **Update** → **Save and Continue**

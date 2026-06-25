@@ -39,6 +39,11 @@ Optional `display` settings (all default sensibly; the example file lists them):
 - `todayColor` — today's marker dot color (any CSS color; default blue).
 - `weekStartsOn` — `monday` (default) or `sunday`.
 
+Calendar write access is opt-in via `google.calendarAccess`: `readonly` (default — display only,
+`calendar.readonly` scope) or `readwrite` (enables create / edit / delete from the dashboard,
+`calendar.events` scope). Switching to `readwrite` requires re-running OAuth at `/setup` so Google
+re-issues a token with the wider scope — see `docs/google-oauth-setup.md`.
+
 ## Development
 
 ```bash
