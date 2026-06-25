@@ -34,6 +34,9 @@ interface GoogleEvent {
   attendees?: GoogleAttendee[];
   creator?: GoogleEventPerson;
   organizer?: GoogleEventPerson;
+  // Present only on an expanded occurrence of a recurring series (the series'
+  // event id). We store it so edit/delete can tell occurrences apart from one-offs.
+  recurringEventId?: string;
 }
 
 interface GoogleEventsResponse {
@@ -119,6 +122,82 @@ export async function createCalendarEvent(
   return res.json();
 }
 
+/** A patch for events.patch. Same shape as a create, but start/end allow an
+ * explicit `null` per subfield so we can CLEAR the sibling when toggling
+ * all-day↔timed — patch semantics merge nested objects, so without this a timed
+ * event switched to all-day would keep its stale `dateTime` alongside the new
+ * `date` and Google would reject it. */
+export interface PatchEventInput {
+  summary?: string;
+  description?: string | null;
+  location?: string | null;
+  start?: { date?: string | null; dateTime?: string | null; timeZone?: string | null };
+  end?: { date?: string | null; dateTime?: string | null; timeZone?: string | null };
+}
+
+/**
+ * Update an existing event (Google events.patch). Patch (not update/PUT) so
+ * fields we don't send — attendees, reminders, recurrence — are preserved.
+ * Returns the updated event resource for normalizeEvent(). Throws
+ * CalendarApiError carrying the HTTP status.
+ */
+export async function patchCalendarEvent(
+  accessToken: string,
+  calendarId: string,
+  eventId: string,
+  patch: PatchEventInput
+): Promise<GoogleEvent> {
+  const res = await fetchWithTimeout(
+    `${CALENDAR_API}/calendars/${encodeURIComponent(calendarId)}/events/${encodeURIComponent(eventId)}`,
+    {
+      method: 'PATCH',
+      headers: {
+        Authorization: `Bearer ${accessToken}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(patch),
+    }
+  );
+
+  if (!res.ok) {
+    const text = await res.text();
+    throw new CalendarApiError(
+      res.status,
+      `Calendar API patch error for ${calendarId}/${eventId}: ${res.status} ${text}`
+    );
+  }
+
+  return res.json();
+}
+
+/**
+ * Delete an event (Google events.delete). Idempotent: a 410 Gone (already
+ * deleted, e.g. removed elsewhere) is treated as success so the cache can still
+ * be cleaned up. Throws CalendarApiError on any other non-OK status.
+ */
+export async function deleteCalendarEvent(
+  accessToken: string,
+  calendarId: string,
+  eventId: string
+): Promise<void> {
+  const res = await fetchWithTimeout(
+    `${CALENDAR_API}/calendars/${encodeURIComponent(calendarId)}/events/${encodeURIComponent(eventId)}`,
+    {
+      method: 'DELETE',
+      headers: { Authorization: `Bearer ${accessToken}` },
+    }
+  );
+
+  // 204 No Content = deleted; 410 Gone = already deleted (idempotent).
+  if (res.ok || res.status === 410) return;
+
+  const text = await res.text();
+  throw new CalendarApiError(
+    res.status,
+    `Calendar API delete error for ${calendarId}/${eventId}: ${res.status} ${text}`
+  );
+}
+
 /**
  * Whether to drop an event before it's cached. Removes:
  *  - cancelled occurrences (deleted instances of recurring events), and
@@ -165,5 +244,6 @@ export function normalizeEvent(
     start_time: allDay ? event.start.date! : event.start.dateTime!,
     end_time: allDay ? event.end.date! : event.end.dateTime!,
     all_day: allDay ? 1 : 0,
+    recurring_event_id: event.recurringEventId ?? null,
   };
 }

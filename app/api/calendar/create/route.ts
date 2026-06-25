@@ -9,9 +9,7 @@ import {
   type CreateEventInput,
 } from '@/lib/google/calendar';
 import { upsertEvent } from '@/lib/db/events';
-
-const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
-const TIME_RE = /^([01]\d|2[0-3]):[0-5]\d$/; // HH:mm, 24-hour
+import { nextDay, parseTiming } from '@/lib/calendar/event-timing';
 
 interface CreateRequestBody {
   calendarId?: unknown;
@@ -26,15 +24,6 @@ interface CreateRequestBody {
 
 function badRequest(message: string) {
   return NextResponse.json({ error: message }, { status: 400 });
-}
-
-/** Add one calendar day to a YYYY-MM-DD string (UTC date math, no DST drift).
- * Google's all-day `end.date` is exclusive, so a single-day all-day event ends
- * on the following day. */
-function nextDay(date: string): string {
-  const d = new Date(`${date}T00:00:00Z`);
-  d.setUTCDate(d.getUTCDate() + 1);
-  return d.toISOString().slice(0, 10);
 }
 
 export async function POST(request: NextRequest) {
@@ -68,12 +57,9 @@ export async function POST(request: NextRequest) {
   if (!calendar) return badRequest(`Unknown calendarId: ${body.calendarId}`);
   const calendarId = calendar.id;
 
-  if (typeof body.date !== 'string' || !DATE_RE.test(body.date)) {
-    return badRequest('date is required (YYYY-MM-DD)');
-  }
-  const date = body.date;
-
-  const allDay = body.allDay === true;
+  const parsed = parseTiming(body);
+  if (!parsed.ok) return badRequest(parsed.error);
+  const timing = parsed.timing;
 
   const location =
     typeof body.location === 'string' && body.location.trim() ? body.location.trim() : undefined;
@@ -86,22 +72,12 @@ export async function POST(request: NextRequest) {
   let start: CreateEventInput['start'];
   let end: CreateEventInput['end'];
 
-  if (allDay) {
-    start = { date };
-    end = { date: nextDay(date) };
+  if (timing.allDay) {
+    start = { date: timing.date };
+    end = { date: nextDay(timing.date) };
   } else {
-    if (typeof body.startTime !== 'string' || !TIME_RE.test(body.startTime)) {
-      return badRequest('startTime is required for a timed event (HH:mm)');
-    }
-    if (typeof body.endTime !== 'string' || !TIME_RE.test(body.endTime)) {
-      return badRequest('endTime is required for a timed event (HH:mm)');
-    }
-    // Zero-padded HH:mm compares correctly as strings.
-    if (body.endTime <= body.startTime) {
-      return badRequest('endTime must be after startTime');
-    }
-    start = { dateTime: `${date}T${body.startTime}:00`, timeZone };
-    end = { dateTime: `${date}T${body.endTime}:00`, timeZone };
+    start = { dateTime: `${timing.date}T${timing.startTime}:00`, timeZone };
+    end = { dateTime: `${timing.date}T${timing.endTime}:00`, timeZone };
   }
 
   const eventInput: CreateEventInput = { summary: title, description, location, start, end };

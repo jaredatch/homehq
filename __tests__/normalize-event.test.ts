@@ -21,6 +21,7 @@ describe('normalizeEvent', () => {
       start_time: '2026-03-12T09:00:00-04:00',
       end_time: '2026-03-12T09:30:00-04:00',
       all_day: 0,
+      recurring_event_id: null,
     });
   });
 
@@ -41,6 +42,7 @@ describe('normalizeEvent', () => {
       start_time: '2026-03-16',
       end_time: '2026-03-17',
       all_day: 1,
+      recurring_event_id: null,
     });
   });
 
@@ -52,5 +54,23 @@ describe('normalizeEvent', () => {
     });
 
     expect(result.summary).toBe('');
+  });
+
+  it('carries the recurring series id on an occurrence (null on one-offs)', () => {
+    const occurrence = normalizeEvent('primary', {
+      id: 'series_20260312',
+      summary: 'Weekly 1:1',
+      start: { dateTime: '2026-03-12T09:00:00-04:00' },
+      end: { dateTime: '2026-03-12T09:30:00-04:00' },
+      recurringEventId: 'series',
+    });
+    expect(occurrence.recurring_event_id).toBe('series');
+
+    const oneOff = normalizeEvent('primary', {
+      id: 'solo',
+      start: { dateTime: '2026-03-12T10:00:00Z' },
+      end: { dateTime: '2026-03-12T11:00:00Z' },
+    });
+    expect(oneOff.recurring_event_id).toBeNull();
   });
 });

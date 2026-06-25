@@ -3,7 +3,7 @@
 import { useEffect, useLayoutEffect, useState, useCallback, useMemo, useRef } from 'react';
 import WeekRow from './WeekRow';
 import EventItem from './EventItem';
-import EventCreateModal from './EventCreateModal';
+import EventModal, { type EditableEvent } from './EventModal';
 import {
   assignEventsToDays,
   chunkWeeks,
@@ -126,9 +126,20 @@ export default function CalendarGrid({
     });
   }, []);
 
-  // "Add event" modal open state — ephemeral, like the expand toggle, so the
-  // wall never boots with a form open.
-  const [createOpen, setCreateOpen] = useState(false);
+  // Event modal — ephemeral (like the expand toggle), so the wall never boots
+  // with a form open. null = closed; otherwise create (blank) or edit (a clicked
+  // event). Clicking an event opens edit; "+ Add event" opens create.
+  const [modal, setModal] = useState<
+    { mode: 'create' } | { mode: 'edit'; event: EditableEvent } | null
+  >(null);
+  // Only wire click-to-edit when writes are on — read-only deployments leave
+  // events inert (byte-identical to before this feature).
+  const handleEventClick = useCallback(
+    (event: CalendarEvent) => {
+      if (calendarWriteEnabled) setModal({ mode: 'edit', event });
+    },
+    [calendarWriteEnabled]
+  );
 
   const totalDays = weeks * 7;
 
@@ -474,6 +485,7 @@ export default function CalendarGrid({
               timezone={timezone}
               todayColor={todayColor}
               onMoreClick={handleMoreClick}
+              onEventClick={calendarWriteEnabled ? handleEventClick : undefined}
             />
           );
         })}
@@ -566,7 +578,7 @@ export default function CalendarGrid({
                   <span className="cal-footer-sep" aria-hidden />
                   <button
                     type="button"
-                    onClick={() => setCreateOpen(true)}
+                    onClick={() => setModal({ mode: 'create' })}
                     title="Add a calendar event"
                     className="cal-addbtn"
                   >
@@ -580,14 +592,19 @@ export default function CalendarGrid({
         );
       })()}
 
-      {calendarWriteEnabled && createOpen && (
-        <EventCreateModal
+      {calendarWriteEnabled && modal && (
+        <EventModal
+          key={
+            modal.mode === 'edit' ? `${modal.event.event_id}-${modal.event.calendar_id}` : 'create'
+          }
+          mode={modal.mode}
+          event={modal.mode === 'edit' ? modal.event : undefined}
           calendars={calendars}
           timezone={timezone}
           defaultDate={today}
           resetMs={createFormResetMs}
-          onClose={() => setCreateOpen(false)}
-          onCreated={fetchEvents}
+          onClose={() => setModal(null)}
+          onSaved={fetchEvents}
         />
       )}
     </div>

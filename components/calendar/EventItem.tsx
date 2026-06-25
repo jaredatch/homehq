@@ -11,12 +11,34 @@ interface EventItemProps {
   color: string;
   /** IANA zone for the time range. Undefined = browser-local. */
   timeZone?: string;
+  /** When set, the row becomes clickable (opens the edit modal). Omitted on the
+   * hidden measurement layer and in read-only deployments, so the box is
+   * unchanged there. */
+  onClick?: () => void;
 }
 
 // Timed events only — all-day events render as spanning bars in WeekRow's band.
-export default function EventItem({ event, color, timeZone }: EventItemProps) {
+export default function EventItem({ event, color, timeZone, onClick }: EventItemProps) {
+  const interactive = !!onClick;
   return (
-    <div data-event-row className="cal-event" title={event.summary}>
+    <div
+      data-event-row
+      className={interactive ? 'cal-event cal-event--clickable' : 'cal-event'}
+      title={event.summary}
+      role={interactive ? 'button' : undefined}
+      tabIndex={interactive ? 0 : undefined}
+      onClick={onClick}
+      onKeyDown={
+        interactive
+          ? (e) => {
+              if (e.key === 'Enter' || e.key === ' ') {
+                e.preventDefault();
+                onClick!();
+              }
+            }
+          : undefined
+      }
+    >
       {/* Accent bar, inset top/bottom so events read as slightly more spaced.
           Width is rem-based so it scales with the wall. */}
       <span className="cal-event-accent" style={{ backgroundColor: color }} aria-hidden />

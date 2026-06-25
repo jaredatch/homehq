@@ -529,3 +529,76 @@
 	cursor: not-allowed;
 	opacity: 0.4;
 }
+
+/* ---- Edit / delete (v1.1.x) ------------------------------------------- */
+
+/* Destructive confirm button (final "Delete event"). */
+.cal-btn--danger {
+	color: var(--white);
+	background: var(--red-600);
+}
+.cal-btn--danger:hover {
+	background: var(--red-500);
+}
+.cal-btn--danger:disabled {
+	cursor: not-allowed;
+	opacity: 0.4;
+}
+
+/* Low-key "Delete" in the edit footer — it opens the confirm step, so it's a
+   quieter ghost. Pushed to the left, away from Cancel/Save. */
+.cal-btn--danger-ghost {
+	color: var(--red-400);
+}
+.cal-btn--danger-ghost:hover {
+	color: var(--red-300);
+}
+.cal-btn--left {
+	margin-right: auto;
+}
+
+/* Recurring-event notice body. */
+.cal-modal-notice {
+	font-size: var(--text-sm);
+	line-height: var(--leading-normal);
+	color: var(--gray-300);
+}
+
+/* Delete confirmation panel. */
+.cal-confirm-lead {
+	font-size: var(--text-sm);
+	color: var(--gray-400);
+}
+.cal-confirm-title {
+	margin-top: 0.5rem;
+	font-size: var(--text-lg);
+	font-weight: var(--weight-semibold);
+	color: var(--gray-100);
+}
+.cal-confirm-when {
+	margin-top: 0.125rem;
+	font-size: var(--text-sm);
+	color: var(--gray-400);
+	font-variant-numeric: tabular-nums;
+}
+
+/* Clickable events (edit entry point). Outline/background only — never box
+   metrics — so the measurement layer's inert rows stay the same height. */
+.cal-event--clickable {
+	cursor: pointer;
+	border-radius: var(--radius);
+}
+.cal-event--clickable:hover {
+	background: rgba(255, 255, 255, 0.06);
+}
+.cal-event--clickable:focus-visible {
+	outline: 2px solid var(--blue-500);
+	outline-offset: -2px;
+}
+.cal-band-bar--clickable {
+	cursor: pointer;
+}
+.cal-band-bar--clickable:focus-visible {
+	outline: 2px solid var(--white);
+	outline-offset: -2px;
+}

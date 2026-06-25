@@ -26,6 +26,9 @@ interface WeekRowProps {
   /** Click handler for a day's "+N more" — receives this row's week index so the
    * grid can expand next week (week ≥ 1) or return to normal (week 0). */
   onMoreClick: (weekIndex: number) => void;
+  /** When set, events are clickable and open the edit modal. Omitted in
+   * read-only deployments, so events stay inert there. */
+  onEventClick?: (event: CalendarEvent) => void;
 }
 
 const MONTH_NAMES = [
@@ -61,6 +64,7 @@ export default function WeekRow({
   timezone,
   todayColor,
   onMoreClick,
+  onEventClick,
 }: WeekRowProps) {
   return (
     <div className="cal-week">
@@ -140,6 +144,7 @@ export default function WeekRow({
                         event={event}
                         color={cal?.color ?? '#6b7280'}
                         timeZone={timezone}
+                        onClick={onEventClick ? () => onEventClick(event) : undefined}
                       />
                     );
                   })}
@@ -190,9 +195,24 @@ export default function WeekRow({
                 >
                   <div
                     data-band-row
-                    className="cal-band-bar"
+                    className={
+                      onEventClick ? 'cal-band-bar cal-band-bar--clickable' : 'cal-band-bar'
+                    }
                     style={{ backgroundColor: color, color: text }}
                     title={seg.event.summary}
+                    role={onEventClick ? 'button' : undefined}
+                    tabIndex={onEventClick ? 0 : undefined}
+                    onClick={onEventClick ? () => onEventClick(seg.event) : undefined}
+                    onKeyDown={
+                      onEventClick
+                        ? (e) => {
+                            if (e.key === 'Enter' || e.key === ' ') {
+                              e.preventDefault();
+                              onEventClick(seg.event);
+                            }
+                          }
+                        : undefined
+                    }
                   >
                     {seg.event.summary || '(No title)'}
                   </div>

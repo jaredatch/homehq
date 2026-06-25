@@ -6,6 +6,8 @@ import { getDb, _setDefaultDb } from '@/lib/db';
 import {
   upsertCalendarEvents,
   upsertEvent,
+  getEvent,
+  deleteEvent,
   getEventsInRange,
   deleteEventsNotInCalendars,
 } from '@/lib/db/events';
@@ -36,6 +38,7 @@ describe('calendar event queries', () => {
     start_time: '2026-03-12T10:00:00-04:00',
     end_time: '2026-03-12T11:00:00-04:00',
     all_day: 0,
+    recurring_event_id: null,
     ...overrides,
   });
 
@@ -165,5 +168,26 @@ describe('calendar event queries', () => {
     upsertEvent(makeEvent({ event_id: 'dup', calendar_id: 'primary', summary: 'On Primary' }));
     upsertEvent(makeEvent({ event_id: 'dup', calendar_id: 'work', summary: 'On Work' }));
     expect(getEventsInRange('2026-03-12', '2026-03-13')).toHaveLength(2);
+  });
+
+  it('round-trips recurring_event_id through upsert + read', () => {
+    upsertCalendarEvents('primary', [makeEvent({ event_id: 'occ', recurring_event_id: 'series' })]);
+    expect(getEvent('occ', 'primary')?.recurring_event_id).toBe('series');
+  });
+
+  it('getEvent returns one row by (event_id, calendar_id), or undefined', () => {
+    upsertEvent(makeEvent({ event_id: 'find_me', summary: 'Here' }));
+    expect(getEvent('find_me', 'primary')?.summary).toBe('Here');
+    expect(getEvent('find_me', 'work')).toBeUndefined();
+    expect(getEvent('nope', 'primary')).toBeUndefined();
+  });
+
+  it('deleteEvent removes only the targeted row (no-op if absent)', () => {
+    upsertEvent(makeEvent({ event_id: 'keep' }));
+    upsertEvent(makeEvent({ event_id: 'drop' }));
+    deleteEvent('drop', 'primary');
+    expect(getEvent('drop', 'primary')).toBeUndefined();
+    expect(getEvent('keep', 'primary')).toBeDefined();
+    expect(() => deleteEvent('already-gone', 'primary')).not.toThrow();
   });
 });

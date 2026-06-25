@@ -8,6 +8,9 @@ export interface CalendarEvent {
   start_time: string;
   end_time: string;
   all_day: number;
+  /** Google's series id when this is a recurring occurrence; null otherwise.
+   * Recurring events open a "manage in Google Calendar" notice (edit blocked). */
+  recurring_event_id: string | null;
   updated_at: string;
 }
 

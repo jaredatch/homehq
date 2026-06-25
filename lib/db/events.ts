@@ -10,6 +10,9 @@ export interface CalendarEventRow {
   start_time: string;
   end_time: string;
   all_day: number;
+  /** Google's series id when this row is an occurrence of a recurring event;
+   * NULL for one-off events. Gates edit/delete (recurring is blocked for now). */
+  recurring_event_id: string | null;
   updated_at: string;
 }
 
@@ -21,8 +24,8 @@ export function upsertCalendarEvents(
   db.transaction(() => {
     db.prepare('DELETE FROM calendar_events WHERE calendar_id = ?').run(calendarId);
     const insert = db.prepare(
-      `INSERT INTO calendar_events (event_id, calendar_id, summary, description, location, start_time, end_time, all_day)
-       VALUES (@event_id, @calendar_id, @summary, @description, @location, @start_time, @end_time, @all_day)`
+      `INSERT INTO calendar_events (event_id, calendar_id, summary, description, location, start_time, end_time, all_day, recurring_event_id)
+       VALUES (@event_id, @calendar_id, @summary, @description, @location, @start_time, @end_time, @all_day, @recurring_event_id)`
     );
     for (const event of events) {
       insert.run(event);
@@ -39,8 +42,8 @@ export function upsertCalendarEvents(
 export function upsertEvent(event: Omit<CalendarEventRow, 'id' | 'updated_at'>): void {
   const db = getDb();
   db.prepare(
-    `INSERT INTO calendar_events (event_id, calendar_id, summary, description, location, start_time, end_time, all_day)
-     VALUES (@event_id, @calendar_id, @summary, @description, @location, @start_time, @end_time, @all_day)
+    `INSERT INTO calendar_events (event_id, calendar_id, summary, description, location, start_time, end_time, all_day, recurring_event_id)
+     VALUES (@event_id, @calendar_id, @summary, @description, @location, @start_time, @end_time, @all_day, @recurring_event_id)
      ON CONFLICT(event_id, calendar_id) DO UPDATE SET
        summary = excluded.summary,
        description = excluded.description,
@@ -48,8 +51,29 @@ export function upsertEvent(event: Omit<CalendarEventRow, 'id' | 'updated_at'>):
        start_time = excluded.start_time,
        end_time = excluded.end_time,
        all_day = excluded.all_day,
+       recurring_event_id = excluded.recurring_event_id,
        updated_at = datetime('now')`
   ).run(event);
+}
+
+/** One cached event by its (event_id, calendar_id) key, or undefined. Edit/delete
+ * use this to confirm the event exists and to read its recurring/all-day shape
+ * server-side before touching Google. */
+export function getEvent(eventId: string, calendarId: string): CalendarEventRow | undefined {
+  const db = getDb();
+  return db
+    .prepare('SELECT * FROM calendar_events WHERE event_id = ? AND calendar_id = ?')
+    .get(eventId, calendarId) as CalendarEventRow | undefined;
+}
+
+/** Remove a single cached event after it's deleted on Google, so it disappears
+ * before the next full sync. No-op if the row is already gone. */
+export function deleteEvent(eventId: string, calendarId: string): void {
+  const db = getDb();
+  db.prepare('DELETE FROM calendar_events WHERE event_id = ? AND calendar_id = ?').run(
+    eventId,
+    calendarId
+  );
 }
 
 /**

@@ -19,6 +19,7 @@ const makeEvent = (overrides: Partial<CalendarEvent>): CalendarEvent => ({
   start_time: '2026-04-29T09:00:00',
   end_time: '2026-04-29T10:00:00',
   all_day: 0,
+  recurring_event_id: null,
   updated_at: '2026-04-29T08:00:00',
   ...overrides,
 });
