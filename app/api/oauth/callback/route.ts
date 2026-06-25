@@ -4,7 +4,14 @@ import { exchangeCode, OAUTH_STATE_COOKIE } from '@/lib/google/oauth';
 import { saveToken } from '@/lib/db/tokens';
 
 function redirectToSetup(request: NextRequest, query: string): NextResponse {
-  const response = NextResponse.redirect(new URL(`/setup?${query}`, request.url));
+  // Build the redirect from the configured public URL, not request.url: behind a
+  // reverse proxy a route handler's request.url reflects the internal bind address
+  // (127.0.0.1:3000), so request.url-based redirects land the browser on
+  // localhost:3000. NEXT_PUBLIC_BASE_URL is already the source of truth for the
+  // OAuth redirect_uri (lib/google/oauth.ts), so reuse it here. Fall back to
+  // request.url only if it's unset (it never is in dev or prod).
+  const base = process.env.NEXT_PUBLIC_BASE_URL ?? request.url;
+  const response = NextResponse.redirect(new URL(`/setup?${query}`, base));
   response.cookies.delete(OAUTH_STATE_COOKIE);
   return response;
 }
