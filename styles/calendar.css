@@ -46,11 +46,19 @@
 }
 
 /* Hidden measurement layer — full event stacks at real column width, out of
-   flow so it adds no height. The layout reads true per-day heights from it. */
+   flow so it adds no height. The layout reads true per-day heights from it.
+   overflow:hidden is load-bearing: the uncropped stacks are taller than this
+   box (inset:0 = the grid's height), and with overflow visible that spillover
+   became scrollable overflow on .cal-weeks / .app-main. Any nudge to their
+   scrollTop (focus/scrollIntoView, or scroll-anchoring during a relayout) then
+   slid the whole grid — weekday header + the current week's top rows — off the
+   top and left it stuck there (no code resets scrollTop). Clipping only affects
+   paint, not getBoundingClientRect, so the per-event measurements are unchanged. */
 .cal-measure {
 	position: absolute;
 	inset: 0;
 	z-index: -10;
+	overflow: hidden;
 	visibility: hidden;
 	pointer-events: none;
 }

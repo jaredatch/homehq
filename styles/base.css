@@ -90,5 +90,11 @@ canvas {
 
 .app-main {
 	flex: 1 1 0%;
-	overflow: hidden;
+	/* clip, not hidden: the wall viewport must never become a scroll container.
+	   hidden still allows programmatic scrolling (focus, scrollIntoView, scroll-
+	   anchoring), which once stranded the calendar scrolled-down with its header
+	   clipped. clip forbids scrolling outright, so any stray overflow is simply
+	   cut — the grid can never drift. The fixed-position event modal is unaffected
+	   (clip doesn't create a containing block for fixed descendants). */
+	overflow: clip;
 }
