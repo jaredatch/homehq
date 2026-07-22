@@ -114,6 +114,12 @@ function validate(data: unknown): AppConfig {
     ) {
       throw new Error('Config: google.calendarAccess must be "readonly" or "readwrite"');
     }
+    for (const key of ['syncDaysBack', 'syncDaysAhead'] as const) {
+      const v = g[key];
+      if (v !== undefined && (typeof v !== 'number' || !Number.isFinite(v) || v < 0)) {
+        throw new Error(`Config: google.${key} must be a non-negative number of days`);
+      }
+    }
   }
 
   return data as AppConfig;

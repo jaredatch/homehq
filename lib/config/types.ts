@@ -52,6 +52,13 @@ export interface GoogleConfig {
    * and turns on the "+ Add event" flow. Switching readonly → readwrite needs a
    * re-consent at /setup (the stored token keeps the old scope until then). */
   calendarAccess?: CalendarAccess;
+  /** How many days *back* the calendar sync caches. Defaults to 60. */
+  syncDaysBack?: number;
+  /** How many days *ahead* the calendar sync caches. Defaults to 210 (~7 months).
+   * This is the hard limit on how far month view can page before it starts
+   * showing empty cells that aren't actually empty — the cache simply has no
+   * rows past this horizon. Widen it before promising a longer look-ahead. */
+  syncDaysAhead?: number;
 }
 
 export interface AppConfig {

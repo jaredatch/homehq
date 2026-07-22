@@ -25,6 +25,8 @@
     "pin": "123456"
   },
   "google": {
-    "calendarAccess": "readonly"
+    "calendarAccess": "readonly",
+    "syncDaysBack": 60,
+    "syncDaysAhead": 210
   }
 }

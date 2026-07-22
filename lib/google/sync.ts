@@ -5,8 +5,14 @@ import { getValidAccessToken } from './oauth';
 import { fetchCalendarEvents, normalizeEvent, shouldHideEvent } from './calendar';
 
 const SYNC_INTERVAL_MS = 5 * 60 * 1000; // 5 minutes
-const DAYS_BACK = 30;
-const DAYS_AHEAD = 60;
+
+// Cache window defaults, in days. The window is the hard limit on how far the UI
+// can look: past it the cache has no rows, so a month view would render empty
+// cells that aren't actually empty. Sized for the motivating case — a school
+// email in the spring listing fall-break dates is ~7 months out. Overridable via
+// google.syncDaysBack / google.syncDaysAhead.
+const DEFAULT_DAYS_BACK = 60;
+const DEFAULT_DAYS_AHEAD = 210;
 
 let running = false;
 
@@ -21,9 +27,14 @@ export async function syncCalendars(): Promise<void> {
   try {
     let calendars: { id: string; name: string }[];
     let accessToken: string;
+    let daysBack: number;
+    let daysAhead: number;
 
     try {
-      calendars = getConfig().calendars;
+      const config = getConfig();
+      calendars = config.calendars;
+      daysBack = config.google?.syncDaysBack ?? DEFAULT_DAYS_BACK;
+      daysAhead = config.google?.syncDaysAhead ?? DEFAULT_DAYS_AHEAD;
       accessToken = await getValidAccessToken();
     } catch (err) {
       const message = err instanceof Error ? err.message : String(err);
@@ -36,8 +47,8 @@ export async function syncCalendars(): Promise<void> {
     deleteEventsNotInCalendars(calendars.map((c) => c.id));
 
     const now = new Date();
-    const timeMin = new Date(now.getTime() - DAYS_BACK * 86400000).toISOString();
-    const timeMax = new Date(now.getTime() + DAYS_AHEAD * 86400000).toISOString();
+    const timeMin = new Date(now.getTime() - daysBack * 86400000).toISOString();
+    const timeMax = new Date(now.getTime() + daysAhead * 86400000).toISOString();
 
     // Sync each calendar independently — one bad calendar (deleted, renamed,
     // permission revoked) must not block the others.
@@ -64,7 +75,9 @@ export async function syncCalendars(): Promise<void> {
 
     if (errors.length === 0) {
       updateSyncStatus('calendar', true);
-      console.log(`[sync] Calendar sync complete — ${synced} calendar(s), ${hidden} hidden`);
+      console.log(
+        `[sync] Calendar sync complete — ${synced} calendar(s), ${hidden} hidden, window -${daysBack}d/+${daysAhead}d`
+      );
     } else if (synced > 0) {
       updateSyncStatus('calendar', true, `Partial sync — ${errors.join('; ')}`);
       console.error(`[sync] Calendar sync partial (${synced} ok):`, errors.join('; '));

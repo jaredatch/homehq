@@ -124,4 +124,37 @@ describe('config loader', () => {
     writeFileSync(path, JSON.stringify({ ...validConfig, google: 'nope' }));
     expect(() => getConfig(path)).toThrow('"google" must be an object');
   });
+
+  // google.syncDaysBack / syncDaysAhead — the calendar cache window. These bound
+  // how far the UI can look, so a bad value must fail loudly rather than quietly
+  // shrink the horizon.
+  const windowConfig = (google: unknown) => ({ ...validConfig, google });
+
+  it('accepts a custom sync window', () => {
+    const path = join(tmpDir, 'config.json');
+    writeFileSync(path, JSON.stringify(windowConfig({ syncDaysBack: 30, syncDaysAhead: 365 })));
+    const config = getConfig(path);
+    expect(config.google?.syncDaysBack).toBe(30);
+    expect(config.google?.syncDaysAhead).toBe(365);
+  });
+
+  it('leaves the sync window undefined when unset (sync applies its defaults)', () => {
+    const path = join(tmpDir, 'config.json');
+    writeFileSync(path, JSON.stringify(windowConfig({ calendarAccess: 'readonly' })));
+    const config = getConfig(path);
+    expect(config.google?.syncDaysBack).toBeUndefined();
+    expect(config.google?.syncDaysAhead).toBeUndefined();
+  });
+
+  it('throws on a non-numeric sync window', () => {
+    const path = join(tmpDir, 'config.json');
+    writeFileSync(path, JSON.stringify(windowConfig({ syncDaysAhead: '210' })));
+    expect(() => getConfig(path)).toThrow('google.syncDaysAhead must be a non-negative number');
+  });
+
+  it('throws on a negative sync window', () => {
+    const path = join(tmpDir, 'config.json');
+    writeFileSync(path, JSON.stringify(windowConfig({ syncDaysBack: -1 })));
+    expect(() => getConfig(path)).toThrow('google.syncDaysBack must be a non-negative number');
+  });
 });
