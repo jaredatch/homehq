@@ -4,6 +4,7 @@
 @import '../styles/tokens.css';
 @import '../styles/base.css';
 @import '../styles/calendar.css';
+@import '../styles/month.css';
 @import '../styles/weather.css';
 @import '../styles/topbar.css';
 @import '../styles/auth.css';
