@@ -1,5 +1,5 @@
 import TopBar from '@/components/dashboard/TopBar';
-import CalendarGrid from '@/components/calendar/CalendarGrid';
+import CalendarView from '@/components/calendar/CalendarView';
 import { getConfig, isCalendarWriteEnabled } from '@/lib/config';
 import { getDeployVersion } from '@/lib/version';
 
@@ -19,7 +19,7 @@ export default function DashboardPage() {
         weatherIcons={config.display.weatherIcons ?? 'lucide'}
       />
       <main className="app-main">
-        <CalendarGrid
+        <CalendarView
           calendars={config.calendars}
           weeks={config.display.calendarWeeks}
           weekStartsOn={config.display.weekStartsOn ?? 'monday'}
@@ -29,6 +29,7 @@ export default function DashboardPage() {
           calendarWriteEnabled={isCalendarWriteEnabled(config)}
           createFormResetMs={(config.display.createFormResetSeconds ?? 120) * 1000}
           appVersion={appVersion}
+          monthViewResetMs={(config.display.monthViewResetSeconds ?? 180) * 1000}
         />
       </main>
     </div>

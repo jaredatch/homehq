@@ -39,6 +39,59 @@
 	color: var(--gray-100);
 }
 
+/* Prev / next / Today cluster — quiet bordered buttons (this row is chrome, not
+   content), rem-based like the rest of the header so they're a real click
+   target for someone at the trackpad. */
+.mon-nav {
+	display: flex;
+	align-items: center;
+	gap: 0.375rem;
+}
+
+.mon-nav-btn,
+.mon-today,
+.mon-back {
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	border: 1px solid var(--gray-700);
+	border-radius: var(--radius);
+	color: var(--gray-300);
+	background: none;
+	transition:
+		color 150ms cubic-bezier(0.4, 0, 0.2, 1),
+		border-color 150ms cubic-bezier(0.4, 0, 0.2, 1);
+}
+.mon-nav-btn:hover,
+.mon-today:hover,
+.mon-back:hover {
+	color: var(--gray-100);
+	border-color: var(--gray-500);
+}
+
+/* Chevrons get a square box so ‹ and › read as paging arrows, not stray
+   punctuation. */
+.mon-nav-btn {
+	width: 1.75rem;
+	height: 1.75rem;
+	font-size: var(--text-base);
+	line-height: 1;
+}
+
+.mon-today,
+.mon-back {
+	height: 1.75rem;
+	padding: 0 0.625rem;
+	font-size: var(--text-sm);
+	line-height: 1;
+}
+
+/* Exit — pushed to the far edge so "leave this view" can't be mistaken for
+   month paging. */
+.mon-back {
+	margin-left: auto;
+}
+
 /* ---- Dense calendar region (opts out of wall scale) ------------------- */
 /* The one scale break. Modeled on Google Calendar's month view (NOT
    Fantastical's tighter grid): moderately bigger type + more row spacing, so a

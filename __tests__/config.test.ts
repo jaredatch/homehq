@@ -125,6 +125,38 @@ describe('config loader', () => {
     expect(() => getConfig(path)).toThrow('"google" must be an object');
   });
 
+  // display.monthViewResetSeconds — month view's auto-revert timer. Same
+  // discipline as expandResetSeconds/createFormResetSeconds: a bad value fails
+  // loudly at load instead of quietly leaving the wall stuck in month view.
+  const displayConfig = (extra: Record<string, unknown>) => ({
+    ...validConfig,
+    display: { ...validConfig.display, ...extra },
+  });
+
+  it('accepts a custom monthViewResetSeconds, including 0 (disabled)', () => {
+    const path = join(tmpDir, 'config.json');
+    writeFileSync(path, JSON.stringify(displayConfig({ monthViewResetSeconds: 0 })));
+    expect(getConfig(path).display.monthViewResetSeconds).toBe(0);
+  });
+
+  it('leaves monthViewResetSeconds undefined when unset (UI applies its default)', () => {
+    const path = join(tmpDir, 'config.json');
+    writeFileSync(path, JSON.stringify(validConfig));
+    expect(getConfig(path).display.monthViewResetSeconds).toBeUndefined();
+  });
+
+  it('throws on a non-numeric monthViewResetSeconds', () => {
+    const path = join(tmpDir, 'config.json');
+    writeFileSync(path, JSON.stringify(displayConfig({ monthViewResetSeconds: '180' })));
+    expect(() => getConfig(path)).toThrow('monthViewResetSeconds must be a non-negative number');
+  });
+
+  it('throws on a negative monthViewResetSeconds', () => {
+    const path = join(tmpDir, 'config.json');
+    writeFileSync(path, JSON.stringify(displayConfig({ monthViewResetSeconds: -5 })));
+    expect(() => getConfig(path)).toThrow('monthViewResetSeconds must be a non-negative number');
+  });
+
   // google.syncDaysBack / syncDaysAhead — the calendar cache window. These bound
   // how far the UI can look, so a bad value must fail loudly rather than quietly
   // shrink the horizon.

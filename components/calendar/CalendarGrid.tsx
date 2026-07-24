@@ -39,6 +39,10 @@ interface CalendarGridProps {
   /** Build token this page was served by; the grid hard-reloads when the server
    * later reports a different one (a deploy or a manual kiosk-reload). */
   appVersion: string;
+  /** Opens month view (a footer button beside the other controls). Optional so
+   * the grid itself stays view-agnostic — CalendarView owns the mode switch;
+   * without it the footer renders exactly as before month view existed. */
+  onMonthClick?: () => void;
 }
 
 const POLL_INTERVAL_MS = 60_000;
@@ -73,6 +77,7 @@ export default function CalendarGrid({
   calendarWriteEnabled,
   createFormResetMs,
   appVersion,
+  onMonthClick,
 }: CalendarGridProps) {
   const [events, setEvents] = useState<CalendarEvent[]>([]);
   const [sync, setSync] = useState<SyncStatus>({
@@ -570,6 +575,19 @@ export default function CalendarGrid({
                     className="cal-expand"
                   >
                     {expanded ? '‹ Current week' : 'Expand next week ›'}
+                  </button>
+                </>
+              )}
+              {onMonthClick && (
+                <>
+                  <span className="cal-footer-sep" aria-hidden />
+                  <button
+                    type="button"
+                    onClick={onMonthClick}
+                    title="Open the month view"
+                    className="cal-monthbtn"
+                  >
+                    Month
                   </button>
                 </>
               )}

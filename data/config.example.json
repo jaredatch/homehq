@@ -19,7 +19,8 @@
     "todayColor": "#60a5fa",
     "timezone": "America/Chicago",
     "expandResetSeconds": 300,
-    "createFormResetSeconds": 120
+    "createFormResetSeconds": 120,
+    "monthViewResetSeconds": 180
   },
   "auth": {
     "pin": "123456"

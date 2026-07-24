@@ -341,6 +341,16 @@
 	color: var(--gray-300);
 }
 
+/* "Month" — the door into month view; same muted footer chrome as its
+   neighbors. */
+.cal-monthbtn {
+	color: var(--gray-500);
+	transition: color 150ms cubic-bezier(0.4, 0, 0.2, 1);
+}
+.cal-monthbtn:hover {
+	color: var(--gray-200);
+}
+
 .cal-sync {
 	color: var(--gray-600);
 }

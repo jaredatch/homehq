@@ -14,7 +14,7 @@ import {
   type SyncStatus,
   type WeekStart,
 } from './calendar-utils';
-import { monthGridDays, monthLabel } from './month-utils';
+import { addMonths, monthGridDays, monthLabel, monthOf } from './month-utils';
 
 interface MonthGridProps {
   calendars: { id: string; name: string; color: string; textColor?: string }[];
@@ -23,8 +23,9 @@ interface MonthGridProps {
   timezone?: string;
   /** Today's marker color (any CSS color). */
   todayColor: string;
-  /** Month to render, `YYYY-MM`. Static in Phase 2; Phase 3 adds navigation. */
-  month: string;
+  /** Leave month view — back to the wall's week grid. Wired to the header
+   * button and Esc; CalendarView flips viewMode back to 'week'. */
+  onExit: () => void;
 }
 
 const POLL_INTERVAL_MS = 60_000;
@@ -53,8 +54,12 @@ export default function MonthGrid({
   weekStartsOn,
   timezone,
   todayColor,
-  month,
+  onExit,
 }: MonthGridProps) {
+  // The month being shown. Owned here, never persisted — month view itself is
+  // ephemeral (CalendarView unmounts it on exit), so a fresh entry always
+  // starts at the current month.
+  const [month, setMonth] = useState(() => monthOf(todayInZone(timezone)));
   const [events, setEvents] = useState<CalendarEvent[]>([]);
   const [sync, setSync] = useState<SyncStatus>({
     lastSuccess: null,
@@ -98,6 +103,46 @@ export default function MonthGrid({
     const interval = setInterval(fetchEvents, POLL_INTERVAL_MS);
     return () => clearInterval(interval);
   }, [fetchEvents]);
+
+  // Paging. Changing `month` recomputes `days`, which re-creates fetchEvents,
+  // which the effect above re-runs — so a page turn fetches its range at once
+  // instead of waiting out the poll interval.
+  const goPrev = useCallback(() => setMonth((m) => addMonths(m, -1)), []);
+  const goNext = useCallback(() => setMonth((m) => addMonths(m, 1)), []);
+  const goToday = useCallback(() => setMonth(monthOf(todayInZone(timezone))), [timezone]);
+
+  // Keyboard — there's a real keyboard at the wall, and scrubbing months is
+  // this view's main verb: ←/→ page, T jumps to today, Esc leaves. Skipped
+  // while typing in a field (Phase 4 opens EventModal inside this view) or
+  // when a modifier is down (⌘← is the browser's own back).
+  useEffect(() => {
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.defaultPrevented || e.metaKey || e.ctrlKey || e.altKey) return;
+      const target = e.target as HTMLElement | null;
+      if (
+        target &&
+        (target.tagName === 'INPUT' ||
+          target.tagName === 'TEXTAREA' ||
+          target.tagName === 'SELECT' ||
+          target.isContentEditable)
+      ) {
+        return;
+      }
+      if (e.key === 'ArrowLeft') {
+        e.preventDefault();
+        goPrev();
+      } else if (e.key === 'ArrowRight') {
+        e.preventDefault();
+        goNext();
+      } else if (e.key === 't' || e.key === 'T') {
+        goToday();
+      } else if (e.key === 'Escape') {
+        onExit();
+      }
+    };
+    window.addEventListener('keydown', onKeyDown);
+    return () => window.removeEventListener('keydown', onKeyDown);
+  }, [goPrev, goNext, goToday, onExit]);
 
   const dayEventsMap = useMemo(() => assignEventsToDays(events, days), [events, days]);
   const timedByDay = useMemo(() => {
@@ -200,9 +245,28 @@ export default function MonthGrid({
     <div className="mon-root">
       {/* Persistent chrome — header stays at wall (rem) scale like the top bar,
           NOT the dense grid scale, so the month label reads across the room and
-          this row can host the Phase 3 prev/next/Today nav at a usable size. */}
+          the nav is a usable click target for someone at the trackpad. */}
       <div className="mon-header">
         <span className="mon-title">{monthLabel(month)}</span>
+        <div className="mon-nav">
+          <button type="button" onClick={goPrev} title="Previous month (←)" className="mon-nav-btn">
+            ‹
+          </button>
+          <button type="button" onClick={goNext} title="Next month (→)" className="mon-nav-btn">
+            ›
+          </button>
+          <button type="button" onClick={goToday} title="Jump to today (T)" className="mon-today">
+            Today
+          </button>
+        </div>
+        <button
+          type="button"
+          onClick={onExit}
+          title="Back to the dashboard (Esc)"
+          className="mon-back"
+        >
+          Back to dashboard
+        </button>
       </div>
 
       {/* The one region that opts out of wall scale — see .mon-calendar. */}

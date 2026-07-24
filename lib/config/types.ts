@@ -37,6 +37,11 @@ export interface DisplayConfig {
    * auto-closes (discarding input), so an abandoned form never sticks on the
    * always-on kiosk. Defaults to 120. Set to 0 to disable auto-close. */
   createFormResetSeconds?: number;
+  /** Seconds month view stays up with no interaction before auto-reverting to
+   * the week grid, so the wall never sits stuck on November. The timer resets
+   * on any interaction (click, key), never mid-task. Defaults to 180. Set to 0
+   * to disable auto-revert. */
+  monthViewResetSeconds?: number;
 }
 
 export interface AuthConfig {
