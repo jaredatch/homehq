@@ -4,6 +4,7 @@ import {
   isAdjacentMonth,
   monthGridDays,
   monthLabel,
+  monthCreateDate,
   monthOf,
   monthRowCount,
   popoverLayout,
@@ -98,6 +99,12 @@ describe('month helpers', () => {
   it('names the weekday of a day string', () => {
     expect(weekdayShortOf('2026-07-23')).toBe('Thu');
     expect(weekdayShortOf('2026-07-26')).toBe('Sun');
+  });
+
+  it("defaults the footer add-event date to today in the current month, else the viewed month's 1st", () => {
+    expect(monthCreateDate('2026-07', '2026-07-24')).toBe('2026-07-24');
+    expect(monthCreateDate('2026-11', '2026-07-24')).toBe('2026-11-01');
+    expect(monthCreateDate('2027-01', '2026-07-24')).toBe('2027-01-01');
   });
 });
 

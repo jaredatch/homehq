@@ -276,6 +276,11 @@
 	font-size: var(--text-xs);
 	line-height: var(--text-xs-lh);
 }
+/* Month view's variant — its grid has no bottom chrome of its own, so the
+   footer draws the divider the wall gets for free. */
+.cal-footer--rule {
+	border-top: 1px solid var(--gray-800);
+}
 
 .cal-legend {
 	display: flex;
@@ -341,13 +346,13 @@
 	color: var(--gray-300);
 }
 
-/* "Month" — the door into month view; same muted footer chrome as its
-   neighbors. */
-.cal-monthbtn {
+/* View switcher — "View Month" on the wall, "View Upcoming" in month view;
+   same muted footer chrome as its neighbors. */
+.cal-viewbtn {
 	color: var(--gray-500);
 	transition: color 150ms cubic-bezier(0.4, 0, 0.2, 1);
 }
-.cal-monthbtn:hover {
+.cal-viewbtn:hover {
 	color: var(--gray-200);
 }
 

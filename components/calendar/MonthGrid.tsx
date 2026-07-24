@@ -1,6 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
+import CalendarFooter from './CalendarFooter';
 import EventModal, { type EditableEvent } from './EventModal';
 import MonthDayPopover from './MonthDayPopover';
 import MonthWeek from './MonthWeek';
@@ -18,6 +19,7 @@ import {
 } from './calendar-utils';
 import {
   addMonths,
+  monthCreateDate,
   monthGridDays,
   monthLabel,
   monthOf,
@@ -162,6 +164,11 @@ export default function MonthGrid({
   const handleDayClick = useCallback((date: string) => {
     setModal({ mode: 'create', date });
   }, []);
+  // Footer "+ Add event" — the generic entry point: today for the current
+  // month, the 1st of the viewed month otherwise (see monthCreateDate).
+  const handleFooterAdd = useCallback(() => {
+    setModal({ mode: 'create', date: monthCreateDate(month, todayInZone(timezone)) });
+  }, [month, timezone]);
 
   useEffect(() => setPopover(null), [month]);
 
@@ -336,14 +343,8 @@ export default function MonthGrid({
             Today
           </button>
         </div>
-        <button
-          type="button"
-          onClick={onExit}
-          title="Back to the dashboard (Esc)"
-          className="mon-back"
-        >
-          Back to dashboard
-        </button>
+        {/* No exit button here — leaving the view is the footer's "View
+            Upcoming" (the shared view switcher), plus Esc and auto-revert. */}
       </div>
 
       {/* The one region that opts out of wall scale — see .mon-calendar. Also
@@ -433,17 +434,17 @@ export default function MonthGrid({
         )}
       </div>
 
-      <div className="mon-footer">
-        <div className="mon-legend">
-          {calendars.map((c) => (
-            <span key={c.id} className="mon-legend-item">
-              <span className="mon-legend-dot" style={{ backgroundColor: c.color }} aria-hidden />
-              {c.name}
-            </span>
-          ))}
-        </div>
-        <span className={label.isError ? 'mon-sync--error' : 'mon-sync'}>{label.text}</span>
-      </div>
+      {/* Footer — the same shared bar as the wall, so legend / view switch /
+          + Add event sit in identical positions across views. */}
+      <CalendarFooter
+        calendars={calendars}
+        viewLabel="View Upcoming"
+        viewTitle="Back to the dashboard (Esc)"
+        onViewClick={onExit}
+        onAddClick={calendarWriteEnabled ? handleFooterAdd : undefined}
+        sync={label}
+        rule
+      />
 
       {/* Create pre-fills the clicked day — the check-then-add workflow in one
           motion. The same modal as the wall, same recurring-occurrence block,

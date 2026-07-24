@@ -49,8 +49,7 @@
 }
 
 .mon-nav-btn,
-.mon-today,
-.mon-back {
+.mon-today {
 	display: flex;
 	align-items: center;
 	justify-content: center;
@@ -63,8 +62,7 @@
 		border-color 150ms cubic-bezier(0.4, 0, 0.2, 1);
 }
 .mon-nav-btn:hover,
-.mon-today:hover,
-.mon-back:hover {
+.mon-today:hover {
 	color: var(--gray-100);
 	border-color: var(--gray-500);
 }
@@ -78,18 +76,11 @@
 	line-height: 1;
 }
 
-.mon-today,
-.mon-back {
+.mon-today {
 	height: 1.75rem;
 	padding: 0 0.625rem;
 	font-size: var(--text-sm);
 	line-height: 1;
-}
-
-/* Exit — pushed to the far edge so "leave this view" can't be mistaken for
-   month paging. */
-.mon-back {
-	margin-left: auto;
 }
 
 /* ---- Dense calendar region (opts out of wall scale) ------------------- */
@@ -550,44 +541,9 @@ button.mon-more:hover {
 	flex-shrink: 0;
 }
 
-/* ---- Footer (persistent chrome, rem-based) ---------------------------- */
-/* Matches the wall view's .cal-footer exactly — same rem sizes, same legend
-   treatment — so the bottom bar is a constant across views, the way the top bar
-   is. It must NOT inherit .mon-calendar's dense scale (that shrank it to a
-   microscopic strip). Phase 3 moves the view toggle + Add event here. */
-.mon-footer {
-	display: flex;
-	align-items: center;
-	justify-content: space-between;
-	flex-shrink: 0;
-	padding: 0.25rem 1rem;
-	font-size: var(--text-xs);
-	line-height: var(--text-xs-lh);
-	border-top: 1px solid var(--gray-800);
-}
-
-.mon-legend {
-	display: flex;
-	align-items: center;
-	gap: 0.75rem;
-	color: var(--gray-400);
-}
-
-.mon-legend-item {
-	display: flex;
-	align-items: center;
-	gap: 0.375rem;
-}
-
-.mon-legend-dot {
-	width: 0.5rem;
-	height: 0.5rem;
-	border-radius: var(--radius-full);
-}
-
-.mon-sync {
-	color: var(--gray-600);
-}
-.mon-sync--error {
-	color: color-mix(in oklab, var(--amber-500) 90%, transparent);
-}
+/* ---- Footer ----------------------------------------------------------- */
+/* Month view renders the SHARED CalendarFooter (cal-footer, calendar.css, with
+   the --rule modifier for its divider) — one bar across every view, the way
+   the top bar is one bar. No mon- footer styles exist on purpose: the footer
+   is persistent rem-based chrome and must never inherit .mon-calendar's dense
+   grid scale. */

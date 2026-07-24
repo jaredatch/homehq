@@ -4,6 +4,7 @@ import { useEffect, useLayoutEffect, useState, useCallback, useMemo, useRef } fr
 import WeekRow from './WeekRow';
 import EventItem from './EventItem';
 import EventModal, { type EditableEvent } from './EventModal';
+import CalendarFooter from './CalendarFooter';
 import {
   assignEventsToDays,
   chunkWeeks,
@@ -115,21 +116,6 @@ export default function CalendarGrid({
     const t = setTimeout(() => setExpanded(false), expandResetMs);
     return () => clearTimeout(t);
   }, [expanded, expandResetMs]);
-
-  // Footer calendar legend — on by default while the family learns the colors,
-  // collapsible to a faint dot cluster once it's just noise. Choice persists.
-  const [showLegend, setShowLegend] = useState(true);
-  useEffect(() => {
-    const stored = localStorage.getItem('homehq:legend');
-    if (stored !== null) setShowLegend(stored === '1');
-  }, []);
-  const toggleLegend = useCallback(() => {
-    setShowLegend((prev) => {
-      const next = !prev;
-      localStorage.setItem('homehq:legend', next ? '1' : '0');
-      return next;
-    });
-  }, []);
 
   // Event modal — ephemeral (like the expand toggle), so the wall never boots
   // with a form open. null = closed; otherwise create (blank) or edit (a clicked
@@ -519,96 +505,30 @@ export default function CalendarGrid({
         </div>
       </div>
 
-      {/* Footer — calendar legend (left, toggleable) + sync indicator (right) */}
-      {(() => {
-        const label = loading ? { text: 'Loading…', isError: false } : formatSyncLabel(sync);
-        return (
-          <div className="cal-footer">
-            <div className="cal-footer-left">
-              {showLegend ? (
-                <button
-                  type="button"
-                  onClick={toggleLegend}
-                  title="Hide calendar legend"
-                  className="cal-legend"
-                >
-                  {calendars.map((c) => (
-                    <span key={c.id} className="cal-legend-item">
-                      <span
-                        className="cal-legend-dot"
-                        style={{ backgroundColor: c.color }}
-                        aria-hidden
-                      />
-                      {c.name}
-                    </span>
-                  ))}
-                </button>
-              ) : (
-                <button
-                  type="button"
-                  onClick={toggleLegend}
-                  title="Show calendar legend"
-                  className="cal-legend-collapsed"
-                >
-                  {calendars.map((c) => (
-                    <span
-                      key={c.id}
-                      className="cal-legend-dot--sm"
-                      style={{ backgroundColor: c.color }}
-                      aria-hidden
-                    />
-                  ))}
-                </button>
-              )}
-              {weeks > 1 && (
-                <>
-                  <span className="cal-footer-sep" aria-hidden />
-                  <button
-                    type="button"
-                    onClick={() => setExpanded((v) => !v)}
-                    title={
-                      expanded
-                        ? 'Show the current week in full'
-                        : 'Expand next week to show all its events'
-                    }
-                    aria-pressed={expanded}
-                    className="cal-expand"
-                  >
-                    {expanded ? '‹ Current week' : 'Expand next week ›'}
-                  </button>
-                </>
-              )}
-              {onMonthClick && (
-                <>
-                  <span className="cal-footer-sep" aria-hidden />
-                  <button
-                    type="button"
-                    onClick={onMonthClick}
-                    title="Open the month view"
-                    className="cal-monthbtn"
-                  >
-                    Month
-                  </button>
-                </>
-              )}
-              {calendarWriteEnabled && (
-                <>
-                  <span className="cal-footer-sep" aria-hidden />
-                  <button
-                    type="button"
-                    onClick={() => setModal({ mode: 'create' })}
-                    title="Add a calendar event"
-                    className="cal-addbtn"
-                  >
-                    + Add event
-                  </button>
-                </>
-              )}
-            </div>
-            <span className={label.isError ? 'cal-sync--error' : 'cal-sync'}>{label.text}</span>
-          </div>
-        );
-      })()}
+      {/* Footer — shared across views (CalendarFooter): legend, view switch,
+          + Add event, then this view's expand toggle trailing last. */}
+      <CalendarFooter
+        calendars={calendars}
+        viewLabel="View Month"
+        viewTitle="Open the month view"
+        onViewClick={onMonthClick}
+        onAddClick={calendarWriteEnabled ? () => setModal({ mode: 'create' }) : undefined}
+        sync={loading ? { text: 'Loading…', isError: false } : formatSyncLabel(sync)}
+      >
+        {weeks > 1 && (
+          <button
+            type="button"
+            onClick={() => setExpanded((v) => !v)}
+            title={
+              expanded ? 'Show the current week in full' : 'Expand next week to show all its events'
+            }
+            aria-pressed={expanded}
+            className="cal-expand"
+          >
+            {expanded ? '‹ Current week' : 'Expand next week ›'}
+          </button>
+        )}
+      </CalendarFooter>
 
       {calendarWriteEnabled && modal && (
         <EventModal

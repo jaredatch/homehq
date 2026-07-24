@@ -94,6 +94,17 @@ export function addMonths(month: string, n: number): string {
   return `${year}-${String(mon).padStart(2, '0')}`;
 }
 
+/**
+ * Default date for the footer "+ Add event" in month view: today when the
+ * viewed month is the current one, otherwise the 1st of the viewed month — if
+ * someone scrubbed to November to check a date, a today-prefilled form would
+ * fight the workflow they came for. (The per-day hover "+" covers the
+ * precise-day case; this is the generic entry point.)
+ */
+export function monthCreateDate(month: string, today: string): string {
+  return monthOf(today) === month ? today : `${month}-01`;
+}
+
 const WEEKDAY_SHORT = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 
 /** Short weekday name ('Tue') for a day string — the day popover's header. */
