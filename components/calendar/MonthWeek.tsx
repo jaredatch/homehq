@@ -30,8 +30,11 @@ interface MonthWeekProps {
   /** When set, chips + bars are clickable and open the edit modal. Omitted in
    * read-only deployments, so events stay inert there (like the wall). */
   onEventClick?: (event: CalendarEvent) => void;
-  /** When set, clicking a cell's empty area opens the create modal with that
-   * date pre-filled. Omitted in read-only deployments. */
+  /** When set, each cell grows a hover-revealed "+" in its bottom-right corner
+   * that opens the create modal with that date pre-filled. A deliberate button
+   * — not a whole-cell click target — so there are no accidental modal opens,
+   * and a day already full of events can still take one more. Omitted in
+   * read-only deployments. */
   onDayClick?: (date: string) => void;
 }
 
@@ -120,15 +123,7 @@ export default function MonthWeek({
             if (isPast) classes.push('mon-day--past');
             else if (adjacent) classes.push('mon-day--adjacent');
             return (
-              <div
-                key={date}
-                data-mon-body
-                className={classes.join(' ')}
-                // Empty-area click = create on that day (chips and "N more" stop
-                // propagation; the band overlay is a sibling, so bar clicks never
-                // bubble here). Only wired when writes are on.
-                onClick={onDayClick ? () => onDayClick(date) : undefined}
-              >
+              <div key={date} data-mon-body className={classes.join(' ')}>
                 {/* Same per-column reservation trick as the wall: invisible bars
                     in the same box as real ones, so the overlay lines up without
                     threading pixel measurements down. */}
@@ -151,14 +146,7 @@ export default function MonthWeek({
                         title={event.summary}
                         role={onEventClick ? 'button' : undefined}
                         tabIndex={onEventClick ? 0 : undefined}
-                        onClick={
-                          onEventClick
-                            ? (e) => {
-                                e.stopPropagation();
-                                onEventClick(event);
-                              }
-                            : undefined
-                        }
+                        onClick={onEventClick ? () => onEventClick(event) : undefined}
                         onKeyDown={
                           onEventClick
                             ? (e) => {
@@ -190,19 +178,31 @@ export default function MonthWeek({
                       type="button"
                       className="mon-more"
                       title="Show all events for this day"
-                      onClick={(e) => {
-                        e.stopPropagation();
+                      onClick={(e) =>
                         onMoreClick(
                           date,
                           (e.currentTarget.closest('[data-mon-body]') as HTMLElement) ??
                             e.currentTarget
-                        );
-                      }}
+                        )
+                      }
                     >
                       {hiddenCount} more
                     </button>
                   )}
                 </div>
+                {/* Hover-revealed "add on this day" — floats over the corner, so
+                    it works even when the cell is full and cropping. */}
+                {onDayClick && (
+                  <button
+                    type="button"
+                    className="mon-day-add"
+                    title="Add an event on this day"
+                    aria-label={`Add an event on ${date}`}
+                    onClick={() => onDayClick(date)}
+                  >
+                    +
+                  </button>
+                )}
               </div>
             );
           })}
