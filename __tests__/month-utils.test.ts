@@ -6,7 +6,9 @@ import {
   monthLabel,
   monthOf,
   monthRowCount,
+  popoverLayout,
   shortMonthName,
+  weekdayShortOf,
 } from '@/components/calendar/month-utils';
 
 describe('month row count', () => {
@@ -91,5 +93,54 @@ describe('month helpers', () => {
     expect(addMonths('2026-01', -1)).toBe('2025-12');
     expect(addMonths('2026-07', -12)).toBe('2025-07');
     expect(addMonths('2026-07', 7)).toBe('2027-02');
+  });
+
+  it('names the weekday of a day string', () => {
+    expect(weekdayShortOf('2026-07-23')).toBe('Thu');
+    expect(weekdayShortOf('2026-07-26')).toBe('Sun');
+  });
+});
+
+describe('popover layout', () => {
+  // A 4K-ish calendar region with 7 ~548px columns and 5 ~380px rows.
+  const container = { width: 3840, height: 1900 };
+  const cell = (col: number, row: number) => ({
+    left: col * 548,
+    top: row * 380,
+    width: 548,
+    height: 380,
+  });
+
+  it('centers over the cell, a bit wider, top near the cell top', () => {
+    const box = popoverLayout(cell(3, 1), container);
+    expect(box.width).toBeCloseTo(548 * 1.35);
+    expect(box.left + box.width / 2).toBeCloseTo(3 * 548 + 548 / 2);
+    expect(box.top).toBe(1 * 380 - 6);
+    // Whatever's below the top edge is the growth budget; the list scrolls past it.
+    expect(box.maxHeight).toBe(container.height - 8 - box.top);
+  });
+
+  it('clamps to the region edges for first- and last-column cells', () => {
+    const first = popoverLayout(cell(0, 1), container);
+    expect(first.left).toBe(8);
+    const last = popoverLayout(cell(6, 1), container);
+    expect(last.left + last.width).toBe(container.width - 8);
+  });
+
+  it('shifts a bottom-row popover up so it keeps at least half the region', () => {
+    const box = popoverLayout(cell(2, 4), container);
+    expect(box.maxHeight).toBeGreaterThanOrEqual(container.height / 2);
+    expect(box.top + box.maxHeight).toBeLessThanOrEqual(container.height - 8);
+  });
+
+  it('never exceeds the region width, even for a huge cell', () => {
+    const box = popoverLayout({ left: 0, top: 0, width: 3800, height: 380 }, container);
+    expect(box.width).toBe(container.width - 16);
+    expect(box.left).toBe(8);
+  });
+
+  it('pins the top row to the padding line', () => {
+    const box = popoverLayout(cell(1, 0), container);
+    expect(box.top).toBe(8); // cellTop - 6 would be negative
   });
 });

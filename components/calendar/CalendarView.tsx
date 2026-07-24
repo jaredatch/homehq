@@ -47,6 +47,10 @@ export default function CalendarView({ monthViewResetMs, ...gridProps }: Calenda
   // land, including the keyboard shortcuts MonthGrid handles) — reset-on-
   // interaction means it can't yank someone away mid-task. Leaving month view
   // tears it all down. 0 disables (config.display.monthViewResetSeconds = 0).
+  // An open EventModal deliberately does NOT hold the revert: this timer only
+  // fires after total idleness (typing/clicking in the modal restarts it), so
+  // what it discards is an abandoned form — which the modal's own, shorter
+  // idle timer will normally have closed already. Wall-never-sticks wins.
   useEffect(() => {
     if (viewMode !== 'month' || monthViewResetMs <= 0) return;
     let timer = setTimeout(exitMonth, monthViewResetMs);
@@ -70,6 +74,8 @@ export default function CalendarView({ monthViewResetMs, ...gridProps }: Calenda
         weekStartsOn={gridProps.weekStartsOn}
         timezone={gridProps.timezone}
         todayColor={gridProps.todayColor}
+        calendarWriteEnabled={gridProps.calendarWriteEnabled}
+        createFormResetMs={gridProps.createFormResetMs}
         onExit={exitMonth}
       />
     );

@@ -1,6 +1,8 @@
 'use client';
 
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
+import EventModal, { type EditableEvent } from './EventModal';
+import MonthDayPopover from './MonthDayPopover';
 import MonthWeek from './MonthWeek';
 import {
   addDays,
@@ -14,7 +16,14 @@ import {
   type SyncStatus,
   type WeekStart,
 } from './calendar-utils';
-import { addMonths, monthGridDays, monthLabel, monthOf } from './month-utils';
+import {
+  addMonths,
+  monthGridDays,
+  monthLabel,
+  monthOf,
+  popoverLayout,
+  type PopoverBox,
+} from './month-utils';
 
 interface MonthGridProps {
   calendars: { id: string; name: string; color: string; textColor?: string }[];
@@ -23,6 +32,12 @@ interface MonthGridProps {
   timezone?: string;
   /** Today's marker color (any CSS color). */
   todayColor: string;
+  /** Whether event writes are on (config.google.calendarAccess === "readwrite").
+   * Gates click-to-edit and empty-day create, exactly like the wall — in
+   * readonly, events are inert and only the day popover (a read surface) works. */
+  calendarWriteEnabled: boolean;
+  /** EventModal's inactivity auto-close (ms). 0 disables. */
+  createFormResetMs: number;
   /** Leave month view — back to the wall's week grid. Wired to the header
    * button and Esc; CalendarView flips viewMode back to 'week'. */
   onExit: () => void;
@@ -54,6 +69,8 @@ export default function MonthGrid({
   weekStartsOn,
   timezone,
   todayColor,
+  calendarWriteEnabled,
+  createFormResetMs,
   onExit,
 }: MonthGridProps) {
   // The month being shown. Owned here, never persisted — month view itself is
@@ -70,7 +87,16 @@ export default function MonthGrid({
   const [today, setToday] = useState(() => todayInZone(timezone));
   const [metrics, setMetrics] = useState<MonthMetrics | null>(null);
   const gridRef = useRef<HTMLDivElement>(null);
+  const calRef = useRef<HTMLDivElement>(null);
   const sigRef = useRef<string>('');
+
+  // The two interaction layers on top of the grid, both ephemeral like the view
+  // itself (they die with it — CalendarView unmounts MonthGrid on exit or
+  // auto-revert, so nothing here can ever stick on the wall).
+  const [popover, setPopover] = useState<{ date: string; box: PopoverBox } | null>(null);
+  const [modal, setModal] = useState<
+    { mode: 'create'; date: string } | { mode: 'edit'; event: EditableEvent } | null
+  >(null);
 
   const days = useMemo(() => monthGridDays(month, weekStartsOn), [month, weekStartsOn]);
   const weeksOfDays = useMemo(() => chunkWeeks(days), [days]);
@@ -111,12 +137,62 @@ export default function MonthGrid({
   const goNext = useCallback(() => setMonth((m) => addMonths(m, 1)), []);
   const goToday = useCallback(() => setMonth(monthOf(todayInZone(timezone))), [timezone]);
 
+  // "N more" → the day popover, anchored over the clicked cell. Position is
+  // computed once at open (relative to .mon-calendar, which the popover floats
+  // inside — deliberately OUTSIDE .mon-grid, so the grid's hidden unit samples
+  // and capacity math never see it). Paging or a resize invalidates the anchor,
+  // so both just close it.
+  const openDayPopover = useCallback((date: string, cell: HTMLElement) => {
+    const cal = calRef.current;
+    if (!cal) return;
+    const cr = cal.getBoundingClientRect();
+    const r = cell.getBoundingClientRect();
+    setPopover({
+      date,
+      box: popoverLayout(
+        { left: r.left - cr.left, top: r.top - cr.top, width: r.width, height: r.height },
+        { width: cr.width, height: cr.height }
+      ),
+    });
+  }, []);
+
+  const handleEventClick = useCallback((event: CalendarEvent) => {
+    setModal({ mode: 'edit', event });
+  }, []);
+  const handleDayClick = useCallback((date: string) => {
+    setModal({ mode: 'create', date });
+  }, []);
+
+  useEffect(() => setPopover(null), [month]);
+
+  // Click-outside + resize close the popover — except while the modal is up:
+  // a click in the modal must not dismiss the popover underneath it, or closing
+  // the modal would land somewhere unexpected (Esc peels one layer at a time).
+  useEffect(() => {
+    if (!popover || modal) return;
+    const onDown = (e: PointerEvent) => {
+      if (!(e.target instanceof Element) || !e.target.closest('.mon-pop')) setPopover(null);
+    };
+    const onResize = () => setPopover(null);
+    window.addEventListener('pointerdown', onDown);
+    window.addEventListener('resize', onResize);
+    return () => {
+      window.removeEventListener('pointerdown', onDown);
+      window.removeEventListener('resize', onResize);
+    };
+  }, [popover, modal]);
+
   // Keyboard — there's a real keyboard at the wall, and scrubbing months is
   // this view's main verb: ←/→ page, T jumps to today, Esc leaves. Skipped
-  // while typing in a field (Phase 4 opens EventModal inside this view) or
-  // when a modifier is down (⌘← is the browser's own back).
+  // while typing in a field or when a modifier is down (⌘← is the browser's
+  // own back). While EventModal is open it owns the keyboard outright (its own
+  // Esc/Enter handling) — paging months behind a form would be disorienting.
+  // Esc peels one layer at a time: modal (EventModal itself) → popover → view.
+  const modalOpen = modal !== null;
+  const popoverOpen = popover !== null;
   useEffect(() => {
     const onKeyDown = (e: KeyboardEvent) => {
+      if (modalOpen) return;
       if (e.defaultPrevented || e.metaKey || e.ctrlKey || e.altKey) return;
       const target = e.target as HTMLElement | null;
       if (
@@ -137,12 +213,13 @@ export default function MonthGrid({
       } else if (e.key === 't' || e.key === 'T') {
         goToday();
       } else if (e.key === 'Escape') {
-        onExit();
+        if (popoverOpen) setPopover(null);
+        else onExit();
       }
     };
     window.addEventListener('keydown', onKeyDown);
     return () => window.removeEventListener('keydown', onKeyDown);
-  }, [goPrev, goNext, goToday, onExit]);
+  }, [goPrev, goNext, goToday, onExit, modalOpen, popoverOpen]);
 
   const dayEventsMap = useMemo(() => assignEventsToDays(events, days), [events, days]);
   const timedByDay = useMemo(() => {
@@ -269,8 +346,9 @@ export default function MonthGrid({
         </button>
       </div>
 
-      {/* The one region that opts out of wall scale — see .mon-calendar. */}
-      <div className="mon-calendar">
+      {/* The one region that opts out of wall scale — see .mon-calendar. Also
+          the day popover's positioning context (it floats over the grid). */}
+      <div ref={calRef} className="mon-calendar">
         <div className="mon-weekdays">
           {labels.map((l) => (
             <div key={l} className="mon-weekday">
@@ -305,6 +383,9 @@ export default function MonthGrid({
                 capacities={capacities}
                 timezone={timezone}
                 todayColor={todayColor}
+                onMoreClick={openDayPopover}
+                onEventClick={calendarWriteEnabled ? handleEventClick : undefined}
+                onDayClick={calendarWriteEnabled ? handleDayClick : undefined}
               />
             );
           })}
@@ -332,6 +413,24 @@ export default function MonthGrid({
             </div>
           </div>
         </div>
+
+        {/* Day popover — floats over the grid, never inside it (the grid's
+            hidden samples must not see it). Its own list scrolls; the page
+            can't (.app-main is overflow:clip). */}
+        {popover && (
+          <MonthDayPopover
+            date={popover.date}
+            box={popover.box}
+            today={today}
+            allDay={dayEventsMap.get(popover.date)?.allDay ?? []}
+            timed={timedByDay.get(popover.date) ?? []}
+            colorMap={colorMap}
+            timezone={timezone}
+            todayColor={todayColor}
+            onClose={() => setPopover(null)}
+            onEventClick={calendarWriteEnabled ? handleEventClick : undefined}
+          />
+        )}
       </div>
 
       <div className="mon-footer">
@@ -345,6 +444,31 @@ export default function MonthGrid({
         </div>
         <span className={label.isError ? 'mon-sync--error' : 'mon-sync'}>{label.text}</span>
       </div>
+
+      {/* Create pre-fills the clicked day — the check-then-add workflow in one
+          motion. The same modal as the wall, same recurring-occurrence block,
+          same idle auto-close. If the month view's own auto-revert fires while
+          this is open, the whole view (modal included) unmounts — deliberate:
+          interactions restart CalendarView's timer, so this only happens after
+          total idleness, and the modal's shorter idle timer (default 120s vs
+          180s) will normally have closed an abandoned form first anyway. */}
+      {calendarWriteEnabled && modal && (
+        <EventModal
+          key={
+            modal.mode === 'edit'
+              ? `${modal.event.event_id}-${modal.event.calendar_id}`
+              : `create-${modal.date}`
+          }
+          mode={modal.mode}
+          event={modal.mode === 'edit' ? modal.event : undefined}
+          calendars={calendars}
+          timezone={timezone}
+          defaultDate={modal.mode === 'create' ? modal.date : today}
+          resetMs={createFormResetMs}
+          onClose={() => setModal(null)}
+          onSaved={fetchEvents}
+        />
+      )}
     </div>
   );
 }

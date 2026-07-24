@@ -93,3 +93,45 @@ export function addMonths(month: string, n: number): string {
   const mon = (total % 12) + 1;
   return `${year}-${String(mon).padStart(2, '0')}`;
 }
+
+const WEEKDAY_SHORT = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+
+/** Short weekday name ('Tue') for a day string — the day popover's header. */
+export function weekdayShortOf(dateStr: string): string {
+  const [y, m, d] = dateStr.split('-').map(Number);
+  return WEEKDAY_SHORT[new Date(y, m - 1, d).getDay()];
+}
+
+/** Where the day popover sits, relative to the calendar region. All px. */
+export interface PopoverBox {
+  left: number;
+  top: number;
+  width: number;
+  maxHeight: number;
+}
+
+const clamp = (v: number, lo: number, hi: number) => Math.max(lo, Math.min(v, hi));
+
+/**
+ * Position the day popover over its day cell, Google-style: a bit wider than
+ * the cell and centered on it, top pinned near the cell's top edge — then
+ * clamped so it always stays inside the calendar region (the page can never
+ * scroll: .app-main is overflow:clip, so anything past the edge would just be
+ * cut off). Bottom-row cells get their anchor shifted UP far enough that the
+ * popover always opens with at least ~half the region's height to grow into;
+ * a longer day than that scrolls inside the popover's own list.
+ *
+ * `cell` is the day cell's rect relative to the calendar region; `container`
+ * is the region's own size. Pure math, so the clamping is unit-testable.
+ */
+export function popoverLayout(
+  cell: { left: number; top: number; width: number; height: number },
+  container: { width: number; height: number },
+  pad = 8
+): PopoverBox {
+  const width = Math.min(Math.max(cell.width * 1.35, 240), Math.max(0, container.width - 2 * pad));
+  const left = clamp(cell.left + cell.width / 2 - width / 2, pad, container.width - pad - width);
+  const minRoom = Math.min(container.height * 0.5, container.height - 2 * pad);
+  const top = clamp(cell.top - 6, pad, Math.max(pad, container.height - pad - minRoom));
+  return { left, top, width, maxHeight: container.height - pad - top };
+}

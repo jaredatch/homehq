@@ -24,6 +24,15 @@ interface MonthWeekProps {
   timezone?: string;
   /** Today's marker color (any CSS color), from config.display.todayColor. */
   todayColor: string;
+  /** A day's "N more" was clicked — open its popover, anchored to the cell.
+   * Always wired: the popover is a read surface, so it works in readonly too. */
+  onMoreClick: (date: string, cell: HTMLElement) => void;
+  /** When set, chips + bars are clickable and open the edit modal. Omitted in
+   * read-only deployments, so events stay inert there (like the wall). */
+  onEventClick?: (event: CalendarEvent) => void;
+  /** When set, clicking a cell's empty area opens the create modal with that
+   * date pre-filled. Omitted in read-only deployments. */
+  onDayClick?: (date: string) => void;
 }
 
 /**
@@ -47,6 +56,9 @@ export default function MonthWeek({
   capacities,
   timezone,
   todayColor,
+  onMoreClick,
+  onEventClick,
+  onDayClick,
 }: MonthWeekProps) {
   return (
     <div className="mon-week">
@@ -108,7 +120,15 @@ export default function MonthWeek({
             if (isPast) classes.push('mon-day--past');
             else if (adjacent) classes.push('mon-day--adjacent');
             return (
-              <div key={date} data-mon-body className={classes.join(' ')}>
+              <div
+                key={date}
+                data-mon-body
+                className={classes.join(' ')}
+                // Empty-area click = create on that day (chips and "N more" stop
+                // propagation; the band overlay is a sibling, so bar clicks never
+                // bubble here). Only wired when writes are on.
+                onClick={onDayClick ? () => onDayClick(date) : undefined}
+              >
                 {/* Same per-column reservation trick as the wall: invisible bars
                     in the same box as real ones, so the overlay lines up without
                     threading pixel measurements down. */}
@@ -127,8 +147,28 @@ export default function MonthWeek({
                     return (
                       <div
                         key={`${event.event_id}-${event.calendar_id}`}
-                        className="mon-chip"
+                        className={onEventClick ? 'mon-chip mon-chip--clickable' : 'mon-chip'}
                         title={event.summary}
+                        role={onEventClick ? 'button' : undefined}
+                        tabIndex={onEventClick ? 0 : undefined}
+                        onClick={
+                          onEventClick
+                            ? (e) => {
+                                e.stopPropagation();
+                                onEventClick(event);
+                              }
+                            : undefined
+                        }
+                        onKeyDown={
+                          onEventClick
+                            ? (e) => {
+                                if (e.key === 'Enter' || e.key === ' ') {
+                                  e.preventDefault();
+                                  onEventClick(event);
+                                }
+                              }
+                            : undefined
+                        }
                       >
                         {/* Google's chip order: dot · time · title, all left,
                             time first — the scanning key for "when is it" — with
@@ -145,7 +185,23 @@ export default function MonthWeek({
                       </div>
                     );
                   })}
-                  {hiddenCount > 0 && <div className="mon-more">{hiddenCount} more</div>}
+                  {hiddenCount > 0 && (
+                    <button
+                      type="button"
+                      className="mon-more"
+                      title="Show all events for this day"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        onMoreClick(
+                          date,
+                          (e.currentTarget.closest('[data-mon-body]') as HTMLElement) ??
+                            e.currentTarget
+                        );
+                      }}
+                    >
+                      {hiddenCount} more
+                    </button>
+                  )}
                 </div>
               </div>
             );
@@ -175,9 +231,24 @@ export default function MonthWeek({
                   }}
                 >
                   <div
-                    className="mon-band-bar"
+                    className={
+                      onEventClick ? 'mon-band-bar mon-band-bar--clickable' : 'mon-band-bar'
+                    }
                     style={{ backgroundColor: color, color: text }}
                     title={seg.event.summary}
+                    role={onEventClick ? 'button' : undefined}
+                    tabIndex={onEventClick ? 0 : undefined}
+                    onClick={onEventClick ? () => onEventClick(seg.event) : undefined}
+                    onKeyDown={
+                      onEventClick
+                        ? (e) => {
+                            if (e.key === 'Enter' || e.key === ' ') {
+                              e.preventDefault();
+                              onEventClick(seg.event);
+                            }
+                          }
+                        : undefined
+                    }
                   >
                     {seg.event.summary || '(No title)'}
                   </div>
