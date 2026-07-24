@@ -242,7 +242,7 @@ stamps the deployed commit into `data/deploy-version`, and the dashboard polls `
 once a minute and hard-reloads itself when that token changes. A normal deploy reaches the wall
 on its own within a minute — no need to touch the Pi.
 
-One catch the first time: a kiosk already running an *older* build has no version check yet, so
+One catch the first time: a kiosk already running an _older_ build has no version check yet, so
 it needs a single manual reload (or reboot) to pick up the self-updating bundle. Every deploy
 after that is hands-off.
 
@@ -253,9 +253,10 @@ hand and trigger the same refresh.
 ### Backups
 
 Everything worth backing up lives in three files: `data/homehq.db` (the OAuth refresh token
-+ cached events), `data/config.json`, and `.env`. Losing the DB only costs the Google
-connection (reconnect at `/setup`) and cached data — it rebuilds itself; losing `.env` means
-re-creating credentials. Low stakes, but cheap to automate.
+
+- cached events), `data/config.json`, and `.env`. Losing the DB only costs the Google
+  connection (reconnect at `/setup`) and cached data — it rebuilds itself; losing `.env` means
+  re-creating credentials. Low stakes, but cheap to automate.
 
 The DB runs in WAL mode, so never `cp homehq.db` — recent writes live in the `-wal` file and a
 plain copy silently drops them. Use sqlite's online `.backup`, which folds the WAL into a
