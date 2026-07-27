@@ -85,6 +85,16 @@ function validate(data: unknown): AppConfig {
       'Config: display.monthViewResetSeconds must be a non-negative number (0 disables auto-revert)'
     );
   }
+  if (
+    d.filterResetSeconds !== undefined &&
+    (typeof d.filterResetSeconds !== 'number' ||
+      !Number.isFinite(d.filterResetSeconds) ||
+      d.filterResetSeconds < 0)
+  ) {
+    throw new Error(
+      'Config: display.filterResetSeconds must be a non-negative number (0 disables auto-clear)'
+    );
+  }
   if (d.timezone !== undefined) {
     if (typeof d.timezone !== 'string') {
       throw new Error('Config: display.timezone must be an IANA time-zone string');

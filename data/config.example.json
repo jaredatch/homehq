@@ -20,7 +20,8 @@
     "timezone": "America/Chicago",
     "expandResetSeconds": 300,
     "createFormResetSeconds": 120,
-    "monthViewResetSeconds": 180
+    "monthViewResetSeconds": 180,
+    "filterResetSeconds": 300
   },
   "auth": {
     "pin": "123456"

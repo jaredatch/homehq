@@ -30,6 +30,7 @@ export default function DashboardPage() {
           createFormResetMs={(config.display.createFormResetSeconds ?? 120) * 1000}
           appVersion={appVersion}
           monthViewResetMs={(config.display.monthViewResetSeconds ?? 180) * 1000}
+          filterResetMs={(config.display.filterResetSeconds ?? 300) * 1000}
         />
       </main>
     </div>

@@ -42,6 +42,11 @@ export interface DisplayConfig {
    * on any interaction (click, key), never mid-task. Defaults to 180. Set to 0
    * to disable auto-revert. */
   monthViewResetSeconds?: number;
+  /** Seconds a per-person calendar filter stays applied with no interaction
+   * before auto-clearing back to "show all", so the always-on wall is never
+   * quietly narrowed to one person for days. The timer resets on any
+   * interaction. Defaults to 300 (5 min). Set to 0 to disable auto-clear. */
+  filterResetSeconds?: number;
 }
 
 export interface AuthConfig {

@@ -5,6 +5,7 @@ import WeekRow from './WeekRow';
 import EventItem from './EventItem';
 import EventModal, { type EditableEvent } from './EventModal';
 import CalendarFooter from './CalendarFooter';
+import { useCalendarFilter, filterEvents } from './calendar-filter';
 import {
   assignEventsToDays,
   chunkWeeks,
@@ -92,6 +93,11 @@ export default function CalendarGrid({
   const measureRef = useRef<HTMLDivElement>(null);
   const sigRef = useRef<string>('');
   const [metrics, setMetrics] = useState<GridMetrics | null>(null);
+
+  // Per-person filter (shared across views, empty = show all). When empty this
+  // returns the SAME `events` reference below, so the default wall render is
+  // byte-for-byte unchanged.
+  const filter = useCalendarFilter();
 
   // "Expand next week" — flips the layout priority so next week shows every
   // event and the current week crops to the remaining space. Ephemeral on
@@ -203,7 +209,14 @@ export default function CalendarGrid({
     [today, totalDays, weekStartsOn]
   );
   const weeksOfDays = useMemo(() => chunkWeeks(days), [days]);
-  const dayEventsMap = useMemo(() => assignEventsToDays(events, days), [events, days]);
+
+  // Narrow to the filtered calendars. Empty filter → the same array reference,
+  // so every downstream memo (and the measurement layer) is identical to today.
+  const visibleEvents = useMemo(() => filterEvents(events, filter), [events, filter]);
+  const dayEventsMap = useMemo(
+    () => assignEventsToDays(visibleEvents, days),
+    [visibleEvents, days]
+  );
 
   // Timed events keyed by start day; all-day events are laid out separately as
   // spanning bars in each week's band.
@@ -213,7 +226,7 @@ export default function CalendarGrid({
     return map;
   }, [days, dayEventsMap]);
 
-  const allDayEvents = useMemo(() => events.filter((e) => e.all_day), [events]);
+  const allDayEvents = useMemo(() => visibleEvents.filter((e) => e.all_day), [visibleEvents]);
   const weekSegments = useMemo(
     () => weeksOfDays.map((w) => computeWeekSegments(allDayEvents, w)),
     [weeksOfDays, allDayEvents]
@@ -326,7 +339,7 @@ export default function CalendarGrid({
     const ro = new ResizeObserver(measure);
     ro.observe(grid);
     return () => ro.disconnect();
-  }, [days, events, timezone]);
+  }, [days, visibleEvents, timezone]);
 
   // Space policy, by priority:
   //   1. the "protected" days of the ANCHOR week always show every event, and

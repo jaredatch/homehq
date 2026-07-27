@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import CalendarFooter from './CalendarFooter';
+import { useCalendarFilter, filterEvents } from './calendar-filter';
 import EventModal, { type EditableEvent } from './EventModal';
 import MonthDayPopover from './MonthDayPopover';
 import MonthWeek from './MonthWeek';
@@ -91,6 +92,10 @@ export default function MonthGrid({
   const gridRef = useRef<HTMLDivElement>(null);
   const calRef = useRef<HTMLDivElement>(null);
   const sigRef = useRef<string>('');
+
+  // Per-person filter, shared with the wall (empty = show all). Same array
+  // reference when empty, so an unfiltered month renders exactly as before.
+  const filter = useCalendarFilter();
 
   // The two interaction layers on top of the grid, both ephemeral like the view
   // itself (they die with it — CalendarView unmounts MonthGrid on exit or
@@ -228,14 +233,18 @@ export default function MonthGrid({
     return () => window.removeEventListener('keydown', onKeyDown);
   }, [goPrev, goNext, goToday, onExit, modalOpen, popoverOpen]);
 
-  const dayEventsMap = useMemo(() => assignEventsToDays(events, days), [events, days]);
+  const visibleEvents = useMemo(() => filterEvents(events, filter), [events, filter]);
+  const dayEventsMap = useMemo(
+    () => assignEventsToDays(visibleEvents, days),
+    [visibleEvents, days]
+  );
   const timedByDay = useMemo(() => {
     const map = new Map<string, CalendarEvent[]>();
     for (const day of days) map.set(day, dayEventsMap.get(day)?.timed ?? []);
     return map;
   }, [days, dayEventsMap]);
 
-  const allDayEvents = useMemo(() => events.filter((e) => e.all_day), [events]);
+  const allDayEvents = useMemo(() => visibleEvents.filter((e) => e.all_day), [visibleEvents]);
   const weekSegments = useMemo(
     () => weeksOfDays.map((w) => computeWeekSegments(allDayEvents, w)),
     [weeksOfDays, allDayEvents]

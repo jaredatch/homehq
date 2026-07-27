@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import CalendarGrid from './CalendarGrid';
 import MonthGrid from './MonthGrid';
+import { useCalendarFilter, clearFilter } from './calendar-filter';
 import type { WeekStart } from './calendar-utils';
 
 interface CalendarViewProps {
@@ -21,6 +22,10 @@ interface CalendarViewProps {
   /** How long month view stays up with no interaction before auto-reverting to
    * the week grid (ms). 0 disables. From config.display.monthViewResetSeconds. */
   monthViewResetMs: number;
+  /** How long a per-person calendar filter stays applied with no interaction
+   * before auto-clearing to "show all" (ms). 0 disables. From
+   * config.display.filterResetSeconds. */
+  filterResetMs: number;
 }
 
 /**
@@ -34,11 +39,39 @@ interface CalendarViewProps {
  * and gives month view a clean slate on every entry — it re-opens on the
  * current month, never wherever someone left it.
  */
-export default function CalendarView({ monthViewResetMs, ...gridProps }: CalendarViewProps) {
+export default function CalendarView({
+  monthViewResetMs,
+  filterResetMs,
+  ...gridProps
+}: CalendarViewProps) {
   const [viewMode, setViewMode] = useState<'week' | 'month'>('week');
 
   const enterMonth = useCallback(() => setViewMode('month'), []);
   const exitMonth = useCallback(() => setViewMode('week'), []);
+
+  // Filter auto-revert — same wall-never-sticks contract as month view above and
+  // the expand toggle: a filter left behind on the always-on wall must clear
+  // itself so the family's calendar is never quietly narrowed to one person for
+  // days. Runs across BOTH views (this wrapper stays mounted around both grids).
+  // The timer starts when a filter goes active and restarts on ANY interaction
+  // (capture-phase, so filtering clicks themselves reset it) — it only ever
+  // fires after total idleness. 0 disables (config.display.filterResetSeconds).
+  const filterActive = useCalendarFilter().size > 0;
+  useEffect(() => {
+    if (!filterActive || filterResetMs <= 0) return;
+    let timer = setTimeout(clearFilter, filterResetMs);
+    const restart = () => {
+      clearTimeout(timer);
+      timer = setTimeout(clearFilter, filterResetMs);
+    };
+    window.addEventListener('pointerdown', restart, true);
+    window.addEventListener('keydown', restart, true);
+    return () => {
+      clearTimeout(timer);
+      window.removeEventListener('pointerdown', restart, true);
+      window.removeEventListener('keydown', restart, true);
+    };
+  }, [filterActive, filterResetMs]);
 
   // Auto-revert: month view is a transient, at-the-keyboard mode on an
   // always-on wall — someone walking away mid-scrub must never leave the
