@@ -332,6 +332,35 @@ describe('shared events (multi-calendar)', () => {
       expect(getEventsInRange('2026-09-04', '2026-09-05')).toHaveLength(2);
     });
 
+    it('moves an event between calendars (full swap — no calendar kept)', async () => {
+      upsertEvent({
+        event_id: 'goog_maddie',
+        calendar_id: 'maddie',
+        summary: 'Recital',
+        description: null,
+        location: null,
+        start_time: '2026-09-04T18:00:00-05:00',
+        end_time: '2026-09-04T19:00:00-05:00',
+        all_day: 0,
+        recurring_event_id: null,
+        group_id: null,
+      });
+
+      const res = await update({ ...editBody, calendarIds: ['eleanor'] });
+      expect(res.status).toBe(200);
+
+      // Nothing to patch: insert on Eleanor, then drop Maddie's copy.
+      expect(mockPatch).not.toHaveBeenCalled();
+      expect(mockCreate).toHaveBeenCalledTimes(1);
+      expect(mockCreate.mock.calls[0][1]).toBe('eleanor');
+      expect(mockDelete).toHaveBeenCalledTimes(1);
+
+      expect(getEvent('goog_maddie', 'maddie')).toBeUndefined();
+      expect(getEvent('goog_eleanor', 'eleanor')).toBeDefined();
+      // A single-calendar result stays unstamped.
+      expect(getEvent('goog_eleanor', 'eleanor')?.group_id).toBeNull();
+    });
+
     it('400s on an empty calendar list, without touching Google', async () => {
       seedShared();
       const res = await update({ ...editBody, calendarIds: [] });

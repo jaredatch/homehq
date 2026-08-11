@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { formatEventTimeRange, nextHourRange, zonedParts } from './calendar-utils';
+import { MAX_GROUP_CALENDARS } from '@/lib/calendar/event-groups';
 
 interface CalendarOption {
   id: string;
@@ -21,6 +22,7 @@ export interface EditableEvent {
   end_time: string;
   all_day: number;
   recurring_event_id: string | null;
+  group_id: string | null;
 }
 
 interface EventModalProps {
@@ -28,6 +30,9 @@ interface EventModalProps {
   mode: 'create' | 'edit';
   /** Required in edit mode — the event being changed. */
   event?: EditableEvent;
+  /** Edit mode: every calendar this event currently lives on (one for an
+   * ordinary event, more for a shared one). Seeds the picker. */
+  groupCalendarIds?: string[];
   calendars: CalendarOption[];
   /** IANA zone the times are entered/read in (the display zone). */
   timezone?: string;
@@ -46,6 +51,7 @@ const pad = (n: number) => String(n).padStart(2, '0');
  * form shows the same wall-clock the grid does. All-day rows store a bare date. */
 function initialValues(
   event: EditableEvent | undefined,
+  groupCalendarIds: string[] | undefined,
   timezone: string | undefined,
   defaultDate: string
 ) {
@@ -53,7 +59,7 @@ function initialValues(
   if (!event) {
     return {
       title: '',
-      calendarId: '',
+      calendarIds: [] as string[],
       allDay: false,
       date: defaultDate,
       startTime: fallback.start,
@@ -77,7 +83,7 @@ function initialValues(
   }
   return {
     title: event.summary,
-    calendarId: event.calendar_id,
+    calendarIds: groupCalendarIds?.length ? groupCalendarIds : [event.calendar_id],
     allDay,
     date,
     startTime,
@@ -102,6 +108,7 @@ function whenLabel(event: EditableEvent, timezone: string | undefined): string {
 export default function EventModal({
   mode,
   event,
+  groupCalendarIds,
   calendars,
   timezone,
   defaultDate,
@@ -109,16 +116,19 @@ export default function EventModal({
   onClose,
   onSaved,
 }: EventModalProps) {
+  // groupCalendarIds is read once to seed the form; the modal is keyed per event
+  // at the call site, so a different event remounts rather than re-deriving.
+  const seedIds = groupCalendarIds?.join(',');
   const init = useMemo(
-    () => initialValues(event, timezone, defaultDate),
-    [event, timezone, defaultDate]
+    () => initialValues(event, seedIds ? seedIds.split(',') : undefined, timezone, defaultDate),
+    [event, seedIds, timezone, defaultDate]
   );
 
   const isEdit = mode === 'edit';
   const isRecurring = isEdit && !!event?.recurring_event_id;
 
   const [title, setTitle] = useState(init.title);
-  const [calendarId, setCalendarId] = useState(init.calendarId);
+  const [calendarIds, setCalendarIds] = useState<string[]>(init.calendarIds);
   const [allDay, setAllDay] = useState(init.allDay);
   const [date, setDate] = useState(init.date);
   const [startTime, setStartTime] = useState(init.startTime);
@@ -132,11 +142,31 @@ export default function EventModal({
 
   const titleRef = useRef<HTMLInputElement>(null);
 
-  // Title is required; a calendar must be chosen (create only — in edit it's
-  // fixed to the event's calendar). Timed events need an end after the start.
+  // Title is required, and at least one calendar must be chosen — there's no
+  // default, so an event can never silently land on the wrong person. Timed
+  // events need an end after the start.
   const timesValid = allDay || (!!startTime && !!endTime && endTime > startTime);
   const canSubmit =
-    title.trim() !== '' && calendarId !== '' && date !== '' && timesValid && !submitting;
+    title.trim() !== '' && calendarIds.length > 0 && date !== '' && timesValid && !submitting;
+
+  // Checking a second calendar makes this one event that applies to two people.
+  // Capped while the two-color treatment is still being designed; unchecking is
+  // always allowed, so the cap can never trap you.
+  const toggleCalendar = (id: string) =>
+    setCalendarIds((prev) =>
+      prev.includes(id)
+        ? prev.filter((x) => x !== id)
+        : prev.length >= MAX_GROUP_CALENDARS
+          ? prev
+          : [...prev, id]
+    );
+
+  // What the event is actually on right now (not the pending selection) — the
+  // delete confirmation has to describe what will really be removed.
+  const savedNames = init.calendarIds
+    .map((id) => calendars.find((c) => c.id === id)?.name)
+    .filter(Boolean)
+    .join(' and ');
 
   // Inactivity auto-close — the wall never sleeps, so an abandoned form must not
   // stick; any interaction restarts the clock.
@@ -178,7 +208,7 @@ export default function EventModal({
     setSubmitting(true);
     setError(null);
     const payload = {
-      calendarId,
+      calendarIds,
       title: title.trim(),
       allDay,
       date,
@@ -186,7 +216,9 @@ export default function EventModal({
       endTime: allDay ? undefined : endTime,
       location: location.trim() || undefined,
       notes: notes.trim() || undefined,
-      ...(isEdit && event ? { eventId: event.event_id } : {}),
+      // Edit also sends the scalar anchor: it's the (eventId, calendarId) key the
+      // route looks the event up by, independent of the membership being saved.
+      ...(isEdit && event ? { eventId: event.event_id, calendarId: event.calendar_id } : {}),
     };
     try {
       const res = await fetch(isEdit ? '/api/calendar/update' : '/api/calendar/create', {
@@ -208,7 +240,7 @@ export default function EventModal({
     }
   }, [
     canSubmit,
-    calendarId,
+    calendarIds,
     title,
     allDay,
     date,
@@ -316,6 +348,13 @@ export default function EventModal({
               <p className="cal-confirm-lead">Delete this event?</p>
               <p className="cal-confirm-title">“{event.summary || '(No title)'}”</p>
               <p className="cal-confirm-when">{whenLabel(event, timezone)}</p>
+              {init.calendarIds.length > 1 && (
+                // Delete removes the whole shared event. Dropping one person is
+                // an edit — uncheck them and save.
+                <p className="cal-confirm-note">
+                  Removes it from {savedNames}. To drop just one, cancel and uncheck them instead.
+                </p>
+              )}
               {error && <p className="cal-modal-error">{error}</p>}
             </div>
             <div className="cal-modal-footer">
@@ -352,27 +391,42 @@ export default function EventModal({
                 />
               </label>
 
-              <label className="cal-field">
-                <span className="cal-field-label">
-                  Calendar{' '}
-                  {isEdit && <span className="cal-field-opt">(can’t move between calendars)</span>}
+              <div className="cal-field">
+                <span className="cal-field-label" id="cal-calendars-label">
+                  Calendars{' '}
+                  <span className="cal-field-opt">(pick up to {MAX_GROUP_CALENDARS})</span>
                 </span>
-                <select
-                  className="cal-select"
-                  value={calendarId}
-                  onChange={(e) => setCalendarId(e.target.value)}
-                  disabled={isEdit}
-                >
-                  <option value="" disabled>
-                    Select calendar…
-                  </option>
-                  {calendars.map((c) => (
-                    <option key={c.id} value={c.id}>
-                      {c.name}
-                    </option>
-                  ))}
-                </select>
-              </label>
+                <div className="cal-calpick" role="group" aria-labelledby="cal-calendars-label">
+                  {calendars.map((c) => {
+                    const checked = calendarIds.includes(c.id);
+                    // At the cap, the unchosen ones grey out — unchecking one
+                    // frees a slot, so this can never be a dead end.
+                    const atCap = !checked && calendarIds.length >= MAX_GROUP_CALENDARS;
+                    return (
+                      <label
+                        key={c.id}
+                        className={`cal-calpick-option${atCap ? ' is-disabled' : ''}${
+                          checked ? ' is-checked' : ''
+                        }`}
+                      >
+                        <input
+                          type="checkbox"
+                          checked={checked}
+                          disabled={atCap}
+                          onChange={() => toggleCalendar(c.id)}
+                        />
+                        <span className="cal-calpick-dot" style={{ backgroundColor: c.color }} />
+                        <span className="cal-calpick-name">{c.name}</span>
+                      </label>
+                    );
+                  })}
+                </div>
+                {calendarIds.length > 1 && (
+                  <p className="cal-calpick-note">
+                    Goes on both calendars as one event — the board shows it once.
+                  </p>
+                )}
+              </div>
 
               <div className="cal-field-row">
                 <label className="cal-field cal-field--date">

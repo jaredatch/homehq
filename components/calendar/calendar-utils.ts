@@ -11,6 +11,9 @@ export interface CalendarEvent {
   /** Google's series id when this is a recurring occurrence; null otherwise.
    * Recurring events open a "manage in Google Calendar" notice (edit blocked). */
   recurring_event_id: string | null;
+  /** Shared-event stamp: every per-calendar copy of one logical event carries
+   * the same id. null for ordinary single-calendar events. */
+  group_id: string | null;
   updated_at: string;
 }
 

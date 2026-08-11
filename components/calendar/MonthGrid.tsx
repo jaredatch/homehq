@@ -4,6 +4,7 @@ import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } fr
 import CalendarFooter from './CalendarFooter';
 import { useCalendarFilter, filterEvents } from './calendar-filter';
 import EventModal, { type EditableEvent } from './EventModal';
+import { calendarIdsForEvent } from './event-groups';
 import MonthDayPopover from './MonthDayPopover';
 import MonthWeek from './MonthWeek';
 import {
@@ -471,6 +472,10 @@ export default function MonthGrid({
           }
           mode={modal.mode}
           event={modal.mode === 'edit' ? modal.event : undefined}
+          // Unfiltered list on purpose — see the note in CalendarGrid.
+          groupCalendarIds={
+            modal.mode === 'edit' ? calendarIdsForEvent(events, modal.event) : undefined
+          }
           calendars={calendars}
           timezone={timezone}
           defaultDate={modal.mode === 'create' ? modal.date : today}

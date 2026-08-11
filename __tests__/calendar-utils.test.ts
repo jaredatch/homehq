@@ -16,6 +16,7 @@ const makeEvent = (overrides: Partial<CalendarEvent>): CalendarEvent => ({
   summary: 'Test Event',
   description: null,
   location: null,
+  group_id: null,
   start_time: '2026-04-29T09:00:00',
   end_time: '2026-04-29T10:00:00',
   all_day: 0,

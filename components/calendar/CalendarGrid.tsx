@@ -4,6 +4,7 @@ import { useEffect, useLayoutEffect, useState, useCallback, useMemo, useRef } fr
 import WeekRow from './WeekRow';
 import EventItem from './EventItem';
 import EventModal, { type EditableEvent } from './EventModal';
+import { calendarIdsForEvent } from './event-groups';
 import CalendarFooter from './CalendarFooter';
 import { useCalendarFilter, filterEvents } from './calendar-filter';
 import {
@@ -550,6 +551,11 @@ export default function CalendarGrid({
           }
           mode={modal.mode}
           event={modal.mode === 'edit' ? modal.event : undefined}
+          // Derived from the UNFILTERED list: with a per-person filter on, a
+          // sibling copy may be hidden from the grid but must still show checked.
+          groupCalendarIds={
+            modal.mode === 'edit' ? calendarIdsForEvent(events, modal.event) : undefined
+          }
           calendars={calendars}
           timezone={timezone}
           defaultDate={today}
