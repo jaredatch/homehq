@@ -6,6 +6,7 @@ import {
   type CalendarEvent,
 } from './calendar-utils';
 import { isAdjacentMonth, shortMonthName } from './month-utils';
+import { eventPaint, split, stripes } from './event-paint';
 
 interface MonthWeekProps {
   weekDays: string[]; // 7 date strings (YYYY-MM-DD)
@@ -138,7 +139,7 @@ export default function MonthWeek({
                 )}
                 <div className="mon-day-events">
                   {visible.map((event) => {
-                    const color = colorMap.get(event.calendar_id)?.color ?? '#6b7280';
+                    const paint = eventPaint(event, colorMap);
                     return (
                       <div
                         key={`${event.event_id}-${event.calendar_id}`}
@@ -163,7 +164,11 @@ export default function MonthWeek({
                             the title truncating at the cell edge. */}
                         <span
                           className="mon-chip-dot"
-                          style={{ backgroundColor: color }}
+                          style={
+                            paint.shared
+                              ? { background: split(paint.colors, 90) }
+                              : { backgroundColor: paint.primary }
+                          }
                           aria-hidden
                         />
                         <span className="mon-chip-time">
@@ -213,9 +218,9 @@ export default function MonthWeek({
         {slotCount > 0 && (
           <div className="mon-band" style={{ gridTemplateRows: `repeat(${slotCount}, auto)` }}>
             {segments.map((seg) => {
-              const cal = colorMap.get(seg.event.calendar_id);
-              const color = cal?.color ?? '#6b7280';
-              const text = cal?.textColor ?? contrastText(color);
+              const paint = eventPaint(seg.event, colorMap);
+              const color = paint.primary;
+              const text = paint.textColor;
               // Dim only if the whole span is past — a multi-day event that still
               // reaches today stays bright, matching the wall. Adjacent-month days
               // deliberately do NOT dim bars: both references keep a spanning bar
@@ -234,7 +239,11 @@ export default function MonthWeek({
                     className={
                       onEventClick ? 'mon-band-bar mon-band-bar--clickable' : 'mon-band-bar'
                     }
-                    style={{ backgroundColor: color, color: text }}
+                    style={
+                      paint.shared
+                        ? { background: stripes(paint.colors), color: '#fff' }
+                        : { backgroundColor: color, color: text }
+                    }
                     title={seg.event.summary}
                     role={onEventClick ? 'button' : undefined}
                     tabIndex={onEventClick ? 0 : undefined}
@@ -250,7 +259,12 @@ export default function MonthWeek({
                         : undefined
                     }
                   >
-                    {seg.event.summary || '(No title)'}
+                    {/* Scrimmed only when shared — see WeekRow. */}
+                    {paint.shared ? (
+                      <span className="cal-band-label">{seg.event.summary || '(No title)'}</span>
+                    ) : (
+                      seg.event.summary || '(No title)'
+                    )}
                   </div>
                 </div>
               );

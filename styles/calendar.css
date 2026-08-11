@@ -231,6 +231,31 @@
 	visibility: hidden;
 }
 
+/* ---- Shared events (two calendars, one chip) --------------------------- */
+
+/* Stripe period for a shared bar's 45deg barber-pole. In `em` so it scales with
+   the wall's root clamp() -- a px value would read as pinstripes at 4K and fat
+   bands at 1080p. One knob: widen for chunkier stripes. */
+:root {
+	--cal-stripe: 0.7em;
+}
+
+/* The scrim. On a shared bar the fill is two colors, so contrastText can't pick
+   one text color that works over both -- Jared's fix is to stop asking: the
+   title gets its own dark translucent pill and is always white-on-near-black,
+   whatever the stripes do underneath. Applied ONLY to shared bars, so ordinary
+   ones keep their bare text node and unchanged DOM. */
+.cal-band-label {
+	padding: 0.1em 0.4em;
+	color: var(--white);
+	background-color: rgb(0 0 0 / 0.65);
+	border-radius: 0.2em;
+	/* Inline box: vertical padding bleeds visually without growing the line box,
+	   so a scrimmed bar is exactly as tall as a plain one. */
+	box-decoration-break: clone;
+	-webkit-box-decoration-break: clone;
+}
+
 /* ---- Timed event (EventItem) ------------------------------------------ */
 .cal-event {
 	position: relative;

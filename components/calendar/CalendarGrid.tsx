@@ -4,7 +4,8 @@ import { useEffect, useLayoutEffect, useState, useCallback, useMemo, useRef } fr
 import WeekRow from './WeekRow';
 import EventItem from './EventItem';
 import EventModal, { type EditableEvent } from './EventModal';
-import { calendarIdsForEvent } from './event-groups';
+import { calendarIdsForEvent, mergeGroups } from './event-groups';
+import { eventPaint, split } from './event-paint';
 import CalendarFooter from './CalendarFooter';
 import { useCalendarFilter, filterEvents } from './calendar-filter';
 import {
@@ -211,9 +212,21 @@ export default function CalendarGrid({
   );
   const weeksOfDays = useMemo(() => chunkWeeks(days), [days]);
 
-  // Narrow to the filtered calendars. Empty filter → the same array reference,
-  // so every downstream memo (and the measurement layer) is identical to today.
-  const visibleEvents = useMemo(() => filterEvents(events, filter), [events, filter]);
+  // Narrow to the filtered calendars, THEN collapse each shared event's copies
+  // into one chip. Both steps hand back the same array reference when they have
+  // nothing to do, so an unfiltered board with no shared events is identical to
+  // today — right through to the measurement layer.
+  //
+  // The order is what makes the per-person behavior fall out for free: filtered
+  // to Maddie, only her copy survives and the merge is a no-op, so a shared
+  // event renders in HER color; unfiltered, both survive and become one
+  // two-color chip.
+  const calendarOrder = useMemo(() => calendars.map((c) => c.id), [calendars]);
+  const filteredEvents = useMemo(() => filterEvents(events, filter), [events, filter]);
+  const visibleEvents = useMemo(
+    () => mergeGroups(filteredEvents, calendarOrder),
+    [filteredEvents, calendarOrder]
+  );
   const dayEventsMap = useMemo(
     () => assignEventsToDays(visibleEvents, days),
     [visibleEvents, days]
@@ -502,14 +515,20 @@ export default function CalendarGrid({
           <div className="cal-measure-grid">
             {days.map((date) => (
               <div key={date} data-measure-day={date} className="cal-day-events">
-                {(timedByDay.get(date) ?? []).map((event) => (
-                  <EventItem
-                    key={`${event.event_id}-${event.calendar_id}`}
-                    event={event}
-                    color={colorMap.get(event.calendar_id)?.color ?? '#6b7280'}
-                    timeZone={timezone}
-                  />
-                ))}
+                {(timedByDay.get(date) ?? []).map((event) => {
+                  // Paint identically to the visible layer — a gradient can't
+                  // change height, but this layer must stay a faithful copy.
+                  const paint = eventPaint(event, colorMap);
+                  return (
+                    <EventItem
+                      key={`${event.event_id}-${event.calendar_id}`}
+                      event={event}
+                      color={paint.primary}
+                      accent={paint.shared ? split(paint.colors, 180) : undefined}
+                      timeZone={timezone}
+                    />
+                  );
+                })}
               </div>
             ))}
             <div data-more-sample className="cal-more">

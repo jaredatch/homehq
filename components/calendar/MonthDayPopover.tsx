@@ -1,5 +1,6 @@
 import { contrastText, formatEventTime, type CalendarEvent } from './calendar-utils';
 import { weekdayShortOf, type PopoverBox } from './month-utils';
+import { eventPaint, split, stripes } from './event-paint';
 
 interface MonthDayPopoverProps {
   date: string; // YYYY-MM-DD
@@ -93,22 +94,29 @@ export default function MonthDayPopover({
           cell, not a different surface. */}
       <div className={isPastDay ? 'mon-pop-list mon-pop-list--past' : 'mon-pop-list'}>
         {allDay.map((event) => {
-          const cal = colorMap.get(event.calendar_id);
-          const color = cal?.color ?? '#6b7280';
+          const paint = eventPaint(event, colorMap);
           return (
             <div
               key={`${event.event_id}-${event.calendar_id}`}
               className={onEventClick ? 'mon-band-bar mon-band-bar--clickable' : 'mon-band-bar'}
-              style={{ backgroundColor: color, color: cal?.textColor ?? contrastText(color) }}
+              style={
+                paint.shared
+                  ? { background: stripes(paint.colors), color: '#fff' }
+                  : { backgroundColor: paint.primary, color: paint.textColor }
+              }
               title={event.summary}
               {...rowProps(event)}
             >
-              {event.summary || '(No title)'}
+              {paint.shared ? (
+                <span className="cal-band-label">{event.summary || '(No title)'}</span>
+              ) : (
+                event.summary || '(No title)'
+              )}
             </div>
           );
         })}
         {timed.map((event) => {
-          const color = colorMap.get(event.calendar_id)?.color ?? '#6b7280';
+          const paint = eventPaint(event, colorMap);
           return (
             <div
               key={`${event.event_id}-${event.calendar_id}`}
@@ -116,7 +124,15 @@ export default function MonthDayPopover({
               title={event.summary}
               {...rowProps(event)}
             >
-              <span className="mon-chip-dot" style={{ backgroundColor: color }} aria-hidden />
+              <span
+                className="mon-chip-dot"
+                style={
+                  paint.shared
+                    ? { background: split(paint.colors, 90) }
+                    : { backgroundColor: paint.primary }
+                }
+                aria-hidden
+              />
               <span className="mon-chip-time">{formatEventTime(event.start_time, timezone)}</span>
               <span className="mon-chip-title">{event.summary || '(No title)'}</span>
             </div>

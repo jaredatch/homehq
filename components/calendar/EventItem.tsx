@@ -9,6 +9,9 @@ interface EventItemProps {
     end_time: string;
   };
   color: string;
+  /** CSS `background` for the accent bar, set only on a shared event (a
+   * two-tone split). Undefined leaves the bar a solid `color`, unchanged. */
+  accent?: string;
   /** IANA zone for the time range. Undefined = browser-local. */
   timeZone?: string;
   /** When set, the row becomes clickable (opens the edit modal). Omitted on the
@@ -18,7 +21,7 @@ interface EventItemProps {
 }
 
 // Timed events only — all-day events render as spanning bars in WeekRow's band.
-export default function EventItem({ event, color, timeZone, onClick }: EventItemProps) {
+export default function EventItem({ event, color, accent, timeZone, onClick }: EventItemProps) {
   const interactive = !!onClick;
   return (
     <div
@@ -41,7 +44,11 @@ export default function EventItem({ event, color, timeZone, onClick }: EventItem
     >
       {/* Accent bar, inset top/bottom so events read as slightly more spaced.
           Width is rem-based so it scales with the wall. */}
-      <span className="cal-event-accent" style={{ backgroundColor: color }} aria-hidden />
+      <span
+        className="cal-event-accent"
+        style={accent ? { background: accent } : { backgroundColor: color }}
+        aria-hidden
+      />
       <div className="cal-event-time" style={{ color }}>
         {formatEventTimeRange(event.start_time, event.end_time, timeZone)}
       </div>

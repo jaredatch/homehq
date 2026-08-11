@@ -15,6 +15,10 @@ export interface CalendarEvent {
    * the same id. null for ordinary single-calendar events. */
   group_id: string | null;
   updated_at: string;
+  /** Display-only, added client-side by `mergeGroups` — never sent by the API.
+   * Present only on a MERGED shared event: every calendar it belongs to, in
+   * config order. Its absence is what makes an event render as a plain chip. */
+  groupCalendarIds?: string[];
 }
 
 export interface SyncStatus {

@@ -1,10 +1,6 @@
 import EventItem from './EventItem';
-import {
-  contrastText,
-  isWeekendDate,
-  type AllDaySegment,
-  type CalendarEvent,
-} from './calendar-utils';
+import { isWeekendDate, type AllDaySegment, type CalendarEvent } from './calendar-utils';
+import { eventPaint, split, stripes } from './event-paint';
 
 interface WeekRowProps {
   weekDays: string[]; // 7 date strings (YYYY-MM-DD)
@@ -137,12 +133,13 @@ export default function WeekRow({
                 )}
                 <div className="cal-day-events">
                   {visible.map((event) => {
-                    const cal = colorMap.get(event.calendar_id);
+                    const paint = eventPaint(event, colorMap);
                     return (
                       <EventItem
                         key={`${event.event_id}-${event.calendar_id}`}
                         event={event}
-                        color={cal?.color ?? '#6b7280'}
+                        color={paint.primary}
+                        accent={paint.shared ? split(paint.colors, 180) : undefined}
                         timeZone={timezone}
                         onClick={onEventClick ? () => onEventClick(event) : undefined}
                       />
@@ -178,9 +175,9 @@ export default function WeekRow({
             style={{ gridTemplateRows: `repeat(${slotCount}, auto)` }}
           >
             {segments.map((seg) => {
-              const cal = colorMap.get(seg.event.calendar_id);
-              const color = cal?.color ?? '#6b7280';
-              const text = cal?.textColor ?? contrastText(color);
+              const paint = eventPaint(seg.event, colorMap);
+              const color = paint.primary;
+              const text = paint.textColor;
               // Dim a bar only if its whole span is past — a multi-day event that
               // still reaches today/future stays bright, like timed events do.
               const isPast = weekDays[seg.startCol + seg.span - 1] < today;
@@ -198,7 +195,11 @@ export default function WeekRow({
                     className={
                       onEventClick ? 'cal-band-bar cal-band-bar--clickable' : 'cal-band-bar'
                     }
-                    style={{ backgroundColor: color, color: text }}
+                    style={
+                      paint.shared
+                        ? { background: stripes(paint.colors), color: '#fff' }
+                        : { backgroundColor: color, color: text }
+                    }
                     title={seg.event.summary}
                     role={onEventClick ? 'button' : undefined}
                     tabIndex={onEventClick ? 0 : undefined}
@@ -214,7 +215,14 @@ export default function WeekRow({
                         : undefined
                     }
                   >
-                    {seg.event.summary || '(No title)'}
+                    {/* Shared bars scrim the title so it stays legible over the
+                        stripes. Wrapped ONLY when shared — an ordinary bar keeps
+                        its bare text node, so its DOM is unchanged. */}
+                    {paint.shared ? (
+                      <span className="cal-band-label">{seg.event.summary || '(No title)'}</span>
+                    ) : (
+                      seg.event.summary || '(No title)'
+                    )}
                   </div>
                 </div>
               );

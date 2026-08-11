@@ -4,7 +4,7 @@ import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } fr
 import CalendarFooter from './CalendarFooter';
 import { useCalendarFilter, filterEvents } from './calendar-filter';
 import EventModal, { type EditableEvent } from './EventModal';
-import { calendarIdsForEvent } from './event-groups';
+import { calendarIdsForEvent, mergeGroups } from './event-groups';
 import MonthDayPopover from './MonthDayPopover';
 import MonthWeek from './MonthWeek';
 import {
@@ -234,7 +234,13 @@ export default function MonthGrid({
     return () => window.removeEventListener('keydown', onKeyDown);
   }, [goPrev, goNext, goToday, onExit, modalOpen, popoverOpen]);
 
-  const visibleEvents = useMemo(() => filterEvents(events, filter), [events, filter]);
+  // Filter, then merge — same order and same reasoning as the wall grid.
+  const calendarOrder = useMemo(() => calendars.map((c) => c.id), [calendars]);
+  const filteredEvents = useMemo(() => filterEvents(events, filter), [events, filter]);
+  const visibleEvents = useMemo(
+    () => mergeGroups(filteredEvents, calendarOrder),
+    [filteredEvents, calendarOrder]
+  );
   const dayEventsMap = useMemo(
     () => assignEventsToDays(visibleEvents, days),
     [visibleEvents, days]
