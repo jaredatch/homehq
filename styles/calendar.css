@@ -766,8 +766,20 @@
 	outline: 2px solid var(--blue-500);
 	outline-offset: -2px;
 }
+/* The band overlay is pointer-events:none so clicks in its empty areas fall
+   through to the day cell beneath; real bars have to opt BACK IN or they're
+   unclickable. Without this the invisible .cal-band-reserve spacer wins every
+   hit test and an all-day event can't be opened at all -- and because
+   pointer-events:none also suppresses the cursor, there's no hover hint that
+   anything is wrong. Month view got this right from the start
+   (.mon-band-bar--clickable); the wall grid didn't, so all-day events were
+   inert here from v1.1.x until this was found. */
 .cal-band-bar--clickable {
+	pointer-events: auto;
 	cursor: pointer;
+}
+.cal-band-bar--clickable:hover {
+	filter: brightness(1.12);
 }
 .cal-band-bar--clickable:focus-visible {
 	outline: 2px solid var(--white);
