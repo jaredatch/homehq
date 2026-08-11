@@ -6,7 +6,7 @@ import {
   type CalendarEvent,
 } from './calendar-utils';
 import { isAdjacentMonth, shortMonthName } from './month-utils';
-import { eventPaint, split, stripes } from './event-paint';
+import { eventPaint, stripes } from './event-paint';
 
 interface MonthWeekProps {
   weekDays: string[]; // 7 date strings (YYYY-MM-DD)
@@ -162,15 +162,27 @@ export default function MonthWeek({
                         {/* Google's chip order: dot · time · title, all left,
                             time first — the scanning key for "when is it" — with
                             the title truncating at the cell edge. */}
-                        <span
-                          className="mon-chip-dot"
-                          style={
-                            paint.shared
-                              ? { background: split(paint.colors, 90) }
-                              : { backgroundColor: paint.primary }
-                          }
-                          aria-hidden
-                        />
+                        {/* Two whole dots, not one split circle: a split reads as
+                            a single muddy color when the two calendars are close
+                            in hue (Maddie pink beside Eleanor purple). Separate
+                            dots keep each color legible on its own. */}
+                        {paint.shared ? (
+                          <span className="mon-chip-dots" aria-hidden>
+                            {paint.colors.map((c, i) => (
+                              <span
+                                key={i}
+                                className="mon-chip-dot"
+                                style={{ backgroundColor: c }}
+                              />
+                            ))}
+                          </span>
+                        ) : (
+                          <span
+                            className="mon-chip-dot"
+                            style={{ backgroundColor: paint.primary }}
+                            aria-hidden
+                          />
+                        )}
                         <span className="mon-chip-time">
                           {formatEventTime(event.start_time, timezone)}
                         </span>

@@ -345,6 +345,18 @@
 	border-radius: var(--radius-full);
 }
 
+/* Shared event: two whole dots rather than one split circle. A split reads as a
+   single muddy blob whenever the two calendars are close in hue (Maddie pink
+   next to Eleanor purple); separating them keeps each color readable on its own,
+   and it scales if the 2-calendar cap is ever raised. */
+.mon-chip-dots {
+	display: inline-flex;
+	align-items: center;
+	align-self: center;
+	flex-shrink: 0;
+	gap: 0.2em;
+}
+
 /* Time prefix — muted against the brighter title so the eye can still scan
    titles down the column, but readable through the past-day dim ("before or
    after pickup?" is half of why someone opens this view). */

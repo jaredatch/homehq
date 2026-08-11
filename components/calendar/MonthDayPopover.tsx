@@ -1,6 +1,6 @@
 import { contrastText, formatEventTime, type CalendarEvent } from './calendar-utils';
 import { weekdayShortOf, type PopoverBox } from './month-utils';
-import { eventPaint, split, stripes } from './event-paint';
+import { eventPaint, stripes } from './event-paint';
 
 interface MonthDayPopoverProps {
   date: string; // YYYY-MM-DD
@@ -124,15 +124,20 @@ export default function MonthDayPopover({
               title={event.summary}
               {...rowProps(event)}
             >
-              <span
-                className="mon-chip-dot"
-                style={
-                  paint.shared
-                    ? { background: split(paint.colors, 90) }
-                    : { backgroundColor: paint.primary }
-                }
-                aria-hidden
-              />
+              {/* Two whole dots when shared — see MonthWeek. */}
+              {paint.shared ? (
+                <span className="mon-chip-dots" aria-hidden>
+                  {paint.colors.map((c, i) => (
+                    <span key={i} className="mon-chip-dot" style={{ backgroundColor: c }} />
+                  ))}
+                </span>
+              ) : (
+                <span
+                  className="mon-chip-dot"
+                  style={{ backgroundColor: paint.primary }}
+                  aria-hidden
+                />
+              )}
               <span className="mon-chip-time">{formatEventTime(event.start_time, timezone)}</span>
               <span className="mon-chip-title">{event.summary || '(No title)'}</span>
             </div>

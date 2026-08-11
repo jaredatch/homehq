@@ -467,6 +467,9 @@ export default function EventModal({
                 )}
               </div>
 
+              {/* ONE row in both modes: all-day swaps the two time fields for the
+                  end date rather than adding a row below. Toggling "All day" then
+                  costs no height, so the modal doesn't jump under the cursor. */}
               <div className="cal-field-row">
                 <label className="cal-field cal-field--date">
                   <span className="cal-field-label">{allDay ? 'Starts' : 'Date'}</span>
@@ -477,7 +480,20 @@ export default function EventModal({
                     onChange={(e) => changeStartDate(e.target.value)}
                   />
                 </label>
-                {!allDay && (
+                {allDay ? (
+                  // Timed events stay same-day on purpose: the grid renders an
+                  // event crossing midnight only on its start day.
+                  <label className="cal-field cal-field--date">
+                    <span className="cal-field-label">Ends</span>
+                    <input
+                      className="cal-input"
+                      type="date"
+                      value={endDate}
+                      min={date}
+                      onChange={(e) => setEndDate(e.target.value)}
+                    />
+                  </label>
+                ) : (
                   <>
                     <label className="cal-field cal-field--time">
                       <span className="cal-field-label">Start</span>
@@ -501,24 +517,6 @@ export default function EventModal({
                 )}
               </div>
 
-              {/* All-day events get a second date row so a span can be set. Timed
-                  events stay same-day: the wall renders an event that crosses
-                  midnight only on its start day, so offering it here would make
-                  it easy to create something that displays wrong. */}
-              {allDay && (
-                <div className="cal-field-row">
-                  <label className="cal-field cal-field--date">
-                    <span className="cal-field-label">Ends</span>
-                    <input
-                      className="cal-input"
-                      type="date"
-                      value={endDate}
-                      min={date}
-                      onChange={(e) => setEndDate(e.target.value)}
-                    />
-                  </label>
-                </div>
-              )}
               {allDay && !datesValid && (
                 <p className="cal-modal-error">The end date must be on or after the start date.</p>
               )}

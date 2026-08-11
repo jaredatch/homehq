@@ -5,7 +5,7 @@ import WeekRow from './WeekRow';
 import EventItem from './EventItem';
 import EventModal, { type EditableEvent } from './EventModal';
 import { calendarIdsForEvent, mergeGroups } from './event-groups';
-import { eventPaint, split } from './event-paint';
+import { accentStripes, eventPaint } from './event-paint';
 import CalendarFooter from './CalendarFooter';
 import { useCalendarFilter, filterEvents } from './calendar-filter';
 import {
@@ -524,7 +524,7 @@ export default function CalendarGrid({
                       key={`${event.event_id}-${event.calendar_id}`}
                       event={event}
                       color={paint.primary}
-                      accent={paint.shared ? split(paint.colors, 180) : undefined}
+                      accent={paint.shared ? accentStripes(paint.colors) : undefined}
                       timeZone={timezone}
                     />
                   );

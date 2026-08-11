@@ -1,6 +1,6 @@
 import EventItem from './EventItem';
 import { isWeekendDate, type AllDaySegment, type CalendarEvent } from './calendar-utils';
-import { eventPaint, split, stripes } from './event-paint';
+import { accentStripes, eventPaint, stripes } from './event-paint';
 
 interface WeekRowProps {
   weekDays: string[]; // 7 date strings (YYYY-MM-DD)
@@ -139,7 +139,7 @@ export default function WeekRow({
                         key={`${event.event_id}-${event.calendar_id}`}
                         event={event}
                         color={paint.primary}
-                        accent={paint.shared ? split(paint.colors, 180) : undefined}
+                        accent={paint.shared ? accentStripes(paint.colors) : undefined}
                         timeZone={timezone}
                         onClick={onEventClick ? () => onEventClick(event) : undefined}
                       />

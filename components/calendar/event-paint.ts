@@ -11,10 +11,17 @@ import { contrastText } from './calendar-utils';
 /** Gray-500 — the same fallback every call site used before. */
 const FALLBACK = '#6b7280';
 
-/** Stripe period. Defined in CSS (`--cal-stripe`) so it's tunable in one place,
- * and in `em` so it scales with the wall's root clamp() instead of turning into
- * pinstripes at 4K. */
+/** Stripe geometry, defined in CSS so both are tunable in one place. The period
+ * is in `em` so it scales with the wall's root clamp() instead of turning into
+ * pinstripes at 4K; the angle is a var so the look can be changed without
+ * touching TS (0deg/180deg = horizontal bands, 45deg = diagonal). */
 const PERIOD = 'var(--cal-stripe)';
+const ANGLE = 'var(--cal-stripe-angle)';
+
+/** Tighter period for the timed accent — it's only ~1px wide and a couple of em
+ * tall, so a full-size period would show as a single flat band and read as one
+ * color. See `accentStripes`. */
+const ACCENT_PERIOD = 'var(--cal-stripe-accent)';
 
 interface CalendarPaint {
   color: string;
@@ -55,22 +62,25 @@ export function eventPaint(
 }
 
 /**
- * 45° barber-pole for a filled bar (all-day). The fill is the only surface where
- * text sits ON the color, so a striped bar pairs with `.cal-band-label` — a dark
- * translucent scrim behind the title that keeps it white-on-near-black whatever
- * the stripes do underneath.
+ * Barber-pole for a filled bar (all-day). Angle and period come from CSS.
+ *
+ * The fill is the only surface where text sits ON the color, so a striped bar
+ * pairs with `.cal-band-label` — a dark scrim behind the title that keeps it
+ * white-on-near-black whatever the stripes do underneath.
  */
 export function stripes(colors: string[]): string {
   const [a, b] = colors;
-  return `repeating-linear-gradient(45deg, ${a} 0 ${PERIOD}, ${b} ${PERIOD} calc(${PERIOD} * 2))`;
+  return `repeating-linear-gradient(${ANGLE}, ${a} 0 ${PERIOD}, ${b} ${PERIOD} calc(${PERIOD} * 2))`;
 }
 
 /**
- * Hard two-tone split for the small accents that sit BESIDE text rather than
- * under it — the timed event's thin accent bar (180° = top/bottom) and the month
- * chip's dot (90° = left/right). Stripes would just read as noise at that size.
+ * Stripes for the timed event's accent bar. It's a sliver — roughly 1px wide by
+ * a couple of em tall — so a single 50/50 split reads as one color unless you
+ * already know to look. Several alternating bands down its length are the thing
+ * that actually catches the eye at wall distance, so it gets its own (much
+ * tighter) period, always banded across the bar's width.
  */
-export function split(colors: string[], deg: number): string {
+export function accentStripes(colors: string[]): string {
   const [a, b] = colors;
-  return `linear-gradient(${deg}deg, ${a} 0 50%, ${b} 50% 100%)`;
+  return `repeating-linear-gradient(180deg, ${a} 0 ${ACCENT_PERIOD}, ${b} ${ACCENT_PERIOD} calc(${ACCENT_PERIOD} * 2))`;
 }
