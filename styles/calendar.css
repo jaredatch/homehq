@@ -237,13 +237,16 @@
    Periods are in `em` so they scale with the wall's root clamp(); a px value
    would read as pinstripes at 4K and fat bands at 1080p.
      --cal-stripe        band width on a filled all-day bar
-     --cal-stripe-angle  180deg = horizontal bands; 45deg = diagonal
+     --cal-stripe-angle  135deg = forward-slash "/" diagonal. NB the angle names
+                         the gradient LINE and the bands run perpendicular to it,
+                         so 45deg renders as a backslash "\" -- 135deg is the one
+                         that leans forward. 180deg = horizontal bands.
      --cal-stripe-accent band width on the timed event's ~1px accent sliver.
                          Much tighter on purpose: at the full period that bar
                          shows one flat band and reads as a single color. */
 :root {
 	--cal-stripe: 0.55em;
-	--cal-stripe-angle: 180deg;
+	--cal-stripe-angle: 135deg;
 	--cal-stripe-accent: 0.32em;
 }
 
@@ -260,22 +263,19 @@
 	   lanes each day reserved. Inline padding bleeds visually without touching
 	   layout, which is precisely what's wanted here.
 
-	   Two different things have to line up, which is why this looks fussy:
+	   Vertical padding is deliberately ZERO, and that is the whole trick. Measured
+	   against the real font (Inter 600), two gaps already agree:
 
-	   1. The TEXT inside the pill. An inline background wraps the FONT's content
-	      area, not the glyphs, so it always carries the font's full descent below
-	      the baseline -- and most event titles have no descenders at all. With
-	      symmetric padding the ink therefore sits high in the pill. Hence heavier
-	      top padding, near-zero bottom.
-	   2. The PILL inside the bar. That same asymmetry lifts the whole pill off
-	      center, so `top` nudges it back down. Relative offset, not margin, so it
-	      stays layout-neutral and the bar's height is untouched.
+	     ink top below the pill's top edge = ascent 17.00 - cap 12.76 = 4.24px
+	     pill top below the bar's top edge = bar padding 2.7 + half-leading 1.57
+	                                       = 4.26px
 
-	   Both values were derived from measured gaps (font content area 20.99px in a
-	   24.13px line box, ~4.5px of total slack), not guessed. */
-	position: relative;
-	top: 0.115em;
-	padding: 0.25em 0.4em 0.02em;
+	   So the text is already centered inside the pill AND the pill inside the
+	   bar. Adding vertical padding only inflates the pill and destroys that
+	   balance -- an earlier attempt at "fixing" the spacing by eye did exactly
+	   that. Horizontal padding is free; vertical is not. Re-measure before
+	   changing the bar's font-size or line-height. */
+	padding: 0 0.4em;
 	color: var(--white);
 	background-color: rgb(0 0 0 / 0.8);
 	border-radius: 0.2em;
