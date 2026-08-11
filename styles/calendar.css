@@ -248,6 +248,12 @@
 	--cal-stripe: 0.55em;
 	--cal-stripe-angle: 135deg;
 	--cal-stripe-accent: 0.32em;
+	/* Scrim pill padding. Vertical is safe to tune BECAUSE the pill and the bar
+	   are already concentric (see .cal-band-label) -- equal padding grows it
+	   symmetrically and the centering survives. Keep it under ~0.2em or the pill
+	   swallows the bar's margin; the bar clips at overflow:hidden past that. */
+	--cal-scrim-pad-y: 0.08em;
+	--cal-scrim-pad-x: 0.5em;
 }
 
 /* The scrim. On a shared bar the fill is two colors, so contrastText can't pick
@@ -270,12 +276,14 @@
 	     pill top below the bar's top edge = bar padding 2.7 + half-leading 1.57
 	                                       = 4.26px
 
-	   So the text is already centered inside the pill AND the pill inside the
-	   bar. Adding vertical padding only inflates the pill and destroys that
-	   balance -- an earlier attempt at "fixing" the spacing by eye did exactly
-	   that. Horizontal padding is free; vertical is not. Re-measure before
-	   changing the bar's font-size or line-height. */
-	padding: 0 0.4em;
+	   So the text starts out centered inside the pill AND the pill inside the
+	   bar. That's why the padding below can be tuned freely: adding the SAME
+	   amount top and bottom grows the pill around a point that's already
+	   centered, so both stay even. What breaks it is ASYMMETRIC vertical padding
+	   -- an earlier attempt at "fixing" the spacing by eye did exactly that and
+	   made it worse. Re-measure before changing the bar's font-size or
+	   line-height, since the 4.24 / 4.26 agreement depends on both. */
+	padding: var(--cal-scrim-pad-y) var(--cal-scrim-pad-x);
 	color: var(--white);
 	background-color: rgb(0 0 0 / 0.8);
 	border-radius: 0.2em;
