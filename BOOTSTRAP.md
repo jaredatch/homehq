@@ -103,3 +103,22 @@ The app validates `data/config.json` on load. Common issues:
 - Missing fields — compare against the example template
 - Invalid `display.weatherIcons` — must be one of `lucide`, `meteocons`, `weather-icons`, `emoji`
 - Invalid `display.timezone` — must be a valid IANA zone (e.g. `America/Chicago`)
+
+### A long-running `npm run dev` keeps syncing stale data
+
+**Restart the dev server after changing anything the background sync touches** —
+`lib/google/sync.ts`, `normalizeEvent`, or the DB write helpers.
+
+The sync schedulers start **once**, from `instrumentation.ts`, when the server boots. Next's dev
+hot-reload swaps route handlers and client code, but it never re-instantiates that module graph, so
+a server you left running yesterday keeps executing yesterday's sync code — against today's
+database, every 5 minutes.
+
+It fails in a way that looks like a product bug rather than a stale process: writes made through the
+(hot-reloaded, current) API routes land correctly, then the next background sync quietly overwrites
+them with what the old code produces. When shared events shipped, a day-old dev server kept blanking
+every `group_id` five minutes after each event was created — the events were correct on Google the
+whole time.
+
+Tell-tale: a row's `updated_at` matches `sync_status.last_success` and the new column is empty.
+Restarting the server and letting one sync run repopulates it.
