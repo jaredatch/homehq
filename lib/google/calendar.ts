@@ -1,5 +1,6 @@
 import type { CalendarEventRow } from '@/lib/db/events';
 import { fetchWithTimeout } from '@/lib/http';
+import { GROUP_PROPERTY_KEY } from '@/lib/calendar/event-groups';
 
 const CALENDAR_API = 'https://www.googleapis.com/calendar/v3';
 
@@ -37,6 +38,9 @@ interface GoogleEvent {
   // Present only on an expanded occurrence of a recurring series (the series'
   // event id). We store it so edit/delete can tell occurrences apart from one-offs.
   recurringEventId?: string;
+  // Arbitrary key/value we own, stored per-calendar-copy and invisible in every
+  // Google UI. Carries the shared-event group stamp (see GROUP_PROPERTY_KEY).
+  extendedProperties?: { private?: Record<string, string> };
 }
 
 interface GoogleEventsResponse {
@@ -87,6 +91,8 @@ export interface CreateEventInput {
   location?: string;
   start: { date?: string; dateTime?: string; timeZone?: string };
   end: { date?: string; dateTime?: string; timeZone?: string };
+  /** Shared-event stamp, e.g. { private: { homehqGroup: '<uuid>' } }. */
+  extendedProperties?: { private?: Record<string, string> };
 }
 
 /**
@@ -133,6 +139,9 @@ export interface PatchEventInput {
   location?: string | null;
   start?: { date?: string | null; dateTime?: string | null; timeZone?: string | null };
   end?: { date?: string | null; dateTime?: string | null; timeZone?: string | null };
+  /** Set when an ordinary event is promoted into a shared group. Google merges
+   * extendedProperties per key on patch, so this adds ours without clearing any. */
+  extendedProperties?: { private?: Record<string, string> };
 }
 
 /**
@@ -245,5 +254,6 @@ export function normalizeEvent(
     end_time: allDay ? event.end.date! : event.end.dateTime!,
     all_day: allDay ? 1 : 0,
     recurring_event_id: event.recurringEventId ?? null,
+    group_id: event.extendedProperties?.private?.[GROUP_PROPERTY_KEY] ?? null,
   };
 }

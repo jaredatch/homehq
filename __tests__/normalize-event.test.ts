@@ -22,6 +22,7 @@ describe('normalizeEvent', () => {
       end_time: '2026-03-12T09:30:00-04:00',
       all_day: 0,
       recurring_event_id: null,
+      group_id: null,
     });
   });
 
@@ -43,6 +44,7 @@ describe('normalizeEvent', () => {
       end_time: '2026-03-17',
       all_day: 1,
       recurring_event_id: null,
+      group_id: null,
     });
   });
 

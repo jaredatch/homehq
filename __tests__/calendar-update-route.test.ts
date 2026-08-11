@@ -57,6 +57,7 @@ describe('POST /api/calendar/update', () => {
       end_time: '2026-07-01T10:00:00-05:00',
       all_day: 0,
       recurring_event_id: null,
+      group_id: null,
     });
 
   const editBody = {
@@ -119,6 +120,7 @@ describe('POST /api/calendar/update', () => {
       end_time: '2026-07-01T09:30:00-05:00',
       all_day: 0,
       recurring_event_id: 'series',
+      group_id: null,
     });
     const res = await post({ ...editBody, eventId: 'evt_recurring' });
     expect(res.status).toBe(409);
@@ -173,6 +175,7 @@ describe('POST /api/calendar/update', () => {
       end_time: '2026-07-04',
       all_day: 1,
       recurring_event_id: null,
+      group_id: null,
     });
     mockPatchCalendarEvent.mockImplementation(async (_t, _c, _e, patch) => ({
       id: 'evt_trip',

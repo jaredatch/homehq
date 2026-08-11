@@ -13,6 +13,11 @@ export interface CalendarEventRow {
   /** Google's series id when this row is an occurrence of a recurring event;
    * NULL for one-off events. Gates edit/delete (recurring is blocked for now). */
   recurring_event_id: string | null;
+  /** Shared-event stamp: the per-calendar copies of one logical event all carry
+   * the same id (mirrored from extendedProperties.private on Google). NULL for
+   * ordinary single-calendar events. Edit/delete fan out across the group; the
+   * grids merge the copies into one chip. */
+  group_id: string | null;
   updated_at: string;
 }
 
@@ -24,8 +29,8 @@ export function upsertCalendarEvents(
   db.transaction(() => {
     db.prepare('DELETE FROM calendar_events WHERE calendar_id = ?').run(calendarId);
     const insert = db.prepare(
-      `INSERT INTO calendar_events (event_id, calendar_id, summary, description, location, start_time, end_time, all_day, recurring_event_id)
-       VALUES (@event_id, @calendar_id, @summary, @description, @location, @start_time, @end_time, @all_day, @recurring_event_id)`
+      `INSERT INTO calendar_events (event_id, calendar_id, summary, description, location, start_time, end_time, all_day, recurring_event_id, group_id)
+       VALUES (@event_id, @calendar_id, @summary, @description, @location, @start_time, @end_time, @all_day, @recurring_event_id, @group_id)`
     );
     for (const event of events) {
       insert.run(event);
@@ -42,8 +47,8 @@ export function upsertCalendarEvents(
 export function upsertEvent(event: Omit<CalendarEventRow, 'id' | 'updated_at'>): void {
   const db = getDb();
   db.prepare(
-    `INSERT INTO calendar_events (event_id, calendar_id, summary, description, location, start_time, end_time, all_day, recurring_event_id)
-     VALUES (@event_id, @calendar_id, @summary, @description, @location, @start_time, @end_time, @all_day, @recurring_event_id)
+    `INSERT INTO calendar_events (event_id, calendar_id, summary, description, location, start_time, end_time, all_day, recurring_event_id, group_id)
+     VALUES (@event_id, @calendar_id, @summary, @description, @location, @start_time, @end_time, @all_day, @recurring_event_id, @group_id)
      ON CONFLICT(event_id, calendar_id) DO UPDATE SET
        summary = excluded.summary,
        description = excluded.description,
@@ -52,6 +57,7 @@ export function upsertEvent(event: Omit<CalendarEventRow, 'id' | 'updated_at'>):
        end_time = excluded.end_time,
        all_day = excluded.all_day,
        recurring_event_id = excluded.recurring_event_id,
+       group_id = excluded.group_id,
        updated_at = datetime('now')`
   ).run(event);
 }
@@ -64,6 +70,19 @@ export function getEvent(eventId: string, calendarId: string): CalendarEventRow 
   return db
     .prepare('SELECT * FROM calendar_events WHERE event_id = ? AND calendar_id = ?')
     .get(eventId, calendarId) as CalendarEventRow | undefined;
+}
+
+/**
+ * Every cached copy of one shared event, by its group stamp. Edit and delete use
+ * this to fan out across the group (a "no school" event stamped onto Maddie's and
+ * Eleanor's calendars is two rows here). Ordered by calendar_id purely so the
+ * result is deterministic — display order is config order, decided client-side.
+ */
+export function getEventsByGroup(groupId: string): CalendarEventRow[] {
+  const db = getDb();
+  return db
+    .prepare('SELECT * FROM calendar_events WHERE group_id = ? ORDER BY calendar_id')
+    .all(groupId) as CalendarEventRow[];
 }
 
 /** Remove a single cached event after it's deleted on Google, so it disappears

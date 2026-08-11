@@ -54,6 +54,7 @@ describe('POST /api/calendar/delete', () => {
       end_time: '2026-07-01T13:00:00-05:00',
       all_day: 0,
       recurring_event_id: null,
+      group_id: null,
       ...overrides,
     });
 

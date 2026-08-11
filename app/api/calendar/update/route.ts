@@ -4,16 +4,36 @@ import { getConfig, isCalendarWriteEnabled } from '@/lib/config';
 import { getValidAccessToken } from '@/lib/google/oauth';
 import {
   patchCalendarEvent,
+  createCalendarEvent,
+  deleteCalendarEvent,
   normalizeEvent,
   CalendarApiError,
   type PatchEventInput,
+  type CreateEventInput,
 } from '@/lib/google/calendar';
-import { getEvent, upsertEvent } from '@/lib/db/events';
+import {
+  getEvent,
+  getEventsByGroup,
+  upsertEvent,
+  deleteEvent,
+  type CalendarEventRow,
+} from '@/lib/db/events';
 import { addUtcDays, allDaySpanDays, parseTiming } from '@/lib/calendar/event-timing';
+import {
+  GROUP_PROPERTY_KEY,
+  MAX_GROUP_CALENDARS,
+  diffMembership,
+  newGroupId,
+  readCalendarIds,
+} from '@/lib/calendar/event-groups';
 
 interface UpdateRequestBody {
   eventId?: unknown;
+  /** The calendar whose copy the user opened — always the lookup key. */
   calendarId?: unknown;
+  /** The full set of calendars the event should end up on. Omit to leave
+   * membership untouched and edit the event's fields only. */
+  calendarIds?: unknown;
   title?: unknown;
   allDay?: unknown;
   date?: unknown;
@@ -25,6 +45,28 @@ interface UpdateRequestBody {
 
 function badRequest(message: string) {
   return NextResponse.json({ error: message }, { status: 400 });
+}
+
+/** Map a Google write failure onto a response, matching the single-write path. */
+function writeFailure(err: unknown) {
+  if (err instanceof CalendarApiError) {
+    if (err.status === 401 || err.status === 403) {
+      return NextResponse.json(
+        { error: 'Google rejected the write — reconnect at /setup to grant write access' },
+        { status: err.status }
+      );
+    }
+    // Gone on Google's side (deleted elsewhere) — tell the client to refresh.
+    if (err.status === 404 || err.status === 410) {
+      return NextResponse.json(
+        { error: 'This event no longer exists on Google — refresh and try again.' },
+        { status: 404 }
+      );
+    }
+    return NextResponse.json({ error: err.message }, { status: 502 });
+  }
+  const message = err instanceof Error ? err.message : String(err);
+  return NextResponse.json({ error: message }, { status: 500 });
 }
 
 export async function POST(request: NextRequest) {
@@ -79,6 +121,37 @@ export async function POST(request: NextRequest) {
   if (!parsed.ok) return badRequest(parsed.error);
   const timing = parsed.timing;
 
+  // Every cached copy of this event. Ungrouped events are a group of one, so the
+  // rest of this route needs no special case for them.
+  const siblings = existing.group_id ? getEventsByGroup(existing.group_id) : [existing];
+  const currentIds = siblings.map((s) => s.calendar_id);
+
+  // Membership only changes when the client explicitly sends `calendarIds`. A
+  // body carrying just the scalar `calendarId` is editing fields, not
+  // membership — reading the anchor as the whole set would silently delete the
+  // event's other copies.
+  let nextIds = currentIds;
+  if (Array.isArray(body.calendarIds)) {
+    const requested = readCalendarIds(body);
+    if (!requested) return badRequest('At least one calendar is required');
+    if (requested.length > MAX_GROUP_CALENDARS) {
+      return badRequest(`An event can span at most ${MAX_GROUP_CALENDARS} calendars`);
+    }
+    for (const id of requested) {
+      if (!config.calendars.some((c) => c.id === id))
+        return badRequest(`Unknown calendarId: ${id}`);
+    }
+    nextIds = requested;
+  }
+
+  const { kept, added, removed } = diffMembership(currentIds, nextIds);
+
+  // Promotion: an ordinary event gaining a second calendar needs a stamp minted
+  // and patched onto the original copy as well as set on the new one. Shrinking
+  // back to one calendar leaves the stamp in place — a one-member group merges to
+  // nothing and renders normally, and re-adding someone reforms the same group.
+  const groupId = existing.group_id ?? (nextIds.length > 1 ? newGroupId() : null);
+
   // null clears the field on Google (empty location/notes), and on start/end it
   // clears the sibling key so an all-day↔timed toggle never leaves both set.
   const location =
@@ -86,18 +159,28 @@ export async function POST(request: NextRequest) {
   const description =
     typeof body.notes === 'string' && body.notes.trim() ? body.notes.trim() : null;
 
+  let start: CreateEventInput['start'];
+  let end: CreateEventInput['end'];
   const patch: PatchEventInput = { summary: title, location, description };
 
   if (timing.allDay) {
     // Preserve a multi-day span on a date-only edit: an all-day event that stays
     // all-day keeps its original length; a timed→all-day switch becomes one day.
     const spanDays = existing.all_day ? allDaySpanDays(existing.start_time, existing.end_time) : 1;
-    patch.start = { date: timing.date, dateTime: null, timeZone: null };
-    patch.end = { date: addUtcDays(timing.date, spanDays), dateTime: null, timeZone: null };
+    start = { date: timing.date };
+    end = { date: addUtcDays(timing.date, spanDays) };
+    patch.start = { ...start, dateTime: null, timeZone: null };
+    patch.end = { ...end, dateTime: null, timeZone: null };
   } else {
     const timeZone = config.display.timezone ?? Intl.DateTimeFormat().resolvedOptions().timeZone;
-    patch.start = { dateTime: `${timing.date}T${timing.startTime}:00`, timeZone, date: null };
-    patch.end = { dateTime: `${timing.date}T${timing.endTime}:00`, timeZone, date: null };
+    start = { dateTime: `${timing.date}T${timing.startTime}:00`, timeZone };
+    end = { dateTime: `${timing.date}T${timing.endTime}:00`, timeZone };
+    patch.start = { ...start, date: null };
+    patch.end = { ...end, date: null };
+  }
+
+  if (groupId) {
+    patch.extendedProperties = { private: { [GROUP_PROPERTY_KEY]: groupId } };
   }
 
   let accessToken: string;
@@ -108,34 +191,72 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: message }, { status: 401 });
   }
 
-  let updated;
-  try {
-    updated = await patchCalendarEvent(accessToken, calendarId, body.eventId, patch);
-  } catch (err) {
-    if (err instanceof CalendarApiError) {
-      if (err.status === 401 || err.status === 403) {
-        return NextResponse.json(
-          { error: 'Google rejected the write — reconnect at /setup to grant write access' },
-          { status: err.status }
-        );
-      }
-      // Gone on Google's side (deleted elsewhere) — tell the client to refresh.
-      if (err.status === 404 || err.status === 410) {
-        return NextResponse.json(
-          { error: 'This event no longer exists on Google — refresh and try again.' },
-          { status: 404 }
-        );
-      }
-      return NextResponse.json({ error: err.message }, { status: 502 });
+  const rows: Omit<CalendarEventRow, 'id' | 'updated_at'>[] = [];
+  const failures: { calendarId: string; error: string }[] = [];
+  let firstError: unknown = null;
+  const fail = (calendarId: string, err: unknown) => {
+    if (!firstError) firstError = err;
+    failures.push({ calendarId, error: err instanceof Error ? err.message : String(err) });
+  };
+
+  // Patch what stays, insert what was added, delete what was removed — deletes
+  // LAST so a failure earlier in the sequence never leaves data destroyed.
+  for (const sibling of siblings) {
+    if (!kept.includes(sibling.calendar_id)) continue;
+    try {
+      const updated = await patchCalendarEvent(
+        accessToken,
+        sibling.calendar_id,
+        sibling.event_id,
+        patch
+      );
+      // Confirmed by Google → write through to the cache so the change shows on
+      // the next poll without waiting for the 5-minute sync.
+      const row = normalizeEvent(sibling.calendar_id, updated);
+      upsertEvent(row);
+      rows.push(row);
+    } catch (err) {
+      fail(sibling.calendar_id, err);
     }
-    const message = err instanceof Error ? err.message : String(err);
-    return NextResponse.json({ error: message }, { status: 500 });
   }
 
-  // Confirmed by Google → write through to the cache so the change shows on the
-  // next poll without waiting for the 5-minute sync.
-  const row = normalizeEvent(calendarId, updated);
-  upsertEvent(row);
+  const addInput: CreateEventInput = { summary: title, start, end };
+  if (location) addInput.location = location;
+  if (description) addInput.description = description;
+  if (groupId) addInput.extendedProperties = { private: { [GROUP_PROPERTY_KEY]: groupId } };
 
-  return NextResponse.json({ event: row }, { status: 200 });
+  for (const calendarId of added) {
+    try {
+      const created = await createCalendarEvent(accessToken, calendarId, addInput);
+      const row = normalizeEvent(calendarId, created);
+      upsertEvent(row);
+      rows.push(row);
+    } catch (err) {
+      fail(calendarId, err);
+    }
+  }
+
+  // Nothing was written — bail BEFORE deleting anything. Ordering the deletes
+  // last only helps if we actually stop here: otherwise a failed patch would
+  // still drop the other copy, destroying data the user could have retried.
+  if (rows.length === 0) return writeFailure(firstError);
+
+  for (const sibling of siblings) {
+    if (!removed.includes(sibling.calendar_id)) continue;
+    try {
+      await deleteCalendarEvent(accessToken, sibling.calendar_id, sibling.event_id);
+      deleteEvent(sibling.event_id, sibling.calendar_id);
+    } catch (err) {
+      fail(sibling.calendar_id, err);
+    }
+  }
+
+  // Prefer the copy the user opened, but it may have just been unchecked (and so
+  // deleted) — fall back to any surviving copy rather than a dead reference.
+  const anchor = rows.find((r) => r.calendar_id === calendarId) ?? rows[0];
+
+  return NextResponse.json(
+    { event: anchor, events: rows, ...(failures.length ? { failures } : {}) },
+    { status: 200 }
+  );
 }

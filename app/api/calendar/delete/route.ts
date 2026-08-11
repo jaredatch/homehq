@@ -3,7 +3,7 @@ import type { NextRequest } from 'next/server';
 import { getConfig, isCalendarWriteEnabled } from '@/lib/config';
 import { getValidAccessToken } from '@/lib/google/oauth';
 import { deleteCalendarEvent, CalendarApiError } from '@/lib/google/calendar';
-import { getEvent, deleteEvent } from '@/lib/db/events';
+import { getEvent, getEventsByGroup, deleteEvent } from '@/lib/db/events';
 
 interface DeleteRequestBody {
   eventId?: unknown;
@@ -62,10 +62,35 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: message }, { status: 401 });
   }
 
-  try {
-    // 204/410 both resolve (deleteCalendarEvent treats already-gone as success).
-    await deleteCalendarEvent(accessToken, calendarId, body.eventId);
-  } catch (err) {
+  // Deleting a shared event removes every copy — the user is deleting the event,
+  // not one person's view of it. (Dropping a single person is an *edit*: uncheck
+  // that calendar and save, which deletes only their copy.) An ungrouped event is
+  // a group of one, so this needs no special case.
+  const targets = existing.group_id ? getEventsByGroup(existing.group_id) : [existing];
+
+  const failures: { calendarId: string; error: string }[] = [];
+  let firstError: unknown = null;
+  let deleted = 0;
+
+  for (const target of targets) {
+    try {
+      // 204/410 both resolve (deleteCalendarEvent treats already-gone as success).
+      await deleteCalendarEvent(accessToken, target.calendar_id, target.event_id);
+      // Gone on Google → drop it from the cache so it disappears on the next poll.
+      deleteEvent(target.event_id, target.calendar_id);
+      deleted++;
+    } catch (err) {
+      if (!firstError) firstError = err;
+      failures.push({
+        calendarId: target.calendar_id,
+        error: err instanceof Error ? err.message : String(err),
+      });
+    }
+  }
+
+  // Nothing was deleted — report it as the failure it is.
+  if (deleted === 0) {
+    const err = firstError;
     if (err instanceof CalendarApiError) {
       if (err.status === 401 || err.status === 403) {
         return NextResponse.json(
@@ -79,8 +104,10 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: message }, { status: 500 });
   }
 
-  // Gone on Google → drop it from the cache so it disappears on the next poll.
-  deleteEvent(body.eventId, calendarId);
-
-  return NextResponse.json({ ok: true }, { status: 200 });
+  // Partial: keep what went through and say what didn't. The board re-renders
+  // from what actually exists on Google, so it always tells the truth.
+  return NextResponse.json(
+    { ok: true, deleted, ...(failures.length ? { failures } : {}) },
+    { status: 200 }
+  );
 }

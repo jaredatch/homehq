@@ -39,6 +39,7 @@ describe('calendar event queries', () => {
     end_time: '2026-03-12T11:00:00-04:00',
     all_day: 0,
     recurring_event_id: null,
+    group_id: null,
     ...overrides,
   });
 
