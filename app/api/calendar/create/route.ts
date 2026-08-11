@@ -84,7 +84,10 @@ export async function POST(request: NextRequest) {
 
   if (timing.allDay) {
     start = { date: timing.date };
-    end = { date: nextDay(timing.date) };
+    // Google's all-day end is EXCLUSIVE, so the stored end is the day AFTER the
+    // last day the event covers. timing.endDate is the inclusive day the user
+    // picked (defaulting to a single day).
+    end = { date: nextDay(timing.endDate ?? timing.date) };
   } else {
     start = { dateTime: `${timing.date}T${timing.startTime}:00`, timeZone };
     end = { dateTime: `${timing.date}T${timing.endTime}:00`, timeZone };

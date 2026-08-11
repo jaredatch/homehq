@@ -1,7 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { formatEventTimeRange, nextHourRange, zonedParts } from './calendar-utils';
+import { addDays, formatEventTimeRange, nextHourRange, zonedParts } from './calendar-utils';
 import { MAX_GROUP_CALENDARS } from '@/lib/calendar/event-groups';
 
 interface CalendarOption {
@@ -62,6 +62,7 @@ function initialValues(
       calendarIds: [] as string[],
       allDay: false,
       date: defaultDate,
+      endDate: defaultDate,
       startTime: fallback.start,
       endTime: fallback.end,
       location: '',
@@ -70,14 +71,20 @@ function initialValues(
   }
   const allDay = !!event.all_day;
   let date: string;
+  let endDate: string;
   let startTime = fallback.start;
   let endTime = fallback.end;
   if (allDay) {
     date = event.start_time.slice(0, 10);
+    // Stored end is EXCLUSIVE (Google's all-day convention), so the last day the
+    // event actually covers — the one to show the user — is the day before.
+    endDate = addDays(event.end_time.slice(0, 10), -1);
+    if (endDate < date) endDate = date;
   } else {
     const s = zonedParts(new Date(event.start_time), timezone);
     const e = zonedParts(new Date(event.end_time), timezone);
     date = `${s.year}-${pad(s.month)}-${pad(s.day)}`;
+    endDate = date;
     startTime = `${pad(s.hours)}:${pad(s.minutes)}`;
     endTime = `${pad(e.hours)}:${pad(e.minutes)}`;
   }
@@ -86,6 +93,7 @@ function initialValues(
     calendarIds: groupCalendarIds?.length ? groupCalendarIds : [event.calendar_id],
     allDay,
     date,
+    endDate,
     startTime,
     endTime,
     location: event.location ?? '',
@@ -131,6 +139,7 @@ export default function EventModal({
   const [calendarIds, setCalendarIds] = useState<string[]>(init.calendarIds);
   const [allDay, setAllDay] = useState(init.allDay);
   const [date, setDate] = useState(init.date);
+  const [endDate, setEndDate] = useState(init.endDate);
   const [startTime, setStartTime] = useState(init.startTime);
   const [endTime, setEndTime] = useState(init.endTime);
   const [location, setLocation] = useState(init.location);
@@ -146,8 +155,35 @@ export default function EventModal({
   // default, so an event can never silently land on the wrong person. Timed
   // events need an end after the start.
   const timesValid = allDay || (!!startTime && !!endTime && endTime > startTime);
+  // End date is inclusive, so a one-day event has endDate === date.
+  const datesValid = !allDay || (!!endDate && endDate >= date);
   const canSubmit =
-    title.trim() !== '' && calendarIds.length > 0 && date !== '' && timesValid && !submitting;
+    title.trim() !== '' &&
+    calendarIds.length > 0 &&
+    date !== '' &&
+    datesValid &&
+    timesValid &&
+    !submitting;
+
+  /**
+   * One rule covers every case: **if the end matches the start, the end follows
+   * the start; otherwise the two edges are independent.**
+   *
+   *  - New event — end starts equal to start, so it tracks. Touch the end and
+   *    they differ, so it stops. ("Same as start unless you change it.")
+   *  - Editing a single-day event — equal, so it tracks. Moving the date moves
+   *    the event, which is what you almost always mean.
+   *  - Editing a multi-day event — unequal, so changing either edge just makes
+   *    the event longer or shorter. Nothing you didn't touch moves.
+   *
+   * Read live off the current values rather than remembered from open, so
+   * stretching a single-day event to three days immediately stops the pinning
+   * instead of collapsing the span you just set.
+   */
+  const changeStartDate = (next: string) => {
+    if (allDay && endDate === date) setEndDate(next);
+    setDate(next);
+  };
 
   // Checking a second calendar makes this one event that applies to two people.
   // Capped while the two-color treatment is still being designed; unchecking is
@@ -212,6 +248,8 @@ export default function EventModal({
       title: title.trim(),
       allDay,
       date,
+      // Inclusive last day; the route converts to Google's exclusive end.
+      endDate: allDay ? endDate : undefined,
       startTime: allDay ? undefined : startTime,
       endTime: allDay ? undefined : endTime,
       location: location.trim() || undefined,
@@ -244,6 +282,7 @@ export default function EventModal({
     title,
     allDay,
     date,
+    endDate,
     startTime,
     endTime,
     location,
@@ -430,12 +469,12 @@ export default function EventModal({
 
               <div className="cal-field-row">
                 <label className="cal-field cal-field--date">
-                  <span className="cal-field-label">Date</span>
+                  <span className="cal-field-label">{allDay ? 'Starts' : 'Date'}</span>
                   <input
                     className="cal-input"
                     type="date"
                     value={date}
-                    onChange={(e) => setDate(e.target.value)}
+                    onChange={(e) => changeStartDate(e.target.value)}
                   />
                 </label>
                 {!allDay && (
@@ -462,11 +501,38 @@ export default function EventModal({
                 )}
               </div>
 
+              {/* All-day events get a second date row so a span can be set. Timed
+                  events stay same-day: the wall renders an event that crosses
+                  midnight only on its start day, so offering it here would make
+                  it easy to create something that displays wrong. */}
+              {allDay && (
+                <div className="cal-field-row">
+                  <label className="cal-field cal-field--date">
+                    <span className="cal-field-label">Ends</span>
+                    <input
+                      className="cal-input"
+                      type="date"
+                      value={endDate}
+                      min={date}
+                      onChange={(e) => setEndDate(e.target.value)}
+                    />
+                  </label>
+                </div>
+              )}
+              {allDay && !datesValid && (
+                <p className="cal-modal-error">The end date must be on or after the start date.</p>
+              )}
+
               <label className="cal-checkbox">
                 <input
                   type="checkbox"
                   checked={allDay}
-                  onChange={(e) => setAllDay(e.target.checked)}
+                  onChange={(e) => {
+                    // Turning all-day ON adopts the start date as a single day;
+                    // the follow rule takes it from there.
+                    if (e.target.checked) setEndDate(date);
+                    setAllDay(e.target.checked);
+                  }}
                 />
                 <span>All day</span>
               </label>

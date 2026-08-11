@@ -198,6 +198,57 @@ describe('POST /api/calendar/update', () => {
     expect(patch.end).toEqual({ date: '2026-07-13', dateTime: null, timeZone: null }); // span of 3 kept
   });
 
+  it('resizes an all-day span from an explicit inclusive endDate', async () => {
+    upsertEvent({
+      event_id: 'evt_trip',
+      calendar_id: 'primary',
+      summary: 'Trip',
+      description: null,
+      location: null,
+      start_time: '2026-07-01',
+      end_time: '2026-07-04', // 3 days
+      all_day: 1,
+      recurring_event_id: null,
+      group_id: null,
+    });
+    mockPatchCalendarEvent.mockImplementation(async (_t, _c, _e, patch) => ({
+      id: 'evt_trip',
+      summary: patch.summary,
+      start: patch.start,
+      end: patch.end,
+    }));
+
+    // Stretch it to 2026-07-01 through 2026-07-06 inclusive (6 days).
+    const res = await post({
+      eventId: 'evt_trip',
+      calendarId: 'primary',
+      title: 'Trip',
+      allDay: true,
+      date: '2026-07-01',
+      endDate: '2026-07-06',
+    });
+    expect(res.status).toBe(200);
+
+    const [, , , patch] = mockPatchCalendarEvent.mock.calls[0];
+    expect(patch.start).toEqual({ date: '2026-07-01', dateTime: null, timeZone: null });
+    // Exclusive: the day after the last covered day.
+    expect(patch.end).toEqual({ date: '2026-07-07', dateTime: null, timeZone: null });
+  });
+
+  it('400s on an inverted all-day range, without touching Google', async () => {
+    seedTimed();
+    const res = await post({
+      eventId: 'evt_timed',
+      calendarId: 'primary',
+      title: 'Trip',
+      allDay: true,
+      date: '2026-07-10',
+      endDate: '2026-07-01',
+    });
+    expect(res.status).toBe(400);
+    expect(mockPatchCalendarEvent).not.toHaveBeenCalled();
+  });
+
   it('maps a Google 403 to a re-consent message', async () => {
     seedTimed();
     mockPatchCalendarEvent.mockRejectedValue(new CalendarApiError(403, 'forbidden'));

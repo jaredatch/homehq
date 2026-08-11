@@ -18,7 +18,7 @@ import {
   deleteEvent,
   type CalendarEventRow,
 } from '@/lib/db/events';
-import { addUtcDays, allDaySpanDays, parseTiming } from '@/lib/calendar/event-timing';
+import { addUtcDays, allDaySpanDays, nextDay, parseTiming } from '@/lib/calendar/event-timing';
 import {
   GROUP_PROPERTY_KEY,
   MAX_GROUP_CALENDARS,
@@ -29,6 +29,8 @@ import {
 
 interface UpdateRequestBody {
   eventId?: unknown;
+  /** All-day only: inclusive last day. Omit to keep the existing span. */
+  endDate?: unknown;
   /** The calendar whose copy the user opened — always the lookup key. */
   calendarId?: unknown;
   /** The full set of calendars the event should end up on. Omit to leave
@@ -164,11 +166,20 @@ export async function POST(request: NextRequest) {
   const patch: PatchEventInput = { summary: title, location, description };
 
   if (timing.allDay) {
-    // Preserve a multi-day span on a date-only edit: an all-day event that stays
-    // all-day keeps its original length; a timed→all-day switch becomes one day.
-    const spanDays = existing.all_day ? allDaySpanDays(existing.start_time, existing.end_time) : 1;
     start = { date: timing.date };
-    end = { date: addUtcDays(timing.date, spanDays) };
+    if (timing.endDate) {
+      // The client sent the span explicitly. endDate is the INCLUSIVE last day;
+      // Google's end.date is exclusive, hence the +1.
+      end = { date: nextDay(timing.endDate) };
+    } else {
+      // No endDate (pre-end-date client): preserve the span rather than silently
+      // collapsing a multi-day event to one day. A timed→all-day switch has no
+      // span to keep, so it becomes a single day.
+      const spanDays = existing.all_day
+        ? allDaySpanDays(existing.start_time, existing.end_time)
+        : 1;
+      end = { date: addUtcDays(timing.date, spanDays) };
+    }
     patch.start = { ...start, dateTime: null, timeZone: null };
     patch.end = { ...end, dateTime: null, timeZone: null };
   } else {

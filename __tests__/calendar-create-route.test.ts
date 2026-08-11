@@ -186,6 +186,42 @@ describe('POST /api/calendar/create', () => {
     expect(input.end).toEqual({ date: '2026-07-05' }); // Google all-day end is exclusive
   });
 
+  it('creates a multi-day all-day event from an inclusive endDate', () => {
+    mockCreateCalendarEvent.mockImplementation(async (_tok, _cal, input) => ({
+      id: 'goog_trip',
+      summary: input.summary,
+      start: input.start,
+      end: input.end,
+    }));
+
+    // "Lake LBJ, Aug 2 through Aug 8" — what the user picks is the LAST day.
+    return post({
+      calendarId: 'primary',
+      title: 'Lake LBJ',
+      allDay: true,
+      date: '2026-08-02',
+      endDate: '2026-08-08',
+    }).then(async (res) => {
+      expect(res.status).toBe(201);
+      const [, , input] = mockCreateCalendarEvent.mock.calls[0];
+      expect(input.start).toEqual({ date: '2026-08-02' });
+      // Exclusive on Google: the day AFTER the last covered day.
+      expect(input.end).toEqual({ date: '2026-08-09' });
+    });
+  });
+
+  it('400s when the end date precedes the start, without touching Google', async () => {
+    const res = await post({
+      calendarId: 'primary',
+      title: 'Backwards',
+      allDay: true,
+      date: '2026-08-08',
+      endDate: '2026-08-02',
+    });
+    expect(res.status).toBe(400);
+    expect(mockCreateCalendarEvent).not.toHaveBeenCalled();
+  });
+
   it('maps a Google 403 to a re-consent message', async () => {
     mockCreateCalendarEvent.mockRejectedValue(new CalendarApiError(403, 'forbidden'));
     const res = await post(timedBody);

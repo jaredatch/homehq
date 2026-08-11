@@ -27,12 +27,28 @@ export function allDaySpanDays(startDate: string, endDate: string): number {
 interface TimingBody {
   allDay?: unknown;
   date?: unknown;
+  /** All-day only: the last day the event covers, INCLUSIVE (what the user
+   * picked). Omit to leave the span alone — see ParsedTiming.endDate. */
+  endDate?: unknown;
   startTime?: unknown;
   endTime?: unknown;
 }
 
 export type ParsedTiming =
-  | { allDay: true; date: string }
+  | {
+      allDay: true;
+      date: string;
+      /**
+       * Last covered day, INCLUSIVE — the value the user actually sees and
+       * picks. Google's `end.date` is EXCLUSIVE, so callers must write
+       * `nextDay(endDate)`; treating this as the stored value would silently
+       * cut every multi-day event a day short.
+       *
+       * undefined when the client didn't send one (pre-end-date clients), which
+       * means "keep whatever span this event already had".
+       */
+      endDate?: string;
+    }
   | { allDay: false; date: string; startTime: string; endTime: string };
 
 /**
@@ -49,7 +65,17 @@ export function parseTiming(
   const date = body.date;
 
   if (body.allDay === true) {
-    return { ok: true, timing: { allDay: true, date } };
+    if (body.endDate === undefined || body.endDate === null) {
+      return { ok: true, timing: { allDay: true, date } };
+    }
+    if (typeof body.endDate !== 'string' || !DATE_RE.test(body.endDate)) {
+      return { ok: false, error: 'endDate must be a date (YYYY-MM-DD)' };
+    }
+    // Inclusive, so a one-day event legitimately has endDate === date.
+    if (body.endDate < date) {
+      return { ok: false, error: 'endDate must be on or after the start date' };
+    }
+    return { ok: true, timing: { allDay: true, date, endDate: body.endDate } };
   }
 
   if (typeof body.startTime !== 'string' || !TIME_RE.test(body.startTime)) {

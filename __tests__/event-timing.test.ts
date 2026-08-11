@@ -31,6 +31,42 @@ describe('event-timing helpers', () => {
     expect(r.ok).toBe(true);
   });
 
+  it('parseTiming carries an inclusive all-day endDate', () => {
+    const r = parseTiming({ allDay: true, date: '2026-08-02', endDate: '2026-08-08' });
+    expect(r).toEqual({
+      ok: true,
+      timing: { allDay: true, date: '2026-08-02', endDate: '2026-08-08' },
+    });
+  });
+
+  it('parseTiming allows a one-day span (endDate === date, inclusive)', () => {
+    const r = parseTiming({ allDay: true, date: '2026-08-02', endDate: '2026-08-02' });
+    expect(r.ok).toBe(true);
+  });
+
+  it('parseTiming omits endDate when the client did not send one', () => {
+    // Pre-end-date clients: the update route reads this as "keep the span".
+    const r = parseTiming({ allDay: true, date: '2026-08-02' });
+    expect(r.ok && 'endDate' in r.timing && r.timing.endDate).toBeFalsy();
+  });
+
+  it('parseTiming rejects an endDate before the start, or a malformed one', () => {
+    expect(parseTiming({ allDay: true, date: '2026-08-02', endDate: '2026-08-01' }).ok).toBe(false);
+    expect(parseTiming({ allDay: true, date: '2026-08-02', endDate: '08/08/2026' }).ok).toBe(false);
+  });
+
+  it('parseTiming ignores endDate on a timed event (same-day only for now)', () => {
+    const r = parseTiming({
+      allDay: false,
+      date: '2026-08-02',
+      endDate: '2026-08-05',
+      startTime: '09:00',
+      endTime: '10:00',
+    });
+    expect(r.ok).toBe(true);
+    expect(r.ok && 'endDate' in r.timing).toBe(false);
+  });
+
   it('parseTiming rejects bad date, missing/inverted times', () => {
     expect(parseTiming({ date: '07/04/2026' }).ok).toBe(false);
     expect(parseTiming({ allDay: false, date: '2026-07-04' }).ok).toBe(false);
