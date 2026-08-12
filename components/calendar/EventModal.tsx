@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { addDays, formatEventTimeRange, nextHourRange, zonedParts } from './calendar-utils';
+import CalendarPicker from './CalendarPicker';
 import { MAX_GROUP_CALENDARS } from '@/lib/calendar/event-groups';
 
 interface CalendarOption {
@@ -148,6 +149,10 @@ export default function EventModal({
   const [deleting, setDeleting] = useState(false);
   const [confirmingDelete, setConfirmingDelete] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  // The calendar list is a layer above the form: Esc, a backdrop click, and
+  // Enter all have to peel it before they reach the modal itself, so its open
+  // state lives here rather than inside CalendarPicker.
+  const [pickerOpen, setPickerOpen] = useState(false);
 
   const titleRef = useRef<HTMLInputElement>(null);
 
@@ -230,14 +235,18 @@ export default function EventModal({
     if (!isRecurring) titleRef.current?.focus();
   }, [isRecurring]);
 
-  // Esc closes from anywhere.
+  // Esc closes from anywhere — but peels one layer at a time, so dismissing an
+  // open calendar list doesn't also throw away the form behind it (same rule
+  // month view follows for modal → popover → view).
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') onClose();
+      if (e.key !== 'Escape') return;
+      if (pickerOpen) setPickerOpen(false);
+      else onClose();
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
-  }, [onClose]);
+  }, [onClose, pickerOpen]);
 
   const save = useCallback(async () => {
     if (!canSubmit) return;
@@ -321,12 +330,14 @@ export default function EventModal({
 
   const onKeyDown = (e: React.KeyboardEvent) => {
     resetTimer();
-    // Enter submits the form — except inside the notes textarea (newline) and
-    // never while the delete confirmation is up.
+    // Enter submits the form — except inside the notes textarea (newline), while
+    // the delete confirmation is up, and while the calendar list is open (there
+    // Enter picks a calendar; saving a half-filled form by reflex would be worse).
     if (
       e.key === 'Enter' &&
       !e.shiftKey &&
       !confirmingDelete &&
+      !pickerOpen &&
       (e.target as HTMLElement).tagName !== 'TEXTAREA'
     ) {
       e.preventDefault();
@@ -340,7 +351,10 @@ export default function EventModal({
     <div
       className="cal-modal-backdrop"
       onMouseDown={(e) => {
-        if (e.target === e.currentTarget) onClose();
+        if (e.target !== e.currentTarget) return;
+        // Peel the calendar list first, same as Esc.
+        if (pickerOpen) setPickerOpen(false);
+        else onClose();
       }}
     >
       <div
@@ -435,31 +449,15 @@ export default function EventModal({
                   Calendars{' '}
                   <span className="cal-field-opt">(pick up to {MAX_GROUP_CALENDARS})</span>
                 </span>
-                <div className="cal-calpick" role="group" aria-labelledby="cal-calendars-label">
-                  {calendars.map((c) => {
-                    const checked = calendarIds.includes(c.id);
-                    // At the cap, the unchosen ones grey out — unchecking one
-                    // frees a slot, so this can never be a dead end.
-                    const atCap = !checked && calendarIds.length >= MAX_GROUP_CALENDARS;
-                    return (
-                      <label
-                        key={c.id}
-                        className={`cal-calpick-option${atCap ? ' is-disabled' : ''}${
-                          checked ? ' is-checked' : ''
-                        }`}
-                      >
-                        <input
-                          type="checkbox"
-                          checked={checked}
-                          disabled={atCap}
-                          onChange={() => toggleCalendar(c.id)}
-                        />
-                        <span className="cal-calpick-dot" style={{ backgroundColor: c.color }} />
-                        <span className="cal-calpick-name">{c.name}</span>
-                      </label>
-                    );
-                  })}
-                </div>
+                <CalendarPicker
+                  calendars={calendars}
+                  selected={calendarIds}
+                  max={MAX_GROUP_CALENDARS}
+                  open={pickerOpen}
+                  onOpenChange={setPickerOpen}
+                  onToggle={toggleCalendar}
+                  labelId="cal-calendars-label"
+                />
                 {calendarIds.length > 1 && (
                   <p className="cal-calpick-note">
                     Goes on both calendars as one event — the board shows it once.
