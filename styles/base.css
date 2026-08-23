@@ -28,7 +28,10 @@ html {
 }
 
 body {
-	font-family: var(--font-inter), system-ui, sans-serif;
+	/* 'HomeHQ Emoji' is scoped by unicode-range to emoji codepoints only (see
+	   styles/fonts.css), so it never touches Latin text — it just gives the Pi
+	   a face for the emoji in event titles, which it otherwise draws as tofu. */
+	font-family: var(--font-inter), 'HomeHQ Emoji', system-ui, sans-serif;
 	background-color: var(--bg);
 	color: var(--fg);
 	-webkit-font-smoothing: antialiased;

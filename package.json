@@ -11,7 +11,8 @@
     "format:check": "prettier --check .",
     "test": "vitest run",
     "test:watch": "vitest",
-    "weather-icons": "node scripts/fetch-weather-icons.mjs"
+    "weather-icons": "node scripts/fetch-weather-icons.mjs",
+    "emoji-font": "node scripts/fetch-emoji-font.mjs"
   },
   "dependencies": {
     "better-sqlite3": "^12.6.2",

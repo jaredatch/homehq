@@ -1,7 +1,9 @@
 /* Top-level stylesheet — pulls in the logical partials in cascade order:
-   tokens (variables) → base (reset + shell) → per-area component styles.
+   tokens (variables) → fonts (@font-face) → base (reset + shell) → per-area
+   component styles.
    Imported once in app/layout.tsx. Edit the partials, not this file. */
 @import '../styles/tokens.css';
+@import '../styles/fonts.css';
 @import '../styles/base.css';
 @import '../styles/calendar.css';
 @import '../styles/month.css';
