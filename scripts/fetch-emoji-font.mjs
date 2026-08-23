@@ -16,6 +16,7 @@
  */
 import { mkdir, writeFile, rm } from 'node:fs/promises';
 import * as prettier from 'prettier';
+import { createHash } from 'node:crypto';
 import { resolve, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -51,7 +52,12 @@ let total = 0;
 const blocks = [];
 for (const [i, face] of faces.entries()) {
   const bytes = Buffer.from(await (await fetch(face.url)).arrayBuffer());
-  const name = `noto-color-emoji.${i}.woff2`;
+  // Content-hashed filename. Two reasons: it makes the year-long `immutable`
+  // cache header in next.config honest (new bytes can only ever arrive at a new
+  // URL), and it strands any stale edge-cached entry for the old path instead
+  // of waiting a year for it to expire.
+  const hash = createHash('sha256').update(bytes).digest('hex').slice(0, 8);
+  const name = `noto-color-emoji.${i}.${hash}.woff2`;
   await writeFile(resolve(OUT_DIR, name), bytes);
   total += bytes.length;
   console.log(`  slice ${i}: ${(bytes.length / 1024).toFixed(0)} KB`);

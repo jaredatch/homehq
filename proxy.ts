@@ -55,5 +55,12 @@ export async function proxy(request: NextRequest) {
 }
 
 export const config = {
-  matcher: ['/((?!_next/static|_next/image|favicon\\.ico).*)'],
+  // `fonts/` is excluded deliberately. Files under public/ are NOT covered by
+  // the _next/static exclusion, so the vendored emoji slices were being gated —
+  // and because next.config stamps them `public, max-age=1y, immutable`, that
+  // header landed on the 307 redirect and Cloudflare cached the REDIRECT at the
+  // edge for a year, serving it even to the authenticated kiosk. A font is not
+  // a secret; keeping it out of the gate is what makes the cache header honest.
+  // Never visible in dev: DEV_AUTH_BYPASS returns before the matcher matters.
+  matcher: ['/((?!_next/static|_next/image|favicon\\.ico|fonts/).*)'],
 };

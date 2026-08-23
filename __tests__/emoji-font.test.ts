@@ -108,3 +108,35 @@ describe('no UI chrome character collides with the emoji font', () => {
     ).toEqual([]);
   });
 });
+
+// The font path must stay OUT of the auth gate. It isn't covered by the
+// _next/static exclusion (that only covers Next's own build output), and
+// next.config stamps /fonts/* with a one-year `public, immutable` header — so
+// while it was gated, that header landed on the 307 redirect to /login and
+// Cloudflare cached the REDIRECT at the edge, serving it even to the
+// authenticated kiosk. The wall showed tofu with a perfectly good font shipped.
+//
+// This is invisible locally: DEV_AUTH_BYPASS returns before the matcher runs.
+describe('the font path is not behind the auth gate', () => {
+  const matcher = read('proxy.ts').match(/matcher:\s*\['([^']+)'\]/)![1];
+  const re = new RegExp(`^${matcher.replace(/\\\\/g, '\\')}$`);
+
+  it('the proxy matcher skips /fonts/*', () => {
+    for (const f of faces) expect(re.test(f.file), `${f.file} is gated`).toBe(false);
+    expect(re.test('/fonts/emoji/anything.woff2')).toBe(false);
+  });
+
+  it('still gates the app itself', () => {
+    for (const p of ['/', '/api/calendar', '/setup']) {
+      expect(re.test(p), `${p} must stay gated`).toBe(true);
+    }
+  });
+});
+
+describe('font filenames are content-hashed', () => {
+  it('every slice URL carries a hash, so `immutable` is honest', () => {
+    for (const f of faces) {
+      expect(f.file, `${f.file} has no content hash`).toMatch(/\.[0-9a-f]{8}\.woff2$/);
+    }
+  });
+});
