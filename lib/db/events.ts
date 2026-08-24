@@ -85,6 +85,42 @@ export function getEventsByGroup(groupId: string): CalendarEventRow[] {
     .all(groupId) as CalendarEventRow[];
 }
 
+/**
+ * Every cached row that could be another copy of `event` — a superset, gathered
+ * in one query for `resolveLink` to apply precedence and caps to.
+ *
+ * The three arms mirror the three link tiers: HomeHQ's stamp, Google's own event
+ * id (an invite surfacing on two calendars), and identical title + times (the
+ * same thing typed in twice). Deliberately loose — narrowing it here would put a
+ * second, subtly different copy of the matching rule in the codebase, and the
+ * whole point of `lib/calendar/event-links.ts` is that there is exactly one.
+ *
+ * The `group_id IS NOT NULL` guard matters: without it an ungrouped event would
+ * match on `NULL = NULL` semantics differing across the two comparisons.
+ */
+export function getLinkCandidates(event: CalendarEventRow): CalendarEventRow[] {
+  const db = getDb();
+  return db
+    .prepare(
+      `SELECT * FROM calendar_events
+       WHERE (group_id IS NOT NULL AND group_id = @group_id)
+          OR event_id = @event_id
+          OR (summary = @summary
+              AND start_time = @start_time
+              AND end_time = @end_time
+              AND all_day = @all_day)
+       ORDER BY calendar_id`
+    )
+    .all({
+      group_id: event.group_id,
+      event_id: event.event_id,
+      summary: event.summary,
+      start_time: event.start_time,
+      end_time: event.end_time,
+      all_day: event.all_day,
+    }) as CalendarEventRow[];
+}
+
 /** Remove a single cached event after it's deleted on Google, so it disappears
  * before the next full sync. No-op if the row is already gone. */
 export function deleteEvent(eventId: string, calendarId: string): void {

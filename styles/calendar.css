@@ -678,6 +678,16 @@
 .cal-calpick-field:hover {
 	border-color: var(--gray-600);
 }
+/* Membership belongs to Google's guest list, not to us — the field keeps its
+   shape (so the form doesn't reflow between an ordinary event and this one) but
+   drops every affordance: no pointer, no hover lift, no focus ring. The note
+   under it says where to change it. */
+.cal-calpick-field.is-locked,
+.cal-calpick-field.is-locked:hover {
+	background: var(--gray-900);
+	border-color: var(--gray-800);
+	cursor: default;
+}
 .cal-calpick-field:focus-visible,
 .cal-calpick-field.is-open {
 	border-color: var(--blue-500);

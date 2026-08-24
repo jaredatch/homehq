@@ -22,6 +22,10 @@ interface CalendarPickerProps {
   onToggle: (id: string) => void;
   /** The field label, for aria-labelledby on both the trigger and the list. */
   labelId: string;
+  /** Show the chosen calendars but refuse to change them — the field stops being
+   * a control and becomes a readout. Used for an event whose membership is
+   * Google's guest list, not ours (see `isMembershipLocked`). */
+  locked?: boolean;
 }
 
 /** The dropdown's fixed-position box, in viewport px. */
@@ -69,6 +73,7 @@ export default function CalendarPicker({
   onOpenChange,
   onToggle,
   labelId,
+  locked = false,
 }: CalendarPickerProps) {
   const triggerRef = useRef<HTMLDivElement>(null);
   const listRef = useRef<HTMLDivElement>(null);
@@ -179,19 +184,32 @@ export default function CalendarPicker({
     <>
       <div
         ref={triggerRef}
-        className={open ? 'cal-calpick-field is-open' : 'cal-calpick-field'}
-        role="button"
-        tabIndex={0}
-        aria-expanded={open}
+        className={
+          locked
+            ? 'cal-calpick-field is-locked'
+            : open
+              ? 'cal-calpick-field is-open'
+              : 'cal-calpick-field'
+        }
+        // Locked, this is a readout, not a control: no role, no tab stop, no
+        // handlers. Announcing a button that refuses every activation is worse
+        // than announcing nothing.
+        {...(locked
+          ? {}
+          : {
+              role: 'button',
+              tabIndex: 0,
+              'aria-expanded': open,
+              onClick: () => onOpenChange(!open),
+              onKeyDown: (e: React.KeyboardEvent) => {
+                if (e.key !== 'Enter' && e.key !== ' ' && e.key !== 'ArrowDown') return;
+                e.preventDefault();
+                // Enter must not reach the modal, which reads it as Save.
+                e.stopPropagation();
+                onOpenChange(true);
+              },
+            })}
         aria-labelledby={labelId}
-        onClick={() => onOpenChange(!open)}
-        onKeyDown={(e) => {
-          if (e.key !== 'Enter' && e.key !== ' ' && e.key !== 'ArrowDown') return;
-          e.preventDefault();
-          // Enter must not reach the modal, which reads it as Save.
-          e.stopPropagation();
-          onOpenChange(true);
-        }}
       >
         {chosen.length === 0 ? (
           // Echoes the title field's "What's happening?" rather than repeating
@@ -203,29 +221,34 @@ export default function CalendarPicker({
               <span key={c.id} className="cal-calpick-token">
                 <span className="cal-calpick-dot" style={{ backgroundColor: c.color }} />
                 <span className="cal-calpick-token-name">{c.name}</span>
-                <button
-                  type="button"
-                  className="cal-calpick-token-x"
-                  aria-label={`Remove ${c.name}`}
-                  // The × lives inside the trigger, so both would fire.
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    onToggle(c.id);
-                  }}
-                  onKeyDown={(e) => e.stopPropagation()}
-                >
-                  ×
-                </button>
+                {!locked && (
+                  <button
+                    type="button"
+                    className="cal-calpick-token-x"
+                    aria-label={`Remove ${c.name}`}
+                    // The × lives inside the trigger, so both would fire.
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      onToggle(c.id);
+                    }}
+                    onKeyDown={(e) => e.stopPropagation()}
+                  >
+                    ×
+                  </button>
+                )}
               </span>
             ))}
           </span>
         )}
-        <span className="cal-calpick-caret" aria-hidden>
-          ▾
-        </span>
+        {!locked && (
+          <span className="cal-calpick-caret" aria-hidden>
+            ▾
+          </span>
+        )}
       </div>
 
-      {open &&
+      {!locked &&
+        open &&
         placement &&
         createPortal(
           <div

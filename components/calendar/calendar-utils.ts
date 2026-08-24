@@ -1,3 +1,5 @@
+import type { LinkKind } from '@/lib/calendar/event-links';
+
 export interface CalendarEvent {
   id: number;
   event_id: string;
@@ -19,6 +21,10 @@ export interface CalendarEvent {
    * Present only on a MERGED shared event: every calendar it belongs to, in
    * config order. Its absence is what makes an event render as a plain chip. */
   groupCalendarIds?: string[];
+  /** Display-only, alongside `groupCalendarIds`: how the copies were recognised
+   * (HomeHQ stamp · one Google event on two calendars · matching title+times).
+   * Decides whether the edit form lets membership be changed. */
+  groupMatch?: LinkKind;
 }
 
 export interface SyncStatus {

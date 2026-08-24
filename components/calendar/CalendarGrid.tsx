@@ -4,7 +4,7 @@ import { useEffect, useLayoutEffect, useState, useCallback, useMemo, useRef } fr
 import WeekRow from './WeekRow';
 import EventItem from './EventItem';
 import EventModal, { type EditableEvent } from './EventModal';
-import { calendarIdsForEvent, mergeGroups } from './event-groups';
+import { calendarIdsForEvent, isMembershipLocked, mergeGroups } from './event-groups';
 import { accentStripes, eventPaint } from './event-paint';
 import CalendarFooter from './CalendarFooter';
 import { useCalendarFilter, filterEvents } from './calendar-filter';
@@ -575,6 +575,7 @@ export default function CalendarGrid({
           groupCalendarIds={
             modal.mode === 'edit' ? calendarIdsForEvent(events, modal.event) : undefined
           }
+          membershipLocked={modal.mode === 'edit' && isMembershipLocked(events, modal.event)}
           calendars={calendars}
           timezone={timezone}
           defaultDate={today}

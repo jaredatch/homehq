@@ -3,7 +3,8 @@ import type { NextRequest } from 'next/server';
 import { getConfig, isCalendarWriteEnabled } from '@/lib/config';
 import { getValidAccessToken } from '@/lib/google/oauth';
 import { deleteCalendarEvent, CalendarApiError } from '@/lib/google/calendar';
-import { getEvent, getEventsByGroup, deleteEvent } from '@/lib/db/events';
+import { getEvent, getLinkCandidates, deleteEvent } from '@/lib/db/events';
+import { resolveLink } from '@/lib/calendar/event-links';
 
 interface DeleteRequestBody {
   eventId?: unknown;
@@ -64,9 +65,16 @@ export async function POST(request: NextRequest) {
 
   // Deleting a shared event removes every copy — the user is deleting the event,
   // not one person's view of it. (Dropping a single person is an *edit*: uncheck
-  // that calendar and save, which deletes only their copy.) An ungrouped event is
-  // a group of one, so this needs no special case.
-  const targets = existing.group_id ? getEventsByGroup(existing.group_id) : [existing];
+  // that calendar and save, which deletes only their copy.) Copies are resolved
+  // by the same rule the grid merged the chip with, so what disappears is exactly
+  // what the confirmation named. An unlinked event resolves to a set of one, so
+  // this needs no special case.
+  //
+  // For a `google` link both entries address the SAME Google event: the first
+  // call removes it and the second comes back 410, which deleteCalendarEvent
+  // already treats as success. Issuing both is deliberate — it drops both cache
+  // rows, so nothing lingers on the wall until the next sync.
+  const targets = resolveLink(getLinkCandidates(existing), existing).members;
 
   const failures: { calendarId: string; error: string }[] = [];
   let firstError: unknown = null;

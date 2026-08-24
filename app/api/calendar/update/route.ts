@@ -13,11 +13,12 @@ import {
 } from '@/lib/google/calendar';
 import {
   getEvent,
-  getEventsByGroup,
+  getLinkCandidates,
   upsertEvent,
   deleteEvent,
   type CalendarEventRow,
 } from '@/lib/db/events';
+import { resolveLink } from '@/lib/calendar/event-links';
 import { addUtcDays, allDaySpanDays, nextDay, parseTiming } from '@/lib/calendar/event-timing';
 import {
   GROUP_PROPERTY_KEY,
@@ -123,10 +124,35 @@ export async function POST(request: NextRequest) {
   if (!parsed.ok) return badRequest(parsed.error);
   const timing = parsed.timing;
 
-  // Every cached copy of this event. Ungrouped events are a group of one, so the
-  // rest of this route needs no special case for them.
-  const siblings = existing.group_id ? getEventsByGroup(existing.group_id) : [existing];
+  // Every cached copy of this event, by the SAME rule the grids merged the chip
+  // with (lib/calendar/event-links.ts). Resolving it any other way is what turns
+  // a merged chip into a data bug: the board would claim two calendars, this
+  // route would see one, and saving would "add" the second — writing a THIRD
+  // copy of an event that was never duplicated. An unlinked event resolves to a
+  // set of one, so the rest of this route needs no special case for it.
+  const link = resolveLink(getLinkCandidates(existing), existing);
+  const siblings = link.members;
   const currentIds = siblings.map((s) => s.calendar_id);
+
+  // A `google` link is ONE Google event resource that surfaces on two calendars
+  // because someone was invited. Its membership is Google's guest list, which
+  // this route has no honest way to edit — ticking another calendar here would
+  // not add a guest, it would create a second, unrelated event. The UI locks the
+  // picker; this is the defence in depth behind it.
+  if (link.kind === 'google' && Array.isArray(body.calendarIds)) {
+    const requested = readCalendarIds(body) ?? [];
+    const same =
+      requested.length === currentIds.length && requested.every((id) => currentIds.includes(id));
+    if (!same) {
+      return NextResponse.json(
+        {
+          error:
+            'This event is shared through Google Calendar — change who it is for in Google Calendar.',
+        },
+        { status: 409 }
+      );
+    }
+  }
 
   // Membership only changes when the client explicitly sends `calendarIds`. A
   // body carrying just the scalar `calendarId` is editing fields, not
@@ -152,7 +178,16 @@ export async function POST(request: NextRequest) {
   // and patched onto the original copy as well as set on the new one. Shrinking
   // back to one calendar leaves the stamp in place — a one-member group merges to
   // nothing and renders normally, and re-adding someone reforms the same group.
-  const groupId = existing.group_id ?? (nextIds.length > 1 ? newGroupId() : null);
+  // A `twin` pair (matched on title + times alone) gets stamped here, so the one
+  // guess the board made becomes a recorded fact and never has to be guessed
+  // again — this is what "adopt on save" means.
+  //
+  // A `google` link must NEVER be stamped. extendedProperties.private belongs to
+  // the copy of the event that ONE calendar owns, so the stamp would land on the
+  // patched copy alone; its sibling would keep a null group_id, tier 1 would then
+  // see a group of one, and the pair would silently stop merging.
+  const canStamp = link.kind !== 'google';
+  const groupId = existing.group_id ?? (canStamp && nextIds.length > 1 ? newGroupId() : null);
 
   // null clears the field on Google (empty location/notes), and on start/end it
   // clears the sibling key so an all-day↔timed toggle never leaves both set.
@@ -212,22 +247,43 @@ export async function POST(request: NextRequest) {
 
   // Patch what stays, insert what was added, delete what was removed — deletes
   // LAST so a failure earlier in the sequence never leaves data destroyed.
-  for (const sibling of siblings) {
-    if (!kept.includes(sibling.calendar_id)) continue;
+  if (link.kind === 'google') {
+    // One Google event resource, so exactly ONE patch: a second call addressed
+    // through the sibling calendar would re-apply the same values to the same
+    // event, and an attendee's copy may not even be writable.
+    //
+    // Both cache rows are then refreshed from that single confirmed response.
+    // They are the same event by definition, so the values are identical — and
+    // writing both is what keeps the merged chip merged, instead of leaving a
+    // split pair on the wall until the next five-minute sync.
     try {
-      const updated = await patchCalendarEvent(
-        accessToken,
-        sibling.calendar_id,
-        sibling.event_id,
-        patch
-      );
-      // Confirmed by Google → write through to the cache so the change shows on
-      // the next poll without waiting for the 5-minute sync.
-      const row = normalizeEvent(sibling.calendar_id, updated);
-      upsertEvent(row);
-      rows.push(row);
+      const updated = await patchCalendarEvent(accessToken, calendarId, existing.event_id, patch);
+      for (const sibling of siblings) {
+        const row = normalizeEvent(sibling.calendar_id, updated);
+        upsertEvent(row);
+        rows.push(row);
+      }
     } catch (err) {
-      fail(sibling.calendar_id, err);
+      fail(calendarId, err);
+    }
+  } else {
+    for (const sibling of siblings) {
+      if (!kept.includes(sibling.calendar_id)) continue;
+      try {
+        const updated = await patchCalendarEvent(
+          accessToken,
+          sibling.calendar_id,
+          sibling.event_id,
+          patch
+        );
+        // Confirmed by Google → write through to the cache so the change shows on
+        // the next poll without waiting for the 5-minute sync.
+        const row = normalizeEvent(sibling.calendar_id, updated);
+        upsertEvent(row);
+        rows.push(row);
+      } catch (err) {
+        fail(sibling.calendar_id, err);
+      }
     }
   }
 

@@ -34,6 +34,11 @@ interface EventModalProps {
   /** Edit mode: every calendar this event currently lives on (one for an
    * ordinary event, more for a shared one). Seeds the picker. */
   groupCalendarIds?: string[];
+  /** Edit mode: this event is on two calendars because it's ONE Google event
+   * with a guest, so who it's for belongs to Google's guest list. The picker
+   * becomes a readout and `calendarIds` is left out of the save entirely — the
+   * update route rejects a membership change on such an event anyway. */
+  membershipLocked?: boolean;
   calendars: CalendarOption[];
   /** IANA zone the times are entered/read in (the display zone). */
   timezone?: string;
@@ -118,6 +123,7 @@ export default function EventModal({
   mode,
   event,
   groupCalendarIds,
+  membershipLocked = false,
   calendars,
   timezone,
   defaultDate,
@@ -253,7 +259,9 @@ export default function EventModal({
     setSubmitting(true);
     setError(null);
     const payload = {
-      calendarIds,
+      // Omitted when locked: the route reads a body with no `calendarIds` as
+      // "edit the fields, leave membership alone", which is exactly right here.
+      ...(membershipLocked ? {} : { calendarIds }),
       title: title.trim(),
       allDay,
       date,
@@ -287,6 +295,7 @@ export default function EventModal({
     }
   }, [
     canSubmit,
+    membershipLocked,
     calendarIds,
     title,
     allDay,
@@ -447,7 +456,9 @@ export default function EventModal({
               <div className="cal-field">
                 <span className="cal-field-label" id="cal-calendars-label">
                   Calendars{' '}
-                  <span className="cal-field-opt">(pick up to {MAX_GROUP_CALENDARS})</span>
+                  {!membershipLocked && (
+                    <span className="cal-field-opt">(pick up to {MAX_GROUP_CALENDARS})</span>
+                  )}
                 </span>
                 <CalendarPicker
                   calendars={calendars}
@@ -457,11 +468,21 @@ export default function EventModal({
                   onOpenChange={setPickerOpen}
                   onToggle={toggleCalendar}
                   labelId="cal-calendars-label"
+                  locked={membershipLocked}
                 />
-                {calendarIds.length > 1 && (
+                {membershipLocked ? (
+                  // Says WHY it can't be changed and where it can, rather than
+                  // leaving a field that quietly ignores clicks.
                   <p className="cal-calpick-note">
-                    Goes on both calendars as one event — the board shows it once.
+                    Invited on Google Calendar — change who it’s for there. Everything else here
+                    saves for both.
                   </p>
+                ) : (
+                  calendarIds.length > 1 && (
+                    <p className="cal-calpick-note">
+                      Goes on both calendars as one event — the board shows it once.
+                    </p>
+                  )
                 )}
               </div>
 
