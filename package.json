@@ -1,7 +1,16 @@
 {
   "name": "homehq",
-  "version": "0.1.0",
+  "version": "1.3.0",
   "private": true,
+  "description": "Self-hosted family calendar dashboard for a wall-mounted display",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/jaredatch/homehq.git"
+  },
+  "engines": {
+    "node": ">=24"
+  },
   "scripts": {
     "dev": "next dev",
     "build": "next build",
