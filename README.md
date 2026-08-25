@@ -77,10 +77,6 @@ Every config key is documented in [docs/configuration.md](docs/configuration.md)
 | [BOOTSTRAP.md](BOOTSTRAP.md)                             | Dev setup, commands, troubleshooting                  |
 | [CONTRIBUTING.md](CONTRIBUTING.md)                       | How to send a change                                  |
 
-## Not on the roadmap
-
-A settings UI, multiple Google accounts, other calendar providers, touch UX, and editing recurring series (occurrences are shown; the series is managed in Google Calendar). If you need those, fork it.
-
 ## Contributing
 
 Bug reports and small, focused pull requests are welcome. Read [CONTRIBUTING.md](CONTRIBUTING.md) first; the calendar grid has a couple of invariants that are easy to break by accident.

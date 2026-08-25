@@ -1,6 +1,6 @@
 # Contributing
 
-Thanks for looking. HomeHQ is a small project built for one household, so the bar for a change is "does this make the wall better without making it fragile". Bug reports, small fixes, and focused features are welcome. Big new directions (other calendar providers, a settings UI, multi-tenant anything) are probably better as a fork; see the README's [Not on the roadmap](README.md#not-on-the-roadmap).
+Thanks for looking. HomeHQ is a small project built for one household, so the bar for a change is "does this make the wall better without making it fragile". Bug reports, small fixes, and focused features are welcome. For anything bigger than that (a new provider, a settings UI), open an issue first so we can talk it through before you build it.
 
 ## Before you open a PR
 
