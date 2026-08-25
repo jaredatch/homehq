@@ -43,6 +43,11 @@
 	min-height: 0;
 	gap: 1px;
 	background-color: var(--gray-800);
+	/* The week tracks are sized inline at runtime and the anchor week's is an
+	   explicit px height, so an over-allocation is always possible. Clip it here
+	   rather than let it paint down over the footer. clip (not hidden) for the
+	   same reason as .app-main — this must never become a scroll container. */
+	overflow: clip;
 }
 
 /* Hidden measurement layer — full event stacks at real column width, out of

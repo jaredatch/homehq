@@ -356,8 +356,10 @@ export default function CalendarGrid({
   }, [days, visibleEvents, timezone]);
 
   // Space policy, by priority:
-  //   1. the "protected" days of the ANCHOR week always show every event, and
-  //      their real content sets the anchor week's track height;
+  //   1. the "protected" days of the ANCHOR week show every event, and their
+  //      real content sets the anchor week's track height — up to the point
+  //      where the other weeks would drop below a readable floor. Past that the
+  //      anchor is capped and its protected days crop behind "+N more" too;
   //   2. every other week gets an even share of the remaining height (maximize
   //      what it shows);
   //   3. non-protected days of the anchor week crop to whatever's left in its
@@ -432,12 +434,22 @@ export default function CalendarGrid({
     // Keep a week at least ~2 rows tall so it never collapses to a sliver.
     const floorPx = rowPadV + (rowUnitPx > 0 ? 2 * rowUnitPx + rowGap : 0);
     const otherWeeks = Math.max(0, weeks - 1);
-    // In expanded mode the de-prioritized weeks keep a readable floor, so a very
-    // busy next week can't swallow the whole screen. Default mode is unchanged —
-    // the protected current week may still take up to the full height.
-    const minOtherPx = expanded && otherWeeks > 0 ? otherWeeks * (headerH + floorPx) : 0;
+    // Every de-prioritized week keeps a readable floor, in BOTH modes. This used
+    // to apply to expanded mode only, on the theory that the protected current
+    // week could safely take up to the whole screen. A school-year week (12-13
+    // events a day) disproved it: the anchor asked for more height than the grid
+    // had, next week was left holding a date header with nothing under it, and
+    // the overflow pushed the footer clean off the bottom edge. The anchor now
+    // yields whatever the other weeks need to stay legible.
+    const minOtherPx = otherWeeks > 0 ? otherWeeks * (headerH + floorPx) : 0;
     const maxAnchorPx = Math.max(0, availH - minOtherPx);
-    const anchorPx = Math.min(Math.ceil(headerH + Math.max(protectedPx, floorPx) + 6), maxAnchorPx);
+    const wantedAnchorPx = Math.ceil(headerH + Math.max(protectedPx, floorPx) + 6);
+    const anchorPx = Math.min(wantedAnchorPx, maxAnchorPx);
+    // Did the anchor get everything it asked for? When it didn't, its protected
+    // days can no longer show every event — and they have to crop behind
+    // "+N more" like any other day, not be silently clipped by .cal-week's
+    // overflow. Uncapped (the ordinary case) this stays false and nothing moves.
+    const anchorCapped = anchorPx < wantedAnchorPx;
     const otherWeekPx = otherWeeks > 0 ? Math.max(0, availH - anchorPx) / otherWeeks : 0;
 
     // Per-day visible counts. Protected days (anchor week, today-onward) = all
@@ -449,7 +461,7 @@ export default function CalendarGrid({
       const trackPx = isAnchor ? anchorPx : otherWeekPx;
       const lanes = laneByWeek[wi] ?? [];
       weekDays.forEach((date, col) => {
-        if (isAnchor && date >= today) {
+        if (isAnchor && date >= today && !anchorCapped) {
           visibleByDay[date] = Infinity;
         } else {
           const inner = trackPx - headerH - bandHeightFor(lanes[col] ?? 0);

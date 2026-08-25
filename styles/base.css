@@ -93,6 +93,16 @@ canvas {
 
 .app-main {
 	flex: 1 1 0%;
+	/* min-height:0 is load-bearing, not tidiness. A block-level flex item's
+	   automatic minimum size is its content's — and Chrome does NOT zero that
+	   for overflow:clip the way it does for hidden/auto. So when the calendar
+	   asked for more height than the viewport had (a school-year week: 12-13
+	   events a day), .app-main simply grew, .cal-grid grew with it, and the
+	   footer — legend, view switch, + Add event, reload, sync — was pushed past
+	   the bottom edge and silently eaten by the clip. Pinning the minimum to 0
+	   makes the footer structurally unable to leave the screen: whatever the
+	   layout engine asks for, the weeks row absorbs it. */
+	min-height: 0;
 	/* clip, not hidden: the wall viewport must never become a scroll container.
 	   hidden still allows programmatic scrolling (focus, scrollIntoView, scroll-
 	   anchoring), which once stranded the calendar scrolled-down with its header
