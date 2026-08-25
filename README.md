@@ -29,18 +29,25 @@ It's built for one household on one Google account, and that's the whole scope. 
 
 Auth is a single six-digit PIN for the household, behind a signed cookie that renews itself so the kiosk never logs out.
 
+## Screenshots
+
+Month view. A sit-down view for looking further ahead; it goes back to the week grid on its own.
+
+![Month view: a six-row August grid with colour-coded chips and "N more" overflow buttons](docs/images/month-view.png)
+
+Editing a shared event. One event on two calendars, with the calendar picker open.
+
+![The edit-event modal over the week grid, with the calendar picker dropdown showing two calendars ticked](docs/images/event-modal.png)
+
+A full day in month view. "N more" opens the whole list without leaving the grid.
+
+![Month view with a day popover listing every event on a busy day](docs/images/day-popover.png)
+
 ## How it works
 
 Next.js 16 with a SQLite cache in the middle. Two background jobs pull from Google Calendar (every 5 min) and Open-Meteo (every 30 min) into `data/homehq.db`; the dashboard polls API routes that read from that cache. The browser never talks to Google, credentials never leave the server, and a Google outage just means the wall keeps showing what it had.
 
 Details in [docs/architecture.md](docs/architecture.md). The calendar layout has its own write-up in [docs/calendar.md](docs/calendar.md).
-
-<details>
-<summary>Month view</summary>
-
-![Month view: a six-row August grid with colour-coded chips and "N more" overflow buttons](docs/images/month-view.png)
-
-</details>
 
 ## Quick start
 
