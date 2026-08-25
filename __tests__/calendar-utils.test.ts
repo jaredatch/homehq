@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import {
   assignEventsToDays,
   computeWeekSegments,
+  eventTimeRangeParts,
   formatEventTimeRange,
   formatSyncLabel,
   generateRollingDays,
@@ -164,6 +165,19 @@ describe('calendar rendering helpers', () => {
     expect(formatEventTimeRange('2026-04-29T11:30:00', '2026-04-29T13:00:00')).toBe(
       '11:30am – 1pm'
     );
+  });
+
+  it('keeps the start meridiem in the split parts, even when it matches the end', () => {
+    // The string formatter drops it ("3:30 – 4pm"); the parts must not, since
+    // EventItem styles the start on its own and it has to read as a time alone.
+    expect(eventTimeRangeParts('2026-04-29T15:30:00', '2026-04-29T16:00:00')).toEqual({
+      start: '3:30pm',
+      end: '4pm',
+    });
+    expect(eventTimeRangeParts('2026-04-29T11:30:00', '2026-04-29T13:00:00')).toEqual({
+      start: '11:30am',
+      end: '1pm',
+    });
   });
 
   it('formats sync age labels', () => {

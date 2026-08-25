@@ -1,4 +1,4 @@
-import { formatEventTimeRange } from './calendar-utils';
+import { eventTimeRangeParts } from './calendar-utils';
 
 interface EventItemProps {
   event: {
@@ -23,6 +23,7 @@ interface EventItemProps {
 // Timed events only — all-day events render as spanning bars in WeekRow's band.
 export default function EventItem({ event, color, accent, timeZone, onClick }: EventItemProps) {
   const interactive = !!onClick;
+  const time = eventTimeRangeParts(event.start_time, event.end_time, timeZone);
   return (
     <div
       data-event-row
@@ -49,8 +50,11 @@ export default function EventItem({ event, color, accent, timeZone, onClick }: E
         style={accent ? { background: accent } : { backgroundColor: color }}
         aria-hidden
       />
+      {/* Start time is wrapped so it can be styled apart from the rest of the
+          range; the separator and end stay a plain text node beside it. */}
       <div className="cal-event-time" style={{ color }}>
-        {formatEventTimeRange(event.start_time, event.end_time, timeZone)}
+        <span className="cal-event-time-start">{time.start}</span>
+        {` – ${time.end}`}
       </div>
       <div className="cal-event-title">{event.summary || '(No title)'}</div>
     </div>

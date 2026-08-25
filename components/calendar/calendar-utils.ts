@@ -344,6 +344,23 @@ export function formatEventTime(isoString: string, timeZone?: string): string {
   return `${hours}:${minutes.toString().padStart(2, '0')}${ampm}`;
 }
 
+/** The range split into its two halves, for markup that styles the start on
+ * its own (`EventItem` wraps it in `.cal-event-time-start`). Unlike
+ * `formatEventTimeRange` the start ALWAYS carries its meridiem: that formatter
+ * drops it when it matches the end's, which only reads as a time because the
+ * end is sitting right there lending it one. A start time that's styled apart
+ * from its range has to stand on its own, so "2pm – 3pm", never "2 – 3pm". */
+export function eventTimeRangeParts(
+  start: string,
+  end: string,
+  timeZone?: string
+): { start: string; end: string } {
+  return {
+    start: formatEventTime(start, timeZone),
+    end: formatEventTime(end, timeZone),
+  };
+}
+
 export function formatEventTimeRange(start: string, end: string, timeZone?: string): string {
   const startMeridiem = zonedParts(new Date(start), timeZone).hours >= 12 ? 'pm' : 'am';
   const endMeridiem = zonedParts(new Date(end), timeZone).hours >= 12 ? 'pm' : 'am';
