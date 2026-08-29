@@ -7,7 +7,7 @@ import EventModal, { type EditableEvent } from './EventModal';
 import { calendarIdsForEvent, isMembershipLocked, mergeGroups } from './event-groups';
 import { accentStripes, eventPaint } from './event-paint';
 import CalendarFooter from './CalendarFooter';
-import { useCalendarFilter, filterEvents } from './calendar-filter';
+import { useCalendarFilter, filterEvents, scopeToCalendars } from './calendar-filter';
 import {
   assignEventsToDays,
   chunkWeeks,
@@ -222,7 +222,16 @@ export default function CalendarGrid({
   // event renders in HER color; unfiltered, both survive and become one
   // two-color chip.
   const calendarOrder = useMemo(() => calendars.map((c) => c.id), [calendars]);
-  const filteredEvents = useMemo(() => filterEvents(events, filter), [events, filter]);
+  // Scope to the calendars this board was actually given BEFORE the per-person
+  // filter — a calendar the board doesn't know about must never reach the grid,
+  // filtered or not. A no-op (same array reference) when every cached event
+  // belongs to a configured calendar, which is the normal case.
+  const knownCalendars = useMemo(() => new Set(calendarOrder), [calendarOrder]);
+  const scopedEvents = useMemo(
+    () => scopeToCalendars(events, knownCalendars),
+    [events, knownCalendars]
+  );
+  const filteredEvents = useMemo(() => filterEvents(scopedEvents, filter), [scopedEvents, filter]);
   const visibleEvents = useMemo(
     () => mergeGroups(filteredEvents, calendarOrder),
     [filteredEvents, calendarOrder]

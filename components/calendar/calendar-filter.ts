@@ -67,6 +67,27 @@ export function filterEvents<T extends { calendar_id: string }>(
   return active.size === 0 ? events : events.filter((e) => active.has(e.calendar_id));
 }
 
+/**
+ * Drop events belonging to calendars this board wasn't given.
+ *
+ * `/api/calendar` returns the whole cache, because it has no idea which board
+ * is asking. Every calendar in the cache used to be one the wall drew, so this
+ * was a no-op that nobody needed — until a personal board's private calendar
+ * started syncing. Without this an event on that calendar would land on the
+ * kitchen wall in fallback grey, having never been configured to appear there.
+ *
+ * Returns the SAME array when nothing is dropped, so the wall's usual render
+ * is referentially identical to what it was before this existed.
+ */
+export function scopeToCalendars<T extends { calendar_id: string }>(
+  events: T[],
+  known: ReadonlySet<string>
+): T[] {
+  return events.every((e) => known.has(e.calendar_id))
+    ? events
+    : events.filter((e) => known.has(e.calendar_id));
+}
+
 let current: ReadonlySet<string> = EMPTY;
 const listeners = new Set<() => void>();
 

@@ -1,0 +1,954 @@
+/* ============================================================================
+   Personal board — one person's 10" touch screen (1280×800, landscape, on a
+   dresser). Three equal columns: Upcoming · Todo · clock/weather.
+
+   Prefix: pb-       Components: components/board/Personal*.tsx
+   Layout spec + the decisions behind it: private/personal-boards-plan.md
+
+   Sizing is ordinary `rem`. `html` is already clamp(20px, 2vh, 46px), which at
+   800px tall resolves to the 20px floor — a sensible base for a panel held at
+   arm's length, while the wall keeps its ~43px. Nothing here touches base.css,
+   so the family board cannot move.
+
+   The type has two jobs at two distances: the clock is read from the doorway,
+   everything else from arm's length. That's why the clock is far larger than
+   anything the wall shows and the agenda is only a little larger.
+   ============================================================================ */
+
+.pb {
+	display: grid;
+	grid-template-columns: repeat(3, 1fr);
+	height: 100vh;
+	/* The panel is the viewport. Nothing scrolls but the column bodies. */
+	overflow: hidden;
+	/* Fallback for a board whose person has no calendar colour. */
+	--pb-accent: var(--blue-400);
+	--pb-gutter: 1rem;
+}
+
+/* ---- Column frame ------------------------------------------------------ */
+
+.pb-col {
+	display: flex;
+	flex-direction: column;
+	/* min-*: 0 is load-bearing on both axes. A flex item's automatic minimum
+	   size is its content's, so without these a long event title widens the
+	   column past its third and a long agenda pushes the footer off screen —
+	   the same trap .app-main hit on the wall. */
+	min-height: 0;
+	min-width: 0;
+	border-right: 1px solid var(--hairline);
+}
+
+.pb-col:last-child {
+	border-right: 0;
+}
+
+.pb-col-head {
+	flex: none;
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	gap: 0.5rem;
+	padding: 0.75rem var(--pb-gutter) 0.5rem;
+}
+
+.pb-col-title {
+	font-size: var(--text-2xl);
+	line-height: var(--leading-tight);
+	font-weight: var(--weight-semibold);
+	color: var(--gray-100);
+}
+
+.pb-col-body {
+	flex: 1 1 0%;
+	min-height: 0;
+	overflow-y: auto;
+	/* A flick inside a column must not drag the page behind it. */
+	overscroll-behavior: contain;
+	padding: 0 var(--pb-gutter) 0.75rem;
+	/* No scrollbars on a kiosk — the content is the affordance. */
+	scrollbar-width: none;
+}
+
+.pb-col-body::-webkit-scrollbar {
+	display: none;
+}
+
+.pb-col-foot {
+	flex: none;
+	display: flex;
+	align-items: center;
+	gap: 0.5rem;
+	padding: 0.5rem var(--pb-gutter);
+	border-top: 1px solid var(--hairline);
+	font-size: var(--text-sm);
+	line-height: var(--text-sm-lh);
+}
+
+.pb-col-foot--split {
+	justify-content: space-between;
+}
+
+/* Footer actions. Every one of these is a finger target, so the hit area is
+   padded well past the text even though the text is small. */
+.pb-action {
+	padding: 0.375rem 0.25rem;
+	color: var(--gray-300);
+	font-weight: var(--weight-medium);
+	touch-action: manipulation;
+}
+
+.pb-action:disabled {
+	color: var(--gray-600);
+	cursor: default;
+}
+
+.pb-action-sep {
+	color: var(--gray-700);
+}
+
+.pb-sync {
+	color: var(--gray-500);
+	font-variant-numeric: tabular-nums;
+}
+
+.pb-sync--error {
+	color: var(--red-400);
+}
+
+/* ---- Column 1: Upcoming ----------------------------------------------- */
+
+/* The person picker. A native select on purpose: Chromium gives it a real
+   touch-sized popup on the panel, which beats anything hand-rolled here. It
+   auto-reverts to her after idle — see PersonalShell. */
+.pb-person {
+	appearance: none;
+	padding: 0.25rem 1.75rem 0.25rem 0.625rem;
+	max-width: 9rem;
+	border: 1px solid var(--gray-700);
+	border-radius: var(--radius);
+	background-color: var(--gray-900);
+	background-image:
+		linear-gradient(45deg, transparent 50%, var(--gray-400) 50%),
+		linear-gradient(135deg, var(--gray-400) 50%, transparent 50%);
+	background-position:
+		right 0.75rem center,
+		right 0.5rem center;
+	background-size:
+		0.3125rem 0.3125rem,
+		0.3125rem 0.3125rem;
+	background-repeat: no-repeat;
+	font-size: var(--text-sm);
+	line-height: var(--text-sm-lh);
+	color: var(--gray-200);
+	text-overflow: ellipsis;
+	touch-action: manipulation;
+}
+
+/* No one else to switch to — the name is a label, not a control. */
+.pb-person--fixed {
+	border-color: transparent;
+	background: none;
+	padding-right: 0.625rem;
+	font-size: var(--text-sm);
+	color: var(--pb-accent);
+	font-weight: var(--weight-semibold);
+}
+
+/* "Today" needs air under the column title or the two headings read as one
+   stacked block; later days need more, so the eye finds the breaks. */
+.pb-day:first-child {
+	margin-top: 0.375rem;
+}
+
+.pb-day + .pb-day {
+	margin-top: 1rem;
+}
+
+.pb-day-label {
+	font-size: var(--text-lg);
+	line-height: var(--leading-tight);
+	font-weight: var(--weight-semibold);
+	color: var(--gray-200);
+	padding-bottom: 0.375rem;
+}
+
+.pb-day-empty {
+	font-size: var(--text-sm);
+	line-height: var(--text-sm-lh);
+	color: var(--gray-500);
+	padding: 0.5rem 0;
+}
+
+.pb-events {
+	list-style: none;
+	padding: 0;
+	display: flex;
+	flex-direction: column;
+	gap: 0.375rem;
+}
+
+.pb-event {
+	display: grid;
+	/* rail · time · title. The time column is fixed so titles start on one
+	   line down the whole column — the thing that makes an agenda scannable. */
+	grid-template-columns: 0.1875rem 3.75rem 1fr;
+	align-items: stretch;
+	column-gap: 0.625rem;
+	padding: 0.4375rem 0.5rem 0.4375rem 0;
+	border-radius: var(--radius);
+	background-color: var(--gray-900);
+	/* Comfortably past the 44px minimum at this root size. */
+	min-height: 2.5rem;
+}
+
+.pb-event-rail {
+	border-radius: var(--radius-full);
+}
+
+.pb-event-when {
+	align-self: center;
+	font-size: var(--text-sm);
+	line-height: var(--text-sm-lh);
+	font-weight: var(--weight-medium);
+	font-variant-numeric: tabular-nums;
+	color: var(--gray-300);
+	text-align: right;
+}
+
+.pb-event-body {
+	align-self: center;
+	min-width: 0;
+	display: flex;
+	flex-direction: column;
+	gap: 0.0625rem;
+}
+
+.pb-event-title {
+	font-size: var(--text-base);
+	line-height: var(--leading-snug);
+	font-weight: var(--weight-medium);
+	color: var(--gray-100);
+	/* Two lines, then clamp. A third line pushes the next day off screen and
+	   the detail view is where the whole title belongs anyway. */
+	display: -webkit-box;
+	-webkit-box-orient: vertical;
+	-webkit-line-clamp: 2;
+	overflow: hidden;
+}
+
+.pb-event-meta {
+	font-size: var(--text-xs);
+	line-height: var(--text-xs-lh);
+	color: var(--gray-500);
+	white-space: nowrap;
+	overflow: hidden;
+	text-overflow: ellipsis;
+}
+
+/* Finished events fade rather than disappear: "what's left today" is the
+   question, but seeing what's already happened is how she knows the list is
+   the whole day and not a bug. */
+.pb-event--past {
+	opacity: 0.45;
+}
+
+/* ---- Column 2: Todo ---------------------------------------------------- */
+
+.pb-todo-placeholder {
+	font-size: var(--text-sm);
+	line-height: var(--text-sm-lh);
+	color: var(--gray-500);
+	padding: 0.5rem 0;
+}
+
+/* A silently dead sync hid behind stale data on the wall for weeks once. Say so. */
+.pb-todo-error {
+	font-size: var(--text-sm);
+	line-height: var(--text-sm-lh);
+	color: var(--red-400);
+	padding: 0.5rem 0;
+}
+
+.pb-todo-group + .pb-todo-group {
+	margin-top: 1rem;
+}
+
+.pb-todo-group:first-child {
+	margin-top: 0.375rem;
+}
+
+.pb-todo-label {
+	font-size: var(--text-lg);
+	line-height: var(--leading-tight);
+	font-weight: var(--weight-semibold);
+	color: var(--gray-200);
+	padding-bottom: 0.375rem;
+}
+
+/* Overdue is the one thing on this column worth a colour of its own. */
+.pb-todo-label--late {
+	color: var(--red-300);
+}
+
+.pb-todos {
+	list-style: none;
+	padding: 0;
+	display: flex;
+	flex-direction: column;
+	gap: 0.375rem;
+}
+
+.pb-todos--done {
+	padding-bottom: 0.375rem;
+}
+
+.pb-todo {
+	display: flex;
+	align-items: center;
+	gap: 0.5rem;
+	border-radius: var(--radius);
+	background-color: var(--gray-900);
+	min-height: 2.5rem;
+}
+
+/* The whole row is the target — a checkbox alone is a cruel thing to ask a
+   finger to hit on a 10" panel. */
+.pb-todo-main {
+	flex: 1 1 auto;
+	min-width: 0;
+	display: flex;
+	align-items: center;
+	gap: 0.625rem;
+	padding: 0.4375rem 0.5rem;
+	text-align: left;
+	touch-action: manipulation;
+}
+
+.pb-todo-box {
+	flex: none;
+	width: 1.125rem;
+	height: 1.125rem;
+	border: 2px solid var(--gray-600);
+	border-radius: var(--radius);
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	font-size: var(--text-xs);
+	line-height: 1;
+	color: var(--gray-900);
+}
+
+/* Todoist numbers priority the opposite way from the p1-p4 in its own UI:
+   4 is urgent. Only the top two are worth colouring — everything red is the
+   same as nothing red. */
+.pb-todo-box[data-priority='4'] {
+	border-color: var(--red-500);
+}
+
+.pb-todo-box[data-priority='3'] {
+	border-color: var(--amber-500);
+}
+
+.pb-todo-body {
+	min-width: 0;
+	display: flex;
+	flex-direction: column;
+	gap: 0.0625rem;
+}
+
+.pb-todo-content {
+	font-size: var(--text-base);
+	line-height: var(--leading-snug);
+	font-weight: var(--weight-medium);
+	color: var(--gray-100);
+	display: -webkit-box;
+	-webkit-box-orient: vertical;
+	-webkit-line-clamp: 2;
+	overflow: hidden;
+}
+
+.pb-todo-meta {
+	font-size: var(--text-xs);
+	line-height: var(--text-xs-lh);
+	color: var(--gray-500);
+	white-space: nowrap;
+	overflow: hidden;
+	text-overflow: ellipsis;
+}
+
+/* Checked off, still on screen for its undo window. */
+.pb-todo--done {
+	opacity: 0.5;
+}
+
+.pb-todo--done .pb-todo-content {
+	text-decoration: line-through;
+}
+
+.pb-todo--done .pb-todo-box {
+	background-color: var(--green-300);
+	border-color: var(--green-300);
+}
+
+.pb-todo-undo {
+	flex: none;
+	padding: 0.5rem 0.75rem;
+	font-size: var(--text-sm);
+	font-weight: var(--weight-medium);
+	color: var(--pb-accent);
+	touch-action: manipulation;
+}
+
+/* ---- Column 3: clock, weather, widgets --------------------------------- */
+
+.pb-status-clock {
+	flex: none;
+	padding: 0.75rem var(--pb-gutter) 1rem;
+	text-align: right;
+}
+
+/* The one thing on this board meant to be legible from the bedroom door. */
+.pb-status-time {
+	font-size: 4rem;
+	line-height: var(--leading-none);
+	font-weight: var(--weight-bold);
+	font-variant-numeric: tabular-nums;
+	letter-spacing: -0.02em;
+	color: var(--gray-100);
+}
+
+.pb-status-ampm {
+	font-size: 0.375em;
+	font-weight: var(--weight-semibold);
+	letter-spacing: var(--tracking-wide);
+	margin-left: 0.125em;
+	color: var(--gray-400);
+}
+
+.pb-status-date {
+	padding-top: 0.375rem;
+	font-size: var(--text-lg);
+	line-height: var(--leading-tight);
+	color: var(--gray-400);
+}
+
+/* Reserves the clock's height until hydration, so the column doesn't jump. */
+.pb-status-placeholder {
+	height: 5.5rem;
+}
+
+.pb-status-weather {
+	flex: none;
+	padding: 0.875rem var(--pb-gutter);
+	border-top: 1px solid var(--hairline);
+	border-bottom: 1px solid var(--hairline);
+}
+
+.pb-wx-now {
+	display: flex;
+	align-items: center;
+	gap: 0.625rem;
+}
+
+.pb-wx-icon {
+	font-size: 2.25rem;
+	color: var(--gray-200);
+}
+
+.pb-wx-temp {
+	font-size: var(--text-3xl);
+	line-height: var(--leading-none);
+	font-weight: var(--weight-semibold);
+	font-variant-numeric: tabular-nums;
+	color: var(--gray-100);
+}
+
+.pb-wx-label {
+	min-width: 0;
+	font-size: var(--text-sm);
+	line-height: var(--text-sm-lh);
+	color: var(--gray-400);
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+}
+
+.pb-wx-days {
+	list-style: none;
+	padding: 0.75rem 0 0;
+	display: flex;
+	flex-direction: column;
+	gap: 0.375rem;
+}
+
+.pb-wx-day {
+	display: grid;
+	grid-template-columns: 1fr auto 1.5rem auto;
+	align-items: center;
+	gap: 0.5rem;
+	font-size: var(--text-sm);
+	line-height: var(--text-sm-lh);
+}
+
+.pb-wx-day-name {
+	color: var(--gray-300);
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+}
+
+.pb-wx-day-date {
+	color: var(--gray-600);
+	font-variant-numeric: tabular-nums;
+}
+
+.pb-wx-day-icon {
+	font-size: 1.125rem;
+	color: var(--gray-300);
+	justify-self: center;
+}
+
+.pb-wx-day-temps {
+	display: flex;
+	gap: 0.375rem;
+	font-variant-numeric: tabular-nums;
+}
+
+.pb-wx-hi {
+	color: var(--gray-200);
+	font-weight: var(--weight-medium);
+}
+
+.pb-wx-lo {
+	color: var(--gray-500);
+}
+
+/* Deliberately empty until there's something real to put here. An empty
+   region reads as "not built yet"; filler reads as "built wrong". */
+.pb-widgets {
+	overflow: hidden;
+}
+
+/* ---- Writing: sheets, keyboard, forms ---------------------------------- */
+
+/* Every event row is a button (tap → editor, or a read-only card). The list
+   item is now just the list item; the grid moved onto the target. */
+.pb-event-item {
+	list-style: none;
+}
+
+.pb-event {
+	width: 100%;
+	text-align: left;
+	touch-action: manipulation;
+}
+
+/* The overlay every form lives in. Fixed, so it covers all three columns —
+   there's no room on a 1280×800 panel for a form beside the board. */
+.pb-sheet-backdrop {
+	position: fixed;
+	inset: 0;
+	z-index: 50;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	padding: 1rem;
+	background-color: rgb(0 0 0 / 0.7);
+}
+
+.pb-sheet {
+	display: flex;
+	flex-direction: column;
+	gap: 0.75rem;
+	width: min(42rem, 100%);
+	max-height: 100%;
+	padding: 1rem;
+	border: 1px solid var(--gray-700);
+	border-radius: var(--radius-lg);
+	background-color: var(--gray-900);
+}
+
+.pb-sheet-head {
+	flex: none;
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	gap: 0.5rem;
+}
+
+.pb-sheet-title {
+	font-size: var(--text-xl);
+	line-height: var(--leading-tight);
+	font-weight: var(--weight-semibold);
+	color: var(--gray-100);
+}
+
+/* Generously padded: closing by mistake costs nothing, missing the close
+   button on a touch panel costs a whole re-entry. */
+.pb-sheet-close {
+	flex: none;
+	width: 2.25rem;
+	height: 2.25rem;
+	border-radius: var(--radius);
+	font-size: var(--text-2xl);
+	line-height: 1;
+	color: var(--gray-400);
+	touch-action: manipulation;
+}
+
+.pb-sheet-body {
+	flex: 1 1 auto;
+	min-height: 0;
+	overflow-y: auto;
+	overscroll-behavior: contain;
+	display: flex;
+	flex-direction: column;
+	gap: 0.75rem;
+	scrollbar-width: none;
+}
+
+.pb-sheet-body::-webkit-scrollbar {
+	display: none;
+}
+
+.pb-sheet-foot {
+	flex: none;
+	display: flex;
+	align-items: center;
+	justify-content: flex-end;
+	gap: 0.5rem;
+	padding-top: 0.25rem;
+}
+
+.pb-sheet-error {
+	font-size: var(--text-sm);
+	line-height: var(--text-sm-lh);
+	color: var(--red-400);
+}
+
+/* ---- Buttons ----------------------------------------------------------- */
+
+.pb-btn {
+	padding: 0.625rem 1.125rem;
+	border-radius: var(--radius);
+	background-color: var(--gray-800);
+	font-size: var(--text-base);
+	font-weight: var(--weight-medium);
+	color: var(--gray-200);
+	touch-action: manipulation;
+}
+
+.pb-btn:disabled {
+	opacity: 0.45;
+	cursor: default;
+}
+
+.pb-btn--primary {
+	background-color: var(--pb-accent);
+	/* The accent is a calendar colour, always light enough for dark text. */
+	color: var(--gray-950);
+	font-weight: var(--weight-semibold);
+}
+
+.pb-btn--danger {
+	background-color: var(--red-600);
+	color: var(--white);
+}
+
+.pb-btn--danger-ghost {
+	background: none;
+	color: var(--red-400);
+}
+
+/* Delete sits alone on the left, away from the button the thumb reaches for. */
+.pb-btn--left {
+	margin-right: auto;
+}
+
+.pb-btn--wide {
+	flex: 1 1 auto;
+}
+
+/* ---- Form fields ------------------------------------------------------- */
+
+.pb-field {
+	display: flex;
+	flex-direction: column;
+	gap: 0.25rem;
+}
+
+.pb-field-row {
+	display: flex;
+	gap: 0.5rem;
+}
+
+.pb-field-label {
+	font-size: var(--text-sm);
+	line-height: var(--text-sm-lh);
+	color: var(--gray-400);
+}
+
+.pb-field-note {
+	font-size: var(--text-xs);
+	line-height: var(--text-xs-lh);
+	color: var(--gray-500);
+}
+
+.pb-input {
+	width: 100%;
+	padding: 0.5rem 0.625rem;
+	border: 1px solid var(--gray-700);
+	border-radius: var(--radius);
+	background-color: var(--gray-950);
+	font-size: var(--text-base);
+	color: var(--gray-100);
+	touch-action: manipulation;
+}
+
+/* Native date/time controls draw their own value and must never be squeezed —
+   a narrowed date input clips its text, the trap the wall's modal hit. */
+.pb-field--date,
+.pb-field--time {
+	flex: 0 0 auto;
+}
+
+.pb-field--date .pb-input {
+	min-width: 9.5rem;
+}
+
+.pb-field--time .pb-input {
+	min-width: 6.5rem;
+}
+
+/* The title opens the keyboard rather than taking focus — nothing on this
+   board is ever a focused text input (see OnScreenKeyboard). */
+.pb-titlerow {
+	display: flex;
+	flex-direction: column;
+	align-items: flex-start;
+	gap: 0.25rem;
+	width: 100%;
+	padding: 0.5rem 0.625rem;
+	border: 1px solid var(--gray-700);
+	border-radius: var(--radius);
+	background-color: var(--gray-950);
+	text-align: left;
+	touch-action: manipulation;
+}
+
+.pb-titlerow-value {
+	max-width: 100%;
+	font-size: var(--text-lg);
+	line-height: var(--leading-snug);
+	color: var(--gray-100);
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+}
+
+/* ---- Segmented control + chips ---------------------------------------- */
+
+.pb-seg,
+.pb-chips {
+	display: flex;
+	gap: 0.375rem;
+}
+
+.pb-seg-btn,
+.pb-chip {
+	flex: 1 1 0%;
+	padding: 0.625rem 0.75rem;
+	border: 1px solid var(--gray-700);
+	border-radius: var(--radius);
+	font-size: var(--text-base);
+	font-weight: var(--weight-medium);
+	color: var(--gray-300);
+	touch-action: manipulation;
+}
+
+.pb-seg-btn--on,
+.pb-chip--on {
+	border-color: var(--pb-accent);
+	background-color: var(--pb-accent);
+	color: var(--gray-950);
+	font-weight: var(--weight-semibold);
+}
+
+.pb-toggle {
+	display: flex;
+	align-items: center;
+	gap: 0.625rem;
+	align-self: flex-start;
+	padding: 0.375rem 0;
+	font-size: var(--text-base);
+	color: var(--gray-200);
+	touch-action: manipulation;
+}
+
+.pb-toggle-box {
+	width: 1.375rem;
+	height: 1.375rem;
+	border: 2px solid var(--gray-600);
+	border-radius: var(--radius);
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	font-size: var(--text-sm);
+	line-height: 1;
+	color: var(--gray-950);
+}
+
+.pb-toggle--on .pb-toggle-box {
+	background-color: var(--pb-accent);
+	border-color: var(--pb-accent);
+}
+
+/* ---- Read-only event card --------------------------------------------- */
+
+.pb-detail-title {
+	font-size: var(--text-xl);
+	line-height: var(--leading-snug);
+	font-weight: var(--weight-semibold);
+	color: var(--gray-100);
+}
+
+.pb-detail-when {
+	font-size: var(--text-base);
+	color: var(--pb-accent);
+	font-variant-numeric: tabular-nums;
+}
+
+.pb-detail-line {
+	font-size: var(--text-base);
+	color: var(--gray-300);
+}
+
+.pb-detail-notes {
+	font-size: var(--text-sm);
+	line-height: var(--text-sm-lh);
+	color: var(--gray-400);
+	white-space: pre-wrap;
+}
+
+.pb-detail-meta {
+	font-size: var(--text-sm);
+	line-height: var(--text-sm-lh);
+	color: var(--gray-500);
+}
+
+/* ---- On-screen keyboard ------------------------------------------------ */
+
+/* The panel is touch-only and Debian trixie gives a Chromium kiosk no reliable
+   system keyboard, so HomeHQ draws its own. Rows sit on a 20-column grid: a
+   letter is 2 columns, a modifier 3, the space bar 10. */
+.pb-kb {
+	display: flex;
+	flex-direction: column;
+	gap: 0.375rem;
+	/* Keys are the one place a stray text selection would be visible and
+	   useless — a drag across the keyboard shouldn't highlight it. */
+	user-select: none;
+}
+
+.pb-kb-row {
+	display: grid;
+	grid-template-columns: repeat(20, 1fr);
+	gap: 0.375rem;
+}
+
+.pb-kb-key {
+	height: 2.75rem;
+	border-radius: var(--radius);
+	background-color: var(--gray-800);
+	font-size: var(--text-lg);
+	line-height: 1;
+	color: var(--gray-100);
+	touch-action: manipulation;
+}
+
+.pb-kb-key:active {
+	background-color: var(--gray-700);
+}
+
+/* Recessed rather than raised: shift, backspace and the layer switch are the
+   keys you don't want a thumb landing on by accident, and gray-900 would be
+   the sheet's own background — an invisible key. */
+.pb-kb-key--mod {
+	background-color: var(--gray-950);
+	font-size: var(--text-base);
+	color: var(--gray-300);
+}
+
+/* Shift is a mode, so it has to look like one while it's on. */
+.pb-kb-key--on {
+	background-color: var(--gray-300);
+	color: var(--gray-950);
+}
+
+.pb-kb-key--done {
+	background-color: var(--pb-accent);
+	font-size: var(--text-base);
+	font-weight: var(--weight-semibold);
+	color: var(--gray-950);
+}
+
+.pb-kb-key--done:disabled {
+	opacity: 0.4;
+	cursor: default;
+}
+
+.pb-kb-spacer {
+	/* Row two's half-key inset — the stagger that makes a drawn keyboard read
+	   as a keyboard rather than a grid of buttons. */
+	pointer-events: none;
+}
+
+/* What the keyboard types into: a div, never an input. Nothing here takes text
+   focus, so the platform never raises a second keyboard over ours. */
+.pb-kb-field {
+	display: flex;
+	align-items: center;
+	min-height: 3rem;
+	padding: 0.5rem 0.75rem;
+	border: 1px solid var(--gray-700);
+	border-radius: var(--radius);
+	background-color: var(--gray-950);
+	font-size: var(--text-lg);
+	line-height: var(--leading-snug);
+	color: var(--gray-100);
+	/* A long title scrolls its own field rather than widening the sheet. */
+	overflow-x: auto;
+	white-space: nowrap;
+	scrollbar-width: none;
+}
+
+.pb-kb-field::-webkit-scrollbar {
+	display: none;
+}
+
+.pb-kb-placeholder {
+	color: var(--gray-600);
+}
+
+.pb-kb-caret {
+	flex: none;
+	width: 2px;
+	height: 1.25em;
+	margin-inline: 1px;
+	background-color: var(--pb-accent);
+	animation: pb-caret 1.1s step-end infinite;
+}
+
+@keyframes pb-caret {
+	50% {
+		opacity: 0;
+	}
+}
+
+@media (prefers-reduced-motion: reduce) {
+	.pb-kb-caret {
+		animation: none;
+	}
+}

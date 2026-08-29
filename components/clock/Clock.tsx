@@ -1,7 +1,7 @@
 'use client';
 
-import { useSyncExternalStore } from 'react';
 import { zonedParts } from '@/components/calendar/calendar-utils';
+import { useMinuteTick } from './use-minute';
 
 const DAY_NAMES = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
 const MONTH_NAMES = [
@@ -31,27 +31,9 @@ export function formatClockDate(date: Date, timeZone?: string): string {
   return `${DAY_NAMES[weekday]}, ${MONTH_NAMES[month - 1]} ${day}`;
 }
 
-// The wall clock is an external store: subscribe to its ticks rather than
-// mirroring it into useState from an effect.
-function subscribe(onStoreChange: () => void): () => void {
-  // Poll every second; React only re-renders when the snapshot (whole minute)
-  // actually changes, so the display ticks over within a second of the rollover.
-  const id = setInterval(onStoreChange, 1000);
-  return () => clearInterval(id);
-}
-
-function getSnapshot(): number {
-  return Math.floor(Date.now() / 60000);
-}
-
-// The server can't know the kiosk's wall-clock time — render a placeholder
-// until the client hydrates and takes over.
-function getServerSnapshot(): number {
-  return 0;
-}
-
 export default function Clock({ timeZone }: { timeZone?: string }) {
-  const minute = useSyncExternalStore(subscribe, getSnapshot, getServerSnapshot);
+  // 0 until the client hydrates — the server can't know the kiosk's clock.
+  const minute = useMinuteTick();
 
   if (minute === 0) {
     return <div className="clk-placeholder" aria-hidden />;

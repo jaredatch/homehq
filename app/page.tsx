@@ -1,38 +1,29 @@
-import TopBar from '@/components/dashboard/TopBar';
-import CalendarView from '@/components/calendar/CalendarView';
-import { getConfig, isCalendarWriteEnabled } from '@/lib/config';
-import { getDeployVersion } from '@/lib/version';
+import { headers } from 'next/headers';
+import FamilyBoard from '@/components/board/FamilyBoard';
+import PersonalBoard from '@/components/board/PersonalBoard';
+import { boardSlugForHost, familyBoard, resolveBoard } from '@/lib/config/boards';
 
 export const dynamic = 'force-dynamic';
 
-export default function DashboardPage() {
-  const config = getConfig();
-  // Stamp the page with the build it was served by; the grid reloads itself when
-  // the server later reports a different one (a deploy or a manual kiosk-reload).
-  const appVersion = getDeployVersion();
+/**
+ * `/` — the family board, unless the hostname belongs to a configured board.
+ *
+ * A board that declares a `host` is served at the root of that host, so a
+ * kiosk URL is just `https://kida.example.com` with no path. Resolving it here
+ * rather than rewriting in the proxy keeps middleware on the Edge runtime,
+ * where it can't read the config file off disk anyway.
+ *
+ * Any host no board claims — the kitchen's — falls through to the family board
+ * untouched, which is what makes this safe to add to the wall.
+ */
+export default async function DashboardPage() {
+  const h = await headers();
+  const slug = boardSlugForHost(h.get('host') ?? h.get('x-forwarded-host'));
+  const board = (slug ? resolveBoard(slug) : null) ?? familyBoard();
 
-  return (
-    <div className="app-shell">
-      <TopBar
-        showWeather={config.display.showWeather}
-        timezone={config.display.timezone}
-        weatherIcons={config.display.weatherIcons ?? 'lucide'}
-      />
-      <main className="app-main">
-        <CalendarView
-          calendars={config.calendars}
-          weeks={config.display.calendarWeeks}
-          weekStartsOn={config.display.weekStartsOn ?? 'monday'}
-          timezone={config.display.timezone}
-          todayColor={config.display.todayColor ?? '#60a5fa'}
-          expandResetMs={(config.display.expandResetSeconds ?? 300) * 1000}
-          calendarWriteEnabled={isCalendarWriteEnabled(config)}
-          createFormResetMs={(config.display.createFormResetSeconds ?? 120) * 1000}
-          appVersion={appVersion}
-          monthViewResetMs={(config.display.monthViewResetSeconds ?? 180) * 1000}
-          filterResetMs={(config.display.filterResetSeconds ?? 300) * 1000}
-        />
-      </main>
-    </div>
+  return board.layout === 'personal' ? (
+    <PersonalBoard board={board} />
+  ) : (
+    <FamilyBoard board={board} />
   );
 }
