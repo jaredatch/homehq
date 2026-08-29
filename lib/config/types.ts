@@ -5,6 +5,10 @@ export interface CalendarConfig {
   /** Optional override for text drawn on `color` (e.g. white on a light pink
    * that auto-contrast would render black). Defaults to auto black/white. */
   textColor?: string;
+  /** Sync this calendar, but keep it off any board that doesn't ask for it by
+   * name — a personal board's private calendar, which must never surface on the
+   * family wall. It still syncs, so a board that DOES list it has data. */
+  hidden?: boolean;
 }
 
 export interface WeatherConfig {
@@ -47,6 +51,11 @@ export interface DisplayConfig {
    * quietly narrowed to one person for days. The timer resets on any
    * interaction. Defaults to 300 (5 min). Set to 0 to disable auto-clear. */
   filterResetSeconds?: number;
+  /** Personal boards only. Seconds a non-default tab stays up with no
+   * interaction before falling back to "My Day", so a board left on the Week
+   * tab isn't still there three days later. Defaults to 120. Set to 0 to
+   * disable auto-revert. */
+  tabResetSeconds?: number;
 }
 
 export interface AuthConfig {
@@ -77,4 +86,54 @@ export interface AppConfig {
   display: DisplayConfig;
   auth: AuthConfig;
   google?: GoogleConfig;
+  /** Extra screens served off this same install, keyed by URL slug. Absent =
+   * the family board alone, exactly as before. */
+  boards?: Record<string, BoardConfig>;
+}
+
+/** How a board draws itself. "family" is the dense wall layout the app has
+ * always had; "personal" is the touch-tuned single-person surface. */
+export type BoardLayout = 'family' | 'personal';
+
+export interface BoardTodosConfig {
+  /** Todoist project whose tasks this board shows and writes to. */
+  projectId: string;
+}
+
+/**
+ * One configured screen. A board is an OVERRIDE LAYER over the top-level
+ * config, never a replacement: anything omitted falls through to the values the
+ * family board already uses. A config with no `boards` key behaves exactly as
+ * it did before boards existed — that is the whole no-regression story.
+ */
+export interface BoardConfig {
+  layout: BoardLayout;
+  /** Shown in the personal board's header. Defaults to the board's slug. */
+  name?: string;
+  /** Optional hostname that maps to this board, so `kida.example.com/` serves
+   * it without the `/b/<slug>` path. Unset hosts (the family board's) are
+   * untouched by the rewrite. */
+  host?: string;
+  /** Accent color for this board (any CSS color). Personal layout only. */
+  accent?: string;
+  /** Which of the top-level calendars this board shows, by id. The order here
+   * is the order they're drawn in, so a personal board can lead with its own
+   * person. Omitted means all of them. */
+  calendars?: string[];
+  /** Which of the board's calendars count as this board's own person — her
+   * family-visible calendar plus her private one. Drives the person picker's
+   * default and the accent. Omitted means every calendar the board shows, i.e.
+   * no one else to peek at and no picker. */
+  ownCalendars?: string[];
+  /** Calendars that stay in view no matter who the person picker is set to —
+   * the family calendar, typically. A family dinner is her event too, so it
+   * shouldn't vanish when the column is scoped to her. */
+  alwaysShow?: string[];
+  /** Which calendar a new event created on this board lands on by default.
+   * Must be one of the board's calendars. */
+  defaultCalendar?: string;
+  /** Todoist binding. Omitted means this board shows no to-dos. */
+  todos?: BoardTodosConfig;
+  /** Per-board overrides of any display key. Merged over the top-level block. */
+  display?: Partial<DisplayConfig>;
 }
