@@ -252,6 +252,29 @@ commit token didn't move), run `./scripts/kiosk-reload.sh` from your machine to 
 hand and trigger the same refresh. (Config edits are also picked up by the server itself within
 a minute; the reload is for the already-open browser.)
 
+### Pushing config
+
+`data/config.json` is gitignored, so `deploy.sh` can't carry it. With one screen that's a hand
+edit over SSH. With a board per screen it's the file most likely to drift, and a wrong board
+config renders a screen that merely looks empty.
+
+`scripts/config-sync.sh` closes that gap. It reads the same `HOMEHQ_HOST` / `HOMEHQ_KEY` as
+`deploy.sh`:
+
+| Command                         | What it does                                                                                                                              |
+| ------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------- |
+| `./scripts/config-sync.sh`      | Diffs your local config against the droplet's. PIN values are never printed, only whether one differs. Exits 1 on drift.                  |
+| `./scripts/config-sync.sh push` | Backs up the remote config, pushes yours, restarts, and checks `/login`. If the app doesn't come back it restores the backup and exits 1. |
+| `./scripts/config-sync.sh env`  | Compares `.env` key _names_ against `.env.example` so you can spot one you forgot to set. It never reads a value.                         |
+
+`push` deliberately leaves `.env` alone. The droplet's differs from yours on purpose
+(`NEXT_PUBLIC_BASE_URL`, for one), and overwriting it takes the site down in a way that isn't
+obvious from your machine.
+
+The validation is the app's own: config is checked on load, so a live request after the restart
+is a real test of the file you just pushed. That's why a failure rolls back rather than leaving
+you to notice later.
+
 ### Backups
 
 Everything worth backing up lives in three files: `data/homehq.db` (the OAuth refresh token
