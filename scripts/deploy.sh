@@ -30,6 +30,10 @@ echo "[deploy] → $HOST"
 ssh -i "$KEY" -o IdentitiesOnly=yes "$HOST" 'bash -s' <<'EOF'
 set -euo pipefail
 cd ~/homehq
+# Say which branch, every time. The droplet doesn't always sit on master —
+# a feature branch can run in production for a while before it merges — and
+# a silent pull is how you deploy the wrong one without noticing.
+echo "[deploy] branch:  $(git rev-parse --abbrev-ref HEAD)"
 echo "[deploy] git pull";  git pull --ff-only
 echo "[deploy] npm ci";    npm ci --no-audit --no-fund
 echo "[deploy] build";     npm run build
