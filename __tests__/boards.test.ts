@@ -4,6 +4,7 @@ import { join } from 'path';
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import { getConfig, reloadConfig } from '@/lib/config';
 import {
+  boardPin,
   boardSlugForHost,
   boardSlugs,
   familyBoard,
@@ -289,5 +290,60 @@ describe('boards', () => {
 
   it('leaves a config with no boards key valid, as it always was', () => {
     expect(() => write()).not.toThrow();
+  });
+});
+
+describe('board PINs', () => {
+  let tmpDir: string;
+
+  const base = {
+    calendars: [{ id: 'kida@g', name: 'Kid A', color: '#ec4899' }],
+    weather: { latitude: 0, longitude: 0, temperatureUnit: 'fahrenheit' },
+    display: { calendarWeeks: 2, showWeather: true },
+    auth: { pin: '654321' },
+  };
+
+  const write = (boards: unknown) => {
+    const path = join(tmpDir, 'config.json');
+    writeFileSync(path, JSON.stringify({ ...base, boards }));
+    return path;
+  };
+
+  beforeEach(() => {
+    tmpDir = mkdtempSync(join(tmpdir(), 'homehq-board-pin-'));
+    reloadConfig();
+  });
+
+  afterEach(() => {
+    rmSync(tmpDir, { recursive: true, force: true });
+    reloadConfig();
+  });
+
+  it('reads a board’s own PIN', () => {
+    const config = getConfig(write({ kida: { layout: 'personal', pin: '111111' } }));
+    expect(boardPin('kida', config)).toBe('111111');
+  });
+
+  it('reports no PIN for a board without one', () => {
+    // Only the family PIN opens it — the pre-existing behaviour, unchanged.
+    const config = getConfig(write({ kida: { layout: 'personal' } }));
+    expect(boardPin('kida', config)).toBeNull();
+    expect(boardPin('nope', config)).toBeNull();
+  });
+
+  it('keeps the PIN off ResolvedBoard', () => {
+    // ResolvedBoard is handed to board components; one careless spread into a
+    // client component would ship the PIN to the browser.
+    const config = getConfig(write({ kida: { layout: 'personal', pin: '111111' } }));
+    expect(JSON.stringify(resolveBoard('kida', config))).not.toContain('111111');
+  });
+
+  it('rejects a PIN that is not six digits', () => {
+    expect(() => getConfig(write({ kida: { layout: 'personal', pin: '12345' } }))).toThrow(
+      /boards\.kida\.pin/
+    );
+    expect(() => getConfig(write({ kida: { layout: 'personal', pin: 'abcdef' } }))).toThrow(
+      /boards\.kida\.pin/
+    );
   });
 });

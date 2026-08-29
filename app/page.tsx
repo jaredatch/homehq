@@ -2,6 +2,7 @@ import { headers } from 'next/headers';
 import FamilyBoard from '@/components/board/FamilyBoard';
 import PersonalBoard from '@/components/board/PersonalBoard';
 import { boardSlugForHost, familyBoard, resolveBoard } from '@/lib/config/boards';
+import { requireBoardAccess } from '@/lib/auth/board-access';
 
 export const dynamic = 'force-dynamic';
 
@@ -20,6 +21,9 @@ export default async function DashboardPage() {
   const h = await headers();
   const slug = boardSlugForHost(h.get('host') ?? h.get('x-forwarded-host'));
   const board = (slug ? resolveBoard(slug) : null) ?? familyBoard();
+  // The hostname is what picked the board, so this is the only place the
+  // per-board PIN can be enforced for `/` — the proxy can't resolve a host.
+  await requireBoardAccess(board.slug);
 
   return board.layout === 'personal' ? (
     <PersonalBoard board={board} />

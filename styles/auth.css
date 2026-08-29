@@ -33,24 +33,50 @@
 	color: var(--gray-400);
 }
 
-.auth-pin {
-	width: 12rem;
-	padding: 0.75rem 1rem;
-	border: 1px solid var(--gray-700);
+/* Keypad. The bedroom panels are touch-only and trixie gives a Chromium kiosk
+   no system on-screen keyboard, so a text field here is a screen nobody can
+   get past. Drawn on every board — the wall's trackpad taps it fine, and one
+   code path is one thing to keep working. */
+.auth-keys {
+	display: grid;
+	grid-template-columns: repeat(3, 1fr);
+	gap: 0.75rem;
+	/* Sized so the whole pad stays reachable on a 10" panel held at arm's
+	   length AND doesn't become a billboard on the 4K wall, where the root
+	   font-size is more than twice as large. */
+	max-width: 16rem;
+	margin-inline: auto;
+	user-select: none;
+}
+
+.auth-key {
+	height: 3.5rem;
 	border-radius: var(--radius-lg);
-	background-color: var(--gray-900);
-	text-align: center;
+	background-color: var(--gray-800);
 	font-size: var(--text-2xl);
-	letter-spacing: 0.3em;
-	color: var(--white);
+	line-height: 1;
+	font-variant-numeric: tabular-nums;
+	color: var(--gray-100);
+	touch-action: manipulation;
 }
-.auth-pin:focus {
-	outline: none;
-	border-color: var(--blue-500);
-	box-shadow: 0 0 0 1px var(--blue-500);
+.auth-key:active {
+	background-color: var(--gray-700);
 }
-.auth-pin:disabled {
+.auth-key:disabled {
 	opacity: 0.5;
+	cursor: default;
+}
+
+/* Recessed, like the keyboard's modifiers — the key you don't want a thumb
+   landing on by accident. */
+.auth-key--mod {
+	background-color: var(--gray-900);
+	font-size: var(--text-xl);
+	color: var(--gray-300);
+}
+
+.auth-key-spacer {
+	pointer-events: none;
 }
 
 .auth-dots {

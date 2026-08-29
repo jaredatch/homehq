@@ -1,6 +1,6 @@
 import { mkdtempSync, writeFileSync, rmSync } from 'fs';
 import { tmpdir } from 'os';
-import { join } from 'path';
+import { join, resolve } from 'path';
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import { getConfig, reloadConfig, isCalendarWriteEnabled } from '@/lib/config';
 
@@ -188,5 +188,24 @@ describe('config loader', () => {
     const path = join(tmpDir, 'config.json');
     writeFileSync(path, JSON.stringify(windowConfig({ syncDaysBack: -1 })));
     expect(() => getConfig(path)).toThrow('google.syncDaysBack must be a non-negative number');
+  });
+});
+
+describe('data/config.example.json', () => {
+  it('is a config this app would actually accept', () => {
+    // The example is what every deployer copies, and it's the only place the
+    // full `boards` shape is written out. A key renamed in code without the
+    // example following would hand people a config that fails on first boot.
+    const config = getConfig(resolve(process.cwd(), 'data/config.example.json'));
+
+    expect(config.calendars.some((c) => c.hidden)).toBe(true);
+    const board = config.boards?.kida;
+    expect(board?.layout).toBe('personal');
+    expect(board?.pin).toMatch(/^\d{6}$/);
+    expect(board?.todos?.projectId).toBeTruthy();
+    // Every calendar the example board names has to exist in the example's own
+    // calendar list, which is exactly what validation enforces at boot.
+    const ids = new Set(config.calendars.map((c) => c.id));
+    for (const id of board?.calendars ?? []) expect(ids.has(id)).toBe(true);
   });
 });

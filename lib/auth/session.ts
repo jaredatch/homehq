@@ -30,10 +30,28 @@ function hexToBuffer(hex: string): ArrayBuffer {
 
 export interface SessionInfo {
   created: number;
+  /**
+   * The board this session was created for, when it was created by a board's
+   * OWN pin. Absent means the family PIN was used — see `sessionOpensBoard`.
+   *
+   * Absent is also what every session issued before per-board PINs existed
+   * looks like, which is why absence has to mean "opens everything": stamping
+   * family sessions instead would have logged the kitchen wall out on deploy.
+   */
+  board?: string;
 }
 
-export async function createSession(secret: string, now = Date.now()): Promise<string> {
-  const payload = btoa(JSON.stringify({ created: now }));
+/**
+ * Mint a session. `board` stamps it as belonging to one board; omit it for a
+ * family session, which keeps the payload byte-identical to what this issued
+ * before boards existed.
+ */
+export async function createSession(
+  secret: string,
+  board?: string,
+  now = Date.now()
+): Promise<string> {
+  const payload = btoa(JSON.stringify(board ? { created: now, board } : { created: now }));
   const key = await getKey(secret);
   const signature = await crypto.subtle.sign('HMAC', key, encoder.encode(payload));
   return `${payload}.${bufferToHex(signature)}`;
@@ -71,7 +89,9 @@ export async function readSession(
     if (now - data.created > SESSION_MAX_AGE_MS) return null;
     if (data.created > now + 60_000) return null; // future-dated tokens are bogus
 
-    return { created: data.created };
+    return typeof data.board === 'string' && data.board
+      ? { created: data.created, board: data.board }
+      : { created: data.created };
   } catch {
     return null;
   }
@@ -79,6 +99,35 @@ export async function readSession(
 
 export async function verifySession(token: string, secret: string): Promise<boolean> {
   return (await readSession(token, secret)) !== null;
+}
+
+/**
+ * Whether a session may open a given board.
+ *
+ * An UNSTAMPED session came from the family PIN and opens every board — the
+ * household code is deliberately a master key, so a parent is never locked out
+ * of a kid's panel and a path-only install (`/b/<slug>` with no subdomains)
+ * keeps working with one PIN exactly as it did before.
+ *
+ * A STAMPED session came from one board's own PIN and opens only that board.
+ * That is the whole point: the code a kid types on her panel is not the code
+ * that opens the kitchen wall.
+ *
+ * Pure, and free of config and filesystem access on purpose — the proxy runs
+ * on the Edge runtime and has to be able to call this.
+ */
+export function sessionOpensBoard(session: SessionInfo, slug: string): boolean {
+  return !session.board || session.board === slug;
+}
+
+/**
+ * The dev-only auth bypass, in one place so the proxy and the server pages
+ * can't drift apart on it. Doubly guarded: a non-production build AND an
+ * explicit opt-in, so it can never weaken the gate in production even if the
+ * flag leaks into a prod environment.
+ */
+export function isAuthBypassed(): boolean {
+  return process.env.NODE_ENV !== 'production' && process.env.DEV_AUTH_BYPASS === '1';
 }
 
 /**

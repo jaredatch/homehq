@@ -114,6 +114,11 @@ export interface BoardConfig {
    * it without the `/b/<slug>` path. Unset hosts (the family board's) are
    * untouched by the rewrite. */
   host?: string;
+  /** This board's own 6-digit PIN. A session created with it opens ONLY this
+   * board, so the code a kid types on her panel isn't the code that opens the
+   * kitchen wall. The top-level `auth.pin` always works as well, so a parent
+   * is never locked out and a household with one PIN needs no change. */
+  pin?: string;
   /** Accent color for this board (any CSS color). Personal layout only. */
   accent?: string;
   /** Which of the top-level calendars this board shows, by id. The order here

@@ -4,6 +4,17 @@
       "id": "primary",
       "name": "Family",
       "color": "#4285f4"
+    },
+    {
+      "id": "kida@group.calendar.google.com",
+      "name": "Kid A",
+      "color": "#ec4899"
+    },
+    {
+      "id": "kida-room@group.calendar.google.com",
+      "name": "Kid A room",
+      "color": "#ec4899",
+      "hidden": true
     }
   ],
   "weather": {
@@ -30,5 +41,30 @@
     "calendarAccess": "readonly",
     "syncDaysBack": 60,
     "syncDaysAhead": 210
+  },
+  "boards": {
+    "kida": {
+      "layout": "personal",
+      "name": "Kid A",
+      "host": "kida.example.com",
+      "pin": "246810",
+      "accent": "#ec4899",
+      "calendars": [
+        "kida@group.calendar.google.com",
+        "kida-room@group.calendar.google.com",
+        "primary"
+      ],
+      "ownCalendars": [
+        "kida@group.calendar.google.com",
+        "kida-room@group.calendar.google.com"
+      ],
+      "alwaysShow": [
+        "primary"
+      ],
+      "defaultCalendar": "kida-room@group.calendar.google.com",
+      "todos": {
+        "projectId": "0000000000000000"
+      }
+    }
   }
 }

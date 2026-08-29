@@ -2,6 +2,7 @@ import { notFound } from 'next/navigation';
 import FamilyBoard from '@/components/board/FamilyBoard';
 import PersonalBoard from '@/components/board/PersonalBoard';
 import { resolveBoard } from '@/lib/config/boards';
+import { requireBoardAccess } from '@/lib/auth/board-access';
 
 export const dynamic = 'force-dynamic';
 
@@ -16,6 +17,10 @@ export default async function BoardPage({ params }: { params: Promise<{ slug: st
   const { slug } = await params;
   const board = resolveBoard(slug);
   if (!board) notFound();
+  // Belt to the proxy's braces: it already matched this slug against the
+  // session, but the check is cheap and this page must never be the one place
+  // a routing change quietly opens.
+  await requireBoardAccess(board.slug);
 
   return board.layout === 'personal' ? (
     <PersonalBoard board={board} />

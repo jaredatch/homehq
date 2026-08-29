@@ -1,89 +1,38 @@
-'use client';
+import { headers } from 'next/headers';
+import PinPad from '@/components/auth/PinPad';
+import { boardSlugForHost, resolveBoard } from '@/lib/config/boards';
 
-import { useState, useRef, useCallback } from 'react';
-import { useRouter } from 'next/navigation';
+export const dynamic = 'force-dynamic';
 
-export default function LoginPage() {
-  const [pin, setPin] = useState('');
-  const [error, setError] = useState('');
-  const [loading, setLoading] = useState(false);
-  const router = useRouter();
-  const inputRef = useRef<HTMLInputElement>(null);
+/**
+ * PIN entry.
+ *
+ * Server half: work out which board is asking, so the right PIN is checked and
+ * the panel says whose board it is. The hostname decides it on a subdomain
+ * install; `?board=<slug>` covers a path-only one, where every board shares a
+ * host. Both are resolved against config, so an unknown slug is simply the
+ * family board rather than anything a URL can invent.
+ */
+export default async function LoginPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ board?: string }>;
+}) {
+  const { board: requested } = await searchParams;
+  const h = await headers();
 
-  const submit = useCallback(
-    async (pinValue: string) => {
-      setLoading(true);
-      setError('');
-
-      try {
-        const res = await fetch('/api/auth', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ pin: pinValue }),
-        });
-
-        if (res.ok) {
-          router.push('/');
-          router.refresh();
-        } else {
-          const data = (await res.json().catch(() => null)) as { error?: string } | null;
-          setError(data?.error ?? 'Invalid PIN');
-          setPin('');
-          inputRef.current?.focus();
-        }
-      } catch {
-        setError('Connection error');
-      } finally {
-        setLoading(false);
-      }
-    },
-    [router]
-  );
-
-  const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const value = e.target.value.replace(/\D/g, '').slice(0, 6);
-    setPin(value);
-    setError('');
-
-    if (value.length === 6) {
-      submit(value);
-    }
-  };
+  const fromQuery = requested && resolveBoard(requested) ? requested : null;
+  const slug = fromQuery ?? boardSlugForHost(h.get('host') ?? h.get('x-forwarded-host'));
+  const board = slug ? resolveBoard(slug) : null;
 
   return (
-    <div className="auth-center">
-      <div className="auth-panel">
-        <h1 className="auth-h1">HomeHQ</h1>
-        <p className="auth-sub">Enter PIN to continue</p>
-
-        <div>
-          <input
-            ref={inputRef}
-            type="password"
-            inputMode="numeric"
-            pattern="[0-9]*"
-            maxLength={6}
-            value={pin}
-            onChange={handleChange}
-            disabled={loading}
-            autoFocus
-            className="auth-pin"
-            placeholder="••••••"
-          />
-        </div>
-
-        <div className="auth-dots">
-          {Array.from({ length: 6 }).map((_, i) => (
-            <div
-              key={i}
-              className={`auth-dot ${i < pin.length ? 'auth-dot--on' : 'auth-dot--off'}`}
-            />
-          ))}
-        </div>
-
-        {error && <p className="auth-error">{error}</p>}
-        {loading && <p className="auth-loading">Verifying...</p>}
-      </div>
-    </div>
+    <PinPad
+      boardSlug={slug}
+      // The family board's `name` is its slug, which is no kind of greeting.
+      boardName={board?.layout === 'personal' ? board.name : undefined}
+      // Built from a board that exists, never from the raw query — this is a
+      // redirect target, and the only safe kind is one config vouched for.
+      returnTo={fromQuery ? `/b/${fromQuery}` : '/'}
+    />
   );
 }

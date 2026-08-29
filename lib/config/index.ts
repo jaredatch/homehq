@@ -87,6 +87,20 @@ function validateBoards(obj: Record<string, unknown>, calendarIds: Set<string>):
     if (b.layout !== 'family' && b.layout !== 'personal') {
       throw new Error(`Config: ${at}.layout must be "family" or "personal"`);
     }
+    if (b.pin !== undefined) {
+      if (typeof b.pin !== 'string' || !/^\d{6}$/.test(b.pin)) {
+        throw new Error(`Config: ${at}.pin must be a 6-digit string`);
+      }
+      // Same fail-fast the top-level PIN gets: a board shipped with the
+      // template PIN is an unlocked screen, and a bedroom panel is the one
+      // most likely to be set up in a hurry and forgotten.
+      if (process.env.NODE_ENV === 'production' && b.pin === '123456') {
+        throw new Error(
+          `Config: ${at}.pin is still the default "123456" — set a real PIN before deploying`
+        );
+      }
+    }
+
     for (const key of ['name', 'accent', 'host', 'defaultCalendar'] as const) {
       if (b[key] !== undefined && typeof b[key] !== 'string') {
         throw new Error(`Config: ${at}.${key} must be a string`);

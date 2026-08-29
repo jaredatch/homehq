@@ -141,6 +141,19 @@ export function boardSlugForHost(
   return null;
 }
 
+/**
+ * A board's own PIN, or null when it has none (and the family PIN is the only
+ * way in).
+ *
+ * Deliberately NOT a field on `ResolvedBoard`. That object is built in a server
+ * component and handed to the board components, and one careless spread into a
+ * client component would ship the PIN to the browser. Reading it through a
+ * separate call keeps the secret on a path no rendering code travels.
+ */
+export function boardPin(slug: string, config?: AppConfig): string | null {
+  return (config ?? getConfig()).boards?.[slug]?.pin ?? null;
+}
+
 /** Every configured board slug, for diagnostics and the setup page. */
 export function boardSlugs(config?: AppConfig): string[] {
   return Object.keys((config ?? getConfig()).boards ?? {});
