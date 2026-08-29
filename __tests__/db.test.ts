@@ -49,7 +49,13 @@ describe('database', () => {
       .map((row) => (row as { name: string }).name)
       .sort();
 
-    expect(tables).toEqual(['calendar_events', 'oauth_tokens', 'sync_status', 'weather_cache']);
+    expect(tables).toEqual([
+      'calendar_events',
+      'oauth_tokens',
+      'sync_status',
+      'todos',
+      'weather_cache',
+    ]);
   });
 
   it('records migration in _migrations table', () => {
@@ -67,7 +73,7 @@ describe('database', () => {
       .all()
       .map((row) => (row as { sync_type: string }).sync_type);
 
-    expect(rows).toEqual(['calendar', 'weather']);
+    expect(rows).toEqual(['calendar', 'todos', 'weather']);
   });
 
   it('is idempotent on re-init', () => {
@@ -81,7 +87,13 @@ describe('database', () => {
       .map((row) => (row as { name: string }).name)
       .sort();
 
-    expect(tables).toEqual(['calendar_events', 'oauth_tokens', 'sync_status', 'weather_cache']);
+    expect(tables).toEqual([
+      'calendar_events',
+      'oauth_tokens',
+      'sync_status',
+      'todos',
+      'weather_cache',
+    ]);
     db2.close();
   });
 
