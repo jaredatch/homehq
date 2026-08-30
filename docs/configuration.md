@@ -65,8 +65,9 @@ Weather comes from [Open-Meteo](https://open-meteo.com/), which needs no API key
 | `createFormResetSeconds` | `120`     | How long an idle event form stays open before it closes itself. `0` disables.                                                                            |
 | `monthViewResetSeconds`  | `180`     | How long month view stays up when idle before reverting to the week grid. `0` disables.                                                                  |
 | `filterResetSeconds`     | `300`     | How long a per-person filter stays applied when idle before showing everyone again. `0` disables.                                                        |
+| `viewResetSeconds`       | `120`     | Personal boards only. How long a full-screen view (week, month) stays up when idle before falling back to the columns. `0` disables.                     |
 
-The four `*ResetSeconds` keys exist because the display is always on and nobody is there to put it back. Every transient state (month view, the filter, an open form, the expanded week) reverts on its own. The timers restart on any interaction, so they never fire while someone is mid-task.
+The `*ResetSeconds` keys exist because the display is always on and nobody is there to put it back. Every transient state (month view, the filter, an open form, the expanded week, a personal board's full-screen view) reverts on its own. The timers restart on any interaction, so they never fire while someone is mid-task.
 
 ### `auth`
 

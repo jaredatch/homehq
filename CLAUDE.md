@@ -44,7 +44,7 @@ If `DEV_AUTH_BYPASS=1` is set in your `.env`, plain `npm run dev` skips the PIN.
 9. **`isCalendarWriteEnabled()`** is the single gate for the OAuth scope, the write routes, the button, and click-to-edit.
 10. **Boards only override.** A board replaces a top-level value and never supplies a base one, so a config with no `boards` key resolves to exactly the pre-boards values. Related: a `hidden` calendar syncs but reaches only a board that names it, and both grids are bounded by `scopeToCalendars` — the sync no longer fetches exactly what the wall draws, so an unbounded grid leaks.
 11. **A session is stamped with the board that minted it; absence means "opens everything".** The household PIN mints an unstamped session on purpose — that's what keeps every cookie issued before per-board PINs working, and why the family case must never be stamped.
-12. **The personal board owns its own components.** It shares the write _routes_ with the wall, never the markup — bending `EventModal` around a second set of constraints is how the family board gets broken. And nothing there takes text focus: the drawn keyboard writes into a `div`, because an `<input>` invites a platform keyboard the Pi can't show.
+12. **The personal board owns its own chrome, and shares only presentational grids.** It renders `WeekRow` and `MonthWeek` unchanged (one definition of a week and a month house-wide) plus the shared measuring in `week-metrics.ts` / `month-metrics.ts`, and it shares the write _routes_. It never shares a form or a footer: bending `EventModal` or `CalendarFooter` around a second set of constraints is how the family board gets broken. And nothing there takes text focus: the drawn keyboard writes into a `div`, because an `<input>` invites a platform keyboard the Pi can't show.
 
 ## Layout traps (details in docs/calendar.md)
 
@@ -53,6 +53,7 @@ If `DEV_AUTH_BYPASS=1` is set in your `.env`, plain `npm run dev` skips the PIN.
 - `.cal-modal` is 27rem because three native date/time inputs need ~23.7rem; a squeezed date input clips its value. `.cal-field--date` never shrinks.
 - Google's all-day `end.date` is exclusive; the UI shows the inclusive last day. Convert on both read and write.
 - Month view has no measurement layer by design. If it seems to need one, the design drifted.
+- A grid's measuring is shared with the personal board; its **space policy is not**. The wall's anchor week and "expand next week" stay in `CalendarGrid`.
 - `--cal-stripe-angle` is 135deg (45deg draws a backslash).
 
 ## Working with the maintainer

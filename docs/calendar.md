@@ -16,6 +16,8 @@ One `WeekRow` per week, `display.calendarWeeks` of them.
 
 **`+N more` cropping.** Rather than assume every event is one row tall, `CalendarGrid` renders a hidden measurement layer (`.cal-measure`) with every day's full, uncropped stack at the real column width and reads each event's actual height. It then greedy-packs each cell, so a cell shows exactly as many events as truly fit. Each cell's available height subtracts only its own column's band reservation, so days under no all-day bar spend the reclaimed room on extra events.
 
+The measuring and the packing arithmetic live in `week-metrics.ts` (`useWeekGridMetrics`, `fitCount`, `bandHeightFor`, `stackHeight`), because a personal board's full-screen week needs exactly the same numbers. What is **not** shared is how the measured height gets spent: the anchor-week policy below is the wall's, and a personal board simply fills one row. Month view's equivalents are in `month-metrics.ts`. Both are unit-tested in `__tests__/grid-metrics.test.ts` — the failure mode is silent and only visible on a real panel.
+
 The measurement layer must stay `overflow: hidden`. Its uncropped stacks are taller than the grid; with overflow visible that spill became scrollable overflow that a focus nudge could scroll the whole grid into, clipping the header. `getBoundingClientRect` is unaffected by clipping. `.app-main` is `overflow: clip` as a backstop.
 
 **Anchor week.** Track heights and cropping follow a strict priority around an anchor week (the current week by default):
@@ -30,13 +32,21 @@ The measurement layer must stay `overflow: hidden`. Its uncropped stacks are tal
 
 A sit-down view for scrubbing months ahead, e.g. a school email in spring listing fall-break dates. `CalendarView` owns an ephemeral `viewMode` (`week` by default). The footer's **View Month / View Upcoming** buttons switch; only one grid is mounted at a time, so month view always re-enters on the current month. Esc exits. Reverts after `display.monthViewResetSeconds`.
 
-Month view reuses `computeWeekSegments`, `assignEventsToDays`, the colour map, and `EventModal`, but has **no measurement layer by design**: chips are uniform single lines, so `+N more` capacity is arithmetic over a few unit heights read from three hidden sample boxes (`.mon-sample`). If it ever seems to need per-event measuring, the design has drifted. Rows are dynamic (4 to 6, `monthRowCount` in `month-utils.ts`).
+Month view reuses `computeWeekSegments`, `assignEventsToDays`, the colour map, and `EventModal`, but has **no measurement layer by design**: chips are uniform single lines, so `+N more` capacity is arithmetic over a few unit heights read from three hidden sample boxes (`.mon-sample`), in `month-metrics.ts`. If it ever seems to need per-event measuring, the design has drifted. Rows are dynamic (4 to 6, `monthRowCount` in `month-utils.ts`).
 
 **Scale.** `.mon-calendar` sets `font-size: clamp(12px, 1vh, 22px)` and everything inside is in `em`. It is the only opt-out from root `rem` scaling in the app. The month header stays `rem`-based like the rest of the chrome.
 
 **Interactions.** "N more" opens a floating day popover, rendered outside `.mon-grid` so the capacity samples never see it (a long day scrolls inside the popover; the page never scrolls). Clicking any event opens `EventModal` in edit mode. Create via a hover-revealed per-day "+" (a deliberate target, so full days stay addable and nothing opens by accident) or the footer's **+ Add event**, which pre-fills today when viewing the current month and the 1st otherwise. ←/→ page months, T jumps to today. Esc peels one layer at a time: modal, then popover, then the view. An open modal does not hold the auto-revert; its own shorter idle timer closes abandoned forms first.
 
 Writes are gated on `isCalendarWriteEnabled` exactly as in week view. Read-only deployments get an inert month view with a working popover.
+
+## What a personal board borrows (`PersonalWeek`, `PersonalMonth`)
+
+A personal board's **View Week** and **View Month** are full-screen overlays that render `WeekRow` and `MonthWeek` **unchanged**, so there is one definition of what a week and a month look like across every screen in the house. They also share the measuring modules above.
+
+What they do not share is the chrome or the forms. Each owns its own header, paging, and footer, and a tap opens `PersonalEventSheet` rather than `EventModal` — the wall's form assumes a keyboard and a mouse at 27", and a bedroom panel has neither (CLAUDE.md rule 12). "+N more" opens a day list in the board's own row format instead of the wall's floating popover, which is a poor target for a finger at 180px wide. Both views inherit the Upcoming column's person selection, scope writes to her own calendars, and revert to the three columns after `display.viewResetSeconds`.
+
+Sizing overrides live under `.pb-view` in `personal.css`; `calendar.css` and `month.css` are untouched, which is what keeps the wall unmoved by construction.
 
 ## Footer (`CalendarFooter`)
 
@@ -72,12 +82,13 @@ Shared validation for both routes and the form lives in `lib/calendar/event-timi
 
 ## Auto-revert timers at a glance
 
-| State             | Key                              | Default |
-| ----------------- | -------------------------------- | ------- |
-| Expand next week  | `display.expandResetSeconds`     | 300 s   |
-| Event form open   | `display.createFormResetSeconds` | 120 s   |
-| Month view        | `display.monthViewResetSeconds`  | 180 s   |
-| Per-person filter | `display.filterResetSeconds`     | 300 s   |
+| State                                      | Key                              | Default |
+| ------------------------------------------ | -------------------------------- | ------- |
+| Expand next week                           | `display.expandResetSeconds`     | 300 s   |
+| Event form open                            | `display.createFormResetSeconds` | 120 s   |
+| Month view                                 | `display.monthViewResetSeconds`  | 180 s   |
+| Per-person filter                          | `display.filterResetSeconds`     | 300 s   |
+| Personal board's full-screen week or month | `display.viewResetSeconds`       | 120 s   |
 
 ## Checking a layout change
 

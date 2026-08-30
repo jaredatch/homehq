@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useLayoutEffect, useState, useCallback, useMemo, useRef } from 'react';
+import { useEffect, useState, useCallback, useMemo, useRef } from 'react';
 import WeekRow from './WeekRow';
 import EventItem from './EventItem';
 import EventModal, { type EditableEvent } from './EventModal';
@@ -8,6 +8,7 @@ import { calendarIdsForEvent, isMembershipLocked, mergeGroups } from './event-gr
 import { accentStripes, eventPaint } from './event-paint';
 import CalendarFooter from './CalendarFooter';
 import { useCalendarFilter, filterEvents, scopeToCalendars } from './calendar-filter';
+import { bandHeightFor, fitCount, stackHeight, useWeekGridMetrics } from './week-metrics';
 import {
   assignEventsToDays,
   chunkWeeks,
@@ -51,26 +52,6 @@ interface CalendarGridProps {
 
 const POLL_INTERVAL_MS = 60_000;
 
-// useLayoutEffect on the client (measure before paint, no flash); useEffect on
-// the server, where it no-ops anyway — sidesteps the SSR warning.
-const useIsoLayoutEffect = typeof window !== 'undefined' ? useLayoutEffect : useEffect;
-
-interface GridMetrics {
-  availH: number; // calendar grid's usable height
-  headerH: number; // a day cell's date-header height
-  rowGap: number; // inter-row gap between timed events (space-y-1.5)
-  rowPadV: number; // timed events container's top+bottom padding
-  rowUnitPx: number; // representative single-line row height (floors the current week)
-  morePx: number; // height of the "+N more" line, reserved when cropping
-  barH: number; // an all-day band bar's height
-  barGap: number; // gap between band slots
-  bandPadV: number; // band container's top+bottom padding
-  // Real per-day timed-row heights, in render order, from the hidden measurement
-  // layer. Variable (1- vs 2-line titles) — measuring each beats assuming a
-  // uniform row, which used to under-fill cells ("+5 more" with room for 2 more).
-  dayHeights: Record<string, number[]>;
-}
-
 export default function CalendarGrid({
   calendars,
   weeks,
@@ -93,8 +74,6 @@ export default function CalendarGrid({
   const [today, setToday] = useState(() => todayInZone(timezone));
   const gridRef = useRef<HTMLDivElement>(null);
   const measureRef = useRef<HTMLDivElement>(null);
-  const sigRef = useRef<string>('');
-  const [metrics, setMetrics] = useState<GridMetrics | null>(null);
 
   // Per-person filter (shared across views, empty = show all). When empty this
   // returns the SAME `events` reference below, so the default wall render is
@@ -262,107 +241,10 @@ export default function CalendarGrid({
 
   // Measure the grid's usable height and chrome (header/band) from the visible
   // grid, plus the REAL per-day timed-row heights from the hidden measurement
-  // layer (which always renders every event, so heights are never truncated by
-  // cropping). Re-runs on resize and whenever the rendered events change.
-  useIsoLayoutEffect(() => {
-    const grid = gridRef.current;
-    if (!grid) return;
-
-    const measure = () => {
-      const availH = grid.clientHeight;
-      const headerEl = grid.querySelector('[data-day-header]') as HTMLElement | null;
-      const headerH = headerEl?.getBoundingClientRect().height ?? 0;
-
-      // All-day band metrics — only present when some week has all-day events.
-      const bandEl = grid.querySelector('[data-band]') as HTMLElement | null;
-      let barH = 0;
-      let barGap = 0;
-      let bandPadV = 0;
-      if (bandEl) {
-        const cs = getComputedStyle(bandEl);
-        bandPadV = parseFloat(cs.paddingTop) + parseFloat(cs.paddingBottom);
-        barGap = parseFloat(cs.rowGap) || 0;
-        const barEls = grid.querySelectorAll('[data-band-row]');
-        for (let i = 0; i < barEls.length; i++) {
-          barH = Math.max(barH, (barEls[i] as HTMLElement).getBoundingClientRect().height);
-        }
-      }
-
-      // Per-day timed heights + the row gap / container padding / "+N more" line,
-      // all from the hidden layer (full event stacks at the real column width).
-      const layer = measureRef.current;
-      const dayHeights: Record<string, number[]> = {};
-      let rowGap = 0;
-      let rowPadV = 0;
-      let rowUnitPx = 0;
-      let morePx = 0;
-      if (layer) {
-        const dayEls = layer.querySelectorAll('[data-measure-day]');
-        let minRow = Infinity;
-        for (let i = 0; i < dayEls.length; i++) {
-          const el = dayEls[i] as HTMLElement;
-          const date = el.getAttribute('data-measure-day') ?? '';
-          const rows = el.querySelectorAll('[data-event-row]');
-          const hs: number[] = [];
-          for (let j = 0; j < rows.length; j++) {
-            const h = Math.round((rows[j] as HTMLElement).getBoundingClientRect().height);
-            hs.push(h);
-            if (h > 0) minRow = Math.min(minRow, h);
-          }
-          dayHeights[date] = hs;
-          if (rowGap === 0 && rows.length >= 2) {
-            const r0 = (rows[0] as HTMLElement).getBoundingClientRect();
-            const r1 = (rows[1] as HTMLElement).getBoundingClientRect();
-            rowGap = Math.max(0, Math.round(r1.top - r0.top - r0.height));
-          }
-        }
-        if (dayEls[0]) {
-          const cs = getComputedStyle(dayEls[0] as HTMLElement);
-          rowPadV = parseFloat(cs.paddingTop) + parseFloat(cs.paddingBottom);
-        }
-        rowUnitPx = Number.isFinite(minRow) ? minRow : 0;
-        const moreEl = layer.querySelector('[data-more-sample]') as HTMLElement | null;
-        if (moreEl) morePx = Math.round(moreEl.getBoundingClientRect().height);
-      }
-      if (!morePx) morePx = 18;
-      if (!rowPadV) rowPadV = 8;
-
-      if (availH && headerH) {
-        const sig = [
-          Math.round(availH),
-          Math.round(headerH),
-          rowGap,
-          Math.round(rowPadV),
-          morePx,
-          rowUnitPx,
-          Math.round(barH),
-          barGap,
-          Math.round(bandPadV),
-          JSON.stringify(dayHeights),
-        ].join('|');
-        if (sig !== sigRef.current) {
-          sigRef.current = sig;
-          setMetrics({
-            availH,
-            headerH,
-            rowGap,
-            rowPadV,
-            rowUnitPx,
-            morePx,
-            barH,
-            barGap,
-            bandPadV,
-            dayHeights,
-          });
-        }
-      }
-    };
-
-    measure();
-    const ro = new ResizeObserver(measure);
-    ro.observe(grid);
-    return () => ro.disconnect();
-  }, [days, visibleEvents, timezone]);
+  // layer. Shared with the personal board's week (components/calendar/
+  // week-metrics.ts) — the measuring is identical; only how the height is then
+  // spent differs, and that policy stays right below.
+  const metrics = useWeekGridMetrics(gridRef, measureRef, days, visibleEvents, timezone);
 
   // Space policy, by priority:
   //   1. the "protected" days of the ANCHOR week show every event, and their
@@ -382,46 +264,7 @@ export default function CalendarGrid({
   // cell fills with as many events as actually fit. All-day bands always show.
   const layout = useMemo(() => {
     if (!metrics) return null;
-    const {
-      availH,
-      headerH,
-      rowGap,
-      rowPadV,
-      rowUnitPx,
-      morePx,
-      barH,
-      barGap,
-      bandPadV,
-      dayHeights,
-    } = metrics;
-
-    // Height a cell reserves at the top for `lanes` all-day band rows. Now fed a
-    // per-column lane count, not the per-week max — so a day no bar touches (0)
-    // reserves nothing and hands that space back to its timed stack.
-    const bandHeightFor = (lanes: number) =>
-      lanes > 0 ? bandPadV + lanes * barH + (lanes - 1) * barGap : 0;
-    const stackHeight = (hs: number[]) =>
-      hs.length ? rowPadV + hs.reduce((a, b) => a + b, 0) + (hs.length - 1) * rowGap : rowPadV;
-
-    // How many of `hs` fit in `innerPx` (a cell's height below header+band).
-    // When not all fit, reserve a line for "+N more".
-    const fitCount = (hs: number[], innerPx: number): number => {
-      const avail = innerPx - rowPadV;
-      if (avail <= 0 || hs.length === 0) return 0;
-      let full = 0;
-      for (let i = 0; i < hs.length; i++) full += hs[i] + (i > 0 ? rowGap : 0);
-      if (full <= avail) return hs.length;
-      let used = 0;
-      let count = 0;
-      for (let i = 0; i < hs.length; i++) {
-        const add = hs[i] + (count > 0 ? rowGap : 0);
-        if (used + add + rowGap + morePx <= avail) {
-          used += add;
-          count += 1;
-        } else break;
-      }
-      return count;
-    };
+    const { availH, headerH, rowGap, rowPadV, rowUnitPx, dayHeights } = metrics;
 
     // Which week is maximized. Default = current week (0); "Expand next week"
     // moves the anchor to week 1 (guarded so it can't point past the grid).
@@ -436,7 +279,8 @@ export default function CalendarGrid({
       if (date >= today) {
         protectedPx = Math.max(
           protectedPx,
-          bandHeightFor(anchorLanes[col] ?? 0) + stackHeight(dayHeights[date] ?? [])
+          bandHeightFor(metrics, anchorLanes[col] ?? 0) +
+            stackHeight(metrics, dayHeights[date] ?? [])
         );
       }
     });
@@ -473,8 +317,8 @@ export default function CalendarGrid({
         if (isAnchor && date >= today && !anchorCapped) {
           visibleByDay[date] = Infinity;
         } else {
-          const inner = trackPx - headerH - bandHeightFor(lanes[col] ?? 0);
-          visibleByDay[date] = fitCount(dayHeights[date] ?? [], inner);
+          const inner = trackPx - headerH - bandHeightFor(metrics, lanes[col] ?? 0);
+          visibleByDay[date] = fitCount(metrics, dayHeights[date] ?? [], inner);
         }
       });
     });

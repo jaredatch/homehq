@@ -8,6 +8,7 @@ import {
   todayInZone,
   type CalendarEvent,
   type SyncStatus,
+  type WeekStart,
 } from '@/components/calendar/calendar-utils';
 import type { WeatherData } from '@/lib/weather/types';
 import type { CalendarConfig, WeatherIconSet } from '@/lib/config/types';
@@ -16,6 +17,8 @@ import PersonalUpcoming from './PersonalUpcoming';
 import PersonalTodo from './PersonalTodo';
 import PersonalStatus from './PersonalStatus';
 import PersonalEventSheet from './PersonalEventSheet';
+import PersonalWeek from './PersonalWeek';
+import PersonalMonth from './PersonalMonth';
 
 interface PersonalShellProps {
   name: string;
@@ -38,6 +41,14 @@ interface PersonalShellProps {
   peekResetMs: number;
   /** How long an untouched form stays open before it closes itself (ms). */
   formResetMs: number;
+  /** How long a full-screen view (week, month) stays up before falling back to
+   * the columns (ms). 0 disables. From config.display.viewResetSeconds. */
+  viewResetMs: number;
+  /** Week rows the full-screen week draws (display.calendarWeeks). */
+  calendarWeeks: number;
+  weekStartsOn: WeekStart;
+  /** Today's marker colour, shared with the wall's grids. */
+  todayColor: string;
   appVersion: string;
 }
 
@@ -70,6 +81,10 @@ export default function PersonalShell({
   todoProjectId,
   peekResetMs,
   formResetMs,
+  viewResetMs,
+  calendarWeeks,
+  weekStartsOn,
+  todayColor,
   appVersion,
 }: PersonalShellProps) {
   const [events, setEvents] = useState<CalendarEvent[]>([]);
@@ -135,6 +150,10 @@ export default function PersonalShell({
   const [sheet, setSheet] = useState<
     { mode: 'create' } | { mode: 'edit' | 'detail'; event: CalendarEvent } | null
   >(null);
+
+  // Which full-screen view is over the board, if any. Never persisted, and each
+  // view reverts to the columns after idle (CLAUDE.md rule 1).
+  const [view, setView] = useState<'week' | 'month' | null>(null);
 
   const fetchEvents = useCallback(async () => {
     // Re-derive today every poll so the board rolls over at midnight without a
@@ -231,8 +250,15 @@ export default function PersonalShell({
    * it would rewrite the parent's copy too.
    */
   const openEvent = useCallback(
-    (event: CalendarEvent) => {
-      const withMembership = { ...event, groupCalendarIds: calendarIdsForEvent(events, event) };
+    (event: CalendarEvent, unfiltered?: CalendarEvent[]) => {
+      // `unfiltered` is the raw fetch the event came from. The columns pass
+      // nothing and get this shell's own list; a full-screen view passes its
+      // own, because it reaches days outside the shell's 14-day window and
+      // resolving membership against a list that doesn't hold the event would
+      // report NO calendars — which reads as "not hers" and quietly makes her
+      // own next-month event read-only.
+      const source = unfiltered ?? events;
+      const withMembership = { ...event, groupCalendarIds: calendarIdsForEvent(source, event) };
       const editable = canWrite && canEditEvent(withMembership, ownCalendarIds);
       setSheet({ mode: editable ? 'edit' : 'detail', event: withMembership });
     },
@@ -251,6 +277,8 @@ export default function PersonalShell({
         onPersonChange={setPerson}
         onOpenEvent={openEvent}
         onAddEvent={canWrite ? () => setSheet({ mode: 'create' }) : undefined}
+        onViewWeek={() => setView('week')}
+        onViewMonth={() => setView('month')}
       />
       <PersonalTodo
         projectId={todoProjectId}
@@ -265,6 +293,37 @@ export default function PersonalShell({
         weatherIcons={weatherIcons}
         sync={sync}
       />
+
+      {view === 'week' && (
+        <PersonalWeek
+          calendars={calendars}
+          scopeIds={people[person]?.calendarIds ?? calendarOrder}
+          weeks={calendarWeeks}
+          weekStartsOn={weekStartsOn}
+          timezone={timezone}
+          todayColor={todayColor}
+          onOpenEvent={openEvent}
+          onAddEvent={canWrite ? () => setSheet({ mode: 'create' }) : undefined}
+          onViewMonth={() => setView('month')}
+          onClose={() => setView(null)}
+          resetMs={viewResetMs}
+        />
+      )}
+
+      {view === 'month' && (
+        <PersonalMonth
+          calendars={calendars}
+          scopeIds={people[person]?.calendarIds ?? calendarOrder}
+          weekStartsOn={weekStartsOn}
+          timezone={timezone}
+          todayColor={todayColor}
+          onOpenEvent={openEvent}
+          onAddEvent={canWrite ? () => setSheet({ mode: 'create' }) : undefined}
+          onViewWeek={() => setView('week')}
+          onClose={() => setView(null)}
+          resetMs={viewResetMs}
+        />
+      )}
 
       {sheet && (
         <PersonalEventSheet

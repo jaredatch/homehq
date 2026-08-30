@@ -21,7 +21,13 @@ interface WeekRowProps {
   todayColor: string;
   /** Click handler for a day's "+N more" — receives this row's week index so the
    * grid can expand next week (week ≥ 1) or return to normal (week 0). */
-  onMoreClick: (weekIndex: number) => void;
+  /** A day's "+N more" was clicked. The wall uses `weekIndex` to move its
+   * expand anchor; the personal board's week uses `date` to open that day in
+   * full. Both are passed so neither caller has to derive the other. */
+  onMoreClick: (weekIndex: number, date: string) => void;
+  /** Tooltip for "+N more". The wall's default describes the expand toggle it
+   * drives; a caller that does something else with the click says so here. */
+  moreTitle?: (date: string, hiddenCount: number) => string;
   /** When set, events are clickable and open the edit modal. Omitted in
    * read-only deployments, so events stay inert there. */
   onEventClick?: (event: CalendarEvent) => void;
@@ -60,6 +66,7 @@ export default function WeekRow({
   timezone,
   todayColor,
   onMoreClick,
+  moreTitle,
   onEventClick,
 }: WeekRowProps) {
   return (
@@ -149,11 +156,13 @@ export default function WeekRow({
                     <button
                       type="button"
                       className="cal-more"
-                      onClick={() => onMoreClick(weekIndex)}
+                      onClick={() => onMoreClick(weekIndex, date)}
                       title={
-                        weekIndex === 0
-                          ? 'Back to the normal view'
-                          : 'Expand next week to show all its events'
+                        moreTitle
+                          ? moreTitle(date, hiddenCount)
+                          : weekIndex === 0
+                            ? 'Back to the normal view'
+                            : 'Expand next week to show all its events'
                       }
                     >
                       +{hiddenCount} more

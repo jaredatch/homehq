@@ -64,6 +64,9 @@
       "defaultCalendar": "kida-room@group.calendar.google.com",
       "todos": {
         "projectId": "0000000000000000"
+      },
+      "display": {
+        "viewResetSeconds": 120
       }
     }
   }

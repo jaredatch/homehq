@@ -16,7 +16,7 @@ const RESET_KEYS = [
   ['createFormResetSeconds', 'auto-close'],
   ['monthViewResetSeconds', 'auto-revert'],
   ['filterResetSeconds', 'auto-clear'],
-  ['tabResetSeconds', 'auto-revert'],
+  ['viewResetSeconds', 'auto-revert'],
 ] as const;
 
 /**

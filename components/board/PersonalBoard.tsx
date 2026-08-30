@@ -35,6 +35,17 @@ export default function PersonalBoard({ board }: { board: ResolvedBoard }) {
       peekResetMs={(display.filterResetSeconds ?? 300) * 1000}
       // Likewise for an abandoned form: same rule, same knob as the wall's.
       formResetMs={(display.createFormResetSeconds ?? 120) * 1000}
+      // A full-screen week or month is this board's equivalent of the wall
+      // sitting on November: transient, and never what the screen is still
+      // showing the next morning.
+      viewResetMs={(display.viewResetSeconds ?? 120) * 1000}
+      // One week row by default, not the wall's two. On an 800px panel a single
+      // row gives a day cell ~590px — about ten events before it crops — where
+      // two rows would halve that for a screen showing one person's calendar.
+      // A board that names calendarWeeks itself still wins.
+      calendarWeeks={board.ownsCalendarWeeks ? display.calendarWeeks : 1}
+      weekStartsOn={display.weekStartsOn ?? 'monday'}
+      todayColor={display.todayColor ?? '#60a5fa'}
       appVersion={getDeployVersion()}
     />
   );

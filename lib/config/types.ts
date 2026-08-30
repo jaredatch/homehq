@@ -51,11 +51,11 @@ export interface DisplayConfig {
    * quietly narrowed to one person for days. The timer resets on any
    * interaction. Defaults to 300 (5 min). Set to 0 to disable auto-clear. */
   filterResetSeconds?: number;
-  /** Personal boards only. Seconds a non-default tab stays up with no
-   * interaction before falling back to "My Day", so a board left on the Week
-   * tab isn't still there three days later. Defaults to 120. Set to 0 to
-   * disable auto-revert. */
-  tabResetSeconds?: number;
+  /** Personal boards only. Seconds a full-screen view (View Week, View Month)
+   * stays up with no interaction before falling back to the three columns, so a
+   * board left on next month isn't still there three days later. The timer
+   * restarts on any touch. Defaults to 120. Set to 0 to disable auto-revert. */
+  viewResetSeconds?: number;
 }
 
 export interface AuthConfig {

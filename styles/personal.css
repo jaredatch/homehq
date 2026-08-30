@@ -952,3 +952,96 @@
 		animation: none;
 	}
 }
+
+/* ---- Full-screen views: View Week, View Month --------------------------- */
+
+/* Both views cover all three columns rather than sitting beside them: a
+   1280×800 panel has no room for a calendar AND a board, and the whole point
+   of a full-screen view is that it is the only thing on screen. Opaque, not a
+   translucent backdrop — this is a view, not a dialog over one.
+
+   Like every other transient state here it reverts to the columns after idle
+   (CLAUDE.md rule 1, display.viewResetSeconds). */
+.pb-view {
+	position: fixed;
+	inset: 0;
+	z-index: 40;
+	display: flex;
+	flex-direction: column;
+	background-color: var(--bg);
+}
+
+.pb-view-head {
+	flex: none;
+	display: flex;
+	align-items: baseline;
+	gap: 0.625rem;
+	padding: 0.75rem var(--pb-gutter) 0.625rem;
+}
+
+.pb-view-title {
+	font-size: var(--text-2xl);
+	line-height: var(--leading-tight);
+	font-weight: var(--weight-semibold);
+	color: var(--gray-100);
+}
+
+.pb-view-range {
+	font-size: var(--text-sm);
+	line-height: var(--text-sm-lh);
+	color: var(--gray-500);
+	font-variant-numeric: tabular-nums;
+}
+
+.pb-view-spacer {
+	flex: 1 1 auto;
+}
+
+.pb-view-nav {
+	display: flex;
+	align-items: center;
+	gap: 0.375rem;
+	align-self: center;
+}
+
+/* Paging is the main verb in both views and the only input is a finger, so
+   these are square finger targets rather than the wall's text-sized chevrons. */
+.pb-view-navbtn {
+	min-width: 2.5rem;
+	height: 2.5rem;
+	padding-inline: 0.625rem;
+	border-radius: var(--radius);
+	background-color: var(--gray-900);
+	font-size: var(--text-lg);
+	line-height: 1;
+	font-weight: var(--weight-medium);
+	color: var(--gray-300);
+	touch-action: manipulation;
+}
+
+.pb-view-navbtn:active {
+	background-color: var(--gray-800);
+}
+
+/* The grid itself. .cal-grid is the wall's, unchanged — this only gives it a
+   box to fill between the header and the footer. */
+.pb-view-body {
+	flex: 1 1 0%;
+	min-height: 0;
+}
+
+.pb-view-foot {
+	flex: none;
+	display: flex;
+	align-items: center;
+	gap: 0.5rem;
+	padding: 0.5rem var(--pb-gutter);
+	border-top: 1px solid var(--hairline);
+	font-size: var(--text-sm);
+	line-height: var(--text-sm-lh);
+}
+
+/* Sync sits far right, where column 3's footer keeps it on the board itself. */
+.pb-view-foot .pb-sync {
+	margin-left: auto;
+}

@@ -346,4 +346,39 @@ describe('board PINs', () => {
       /boards\.kida\.pin/
     );
   });
+
+  // ownsCalendarWeeks — how the personal board's full-screen week knows whether
+  // to use its own one-row default or a number the board actually asked for.
+  // The merged display block can't answer that: it always reports SOMETHING,
+  // because calendarWeeks is required at the top level.
+  describe('ownsCalendarWeeks', () => {
+    it("is false when a board inherits the wall's calendarWeeks", () => {
+      const config = getConfig(write({ kida: { layout: 'personal' } }));
+      const board = resolveBoard('kida', config)!;
+      // Inherited, so the merged block reports the wall's 2 …
+      expect(board.display.calendarWeeks).toBe(2);
+      // … but the board never asked for it, and PersonalBoard uses 1 instead.
+      expect(board.ownsCalendarWeeks).toBe(false);
+    });
+
+    it('is false when a board overrides some OTHER display key', () => {
+      const config = getConfig(
+        write({ kida: { layout: 'personal', display: { showWeather: false } } })
+      );
+      expect(resolveBoard('kida', config)!.ownsCalendarWeeks).toBe(false);
+    });
+
+    it('is true when a board names calendarWeeks itself', () => {
+      const config = getConfig(
+        write({ kida: { layout: 'personal', display: { calendarWeeks: 3 } } })
+      );
+      const board = resolveBoard('kida', config)!;
+      expect(board.display.calendarWeeks).toBe(3);
+      expect(board.ownsCalendarWeeks).toBe(true);
+    });
+
+    it('is true for the family board, whose calendarWeeks IS the top-level one', () => {
+      expect(familyBoard(getConfig(write({}))).ownsCalendarWeeks).toBe(true);
+    });
+  });
 });

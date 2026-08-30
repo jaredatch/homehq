@@ -53,6 +53,13 @@ export interface ResolvedBoard {
   todos?: BoardTodosConfig;
   /** Top-level display block with this board's overrides merged over it. */
   display: DisplayConfig;
+  /** Whether this board named `calendarWeeks` ITSELF, as opposed to inheriting
+   * the wall's. A personal board's full-screen week wants one row on an 800px
+   * panel where the kitchen wants two on a 27" one, and the merged block above
+   * can't tell those apart — it only ever reports the wall's value. Boards only
+   * override (CLAUDE.md rule 10), so the personal default lives in the personal
+   * component and this says when to step aside for it. */
+  ownsCalendarWeeks: boolean;
   calendarWriteEnabled: boolean;
 }
 
@@ -71,6 +78,8 @@ export function familyBoard(config?: AppConfig): ResolvedBoard {
     ownCalendarIds: calendars.map((c) => c.id),
     alwaysShowIds: [],
     display: cfg.display,
+    // The wall's calendarWeeks IS the top-level one, by definition.
+    ownsCalendarWeeks: true,
     calendarWriteEnabled: isCalendarWriteEnabled(cfg),
   };
 }
@@ -112,6 +121,7 @@ export function resolveBoard(slug: string, config?: AppConfig): ResolvedBoard | 
     defaultCalendarId: board.defaultCalendar,
     todos: board.todos,
     display: { ...cfg.display, ...board.display },
+    ownsCalendarWeeks: board.display?.calendarWeeks !== undefined,
     calendarWriteEnabled: isCalendarWriteEnabled(cfg),
   };
 }

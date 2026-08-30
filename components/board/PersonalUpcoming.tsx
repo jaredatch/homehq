@@ -1,12 +1,8 @@
 'use client';
 
-import { eventPaint } from '@/components/calendar/event-paint';
-import {
-  formatEventTime,
-  formatEventTimeRange,
-  type CalendarEvent,
-} from '@/components/calendar/calendar-utils';
-import { isFinished, type AgendaDay, type PersonOption } from './personal-utils';
+import type { CalendarEvent } from '@/components/calendar/calendar-utils';
+import PersonalEventRow from './PersonalEventRow';
+import type { AgendaDay, PersonOption } from './personal-utils';
 
 interface PersonalUpcomingProps {
   days: AgendaDay[];
@@ -24,62 +20,11 @@ interface PersonalUpcomingProps {
   /** Undefined when this board can't create events (read-only deployment, or
    * no calendar of its own to write to), which is what hides the button. */
   onAddEvent?: () => void;
-}
-
-/** The colour rail down the left of a row. A shared event carries two calendar
- * colours, so the rail splits rather than picking a winner — the same "one
- * event, two people" story the wall tells, in the space a rail has. */
-function railStyle(colors: string[]): string {
-  if (colors.length < 2) return colors[0];
-  const stop = 100 / colors.length;
-  return `linear-gradient(180deg, ${colors
-    .map((c, i) => `${c} ${i * stop}% ${(i + 1) * stop}%`)
-    .join(', ')})`;
-}
-
-function EventRow({
-  event,
-  colorMap,
-  timezone,
-  now,
-  onOpen,
-}: {
-  event: CalendarEvent;
-  colorMap: PersonalUpcomingProps['colorMap'];
-  timezone?: string;
-  now: number;
-  onOpen: (event: CalendarEvent) => void;
-}) {
-  const paint = eventPaint(event, colorMap);
-  const past = now > 0 && isFinished(event, now);
-  const meta = [
-    event.all_day ? null : formatEventTimeRange(event.start_time, event.end_time, timezone),
-    event.location,
-  ]
-    .filter(Boolean)
-    .join(' · ');
-
-  return (
-    <li className="pb-event-item">
-      {/* The whole row is the target. A 10" panel has no room for a separate
-          affordance, and every row leads somewhere — hers to the editor,
-          everyone else's to a read-only card. */}
-      <button
-        type="button"
-        className={`pb-event${past ? ' pb-event--past' : ''}`}
-        onClick={() => onOpen(event)}
-      >
-        <span className="pb-event-rail" style={{ background: railStyle(paint.colors) }} />
-        <span className="pb-event-when">
-          {event.all_day ? 'All day' : formatEventTime(event.start_time, timezone)}
-        </span>
-        <span className="pb-event-body">
-          <span className="pb-event-title">{event.summary}</span>
-          {meta && <span className="pb-event-meta">{meta}</span>}
-        </span>
-      </button>
-    </li>
-  );
+  /** Opens the full-screen week. Undefined only if a board somehow has no
+   * calendars to draw. */
+  onViewWeek?: () => void;
+  /** Opens the full-screen month. */
+  onViewMonth?: () => void;
 }
 
 /**
@@ -99,6 +44,8 @@ export default function PersonalUpcoming({
   onPersonChange,
   onOpenEvent,
   onAddEvent,
+  onViewWeek,
+  onViewMonth,
 }: PersonalUpcomingProps) {
   return (
     <section className="pb-col pb-col--upcoming">
@@ -135,7 +82,7 @@ export default function PersonalUpcoming({
               ) : (
                 <ul className="pb-events">
                   {events.map((event) => (
-                    <EventRow
+                    <PersonalEventRow
                       key={`${event.calendar_id}:${event.event_id}`}
                       event={event}
                       colorMap={colorMap}
@@ -151,15 +98,15 @@ export default function PersonalUpcoming({
         })}
       </div>
 
-      {/* The two views land in Phase 5 — see private/personal-boards-plan.md.
-          Rendered disabled rather than hidden so the column's proportions are
-          the real ones from day one. */}
+      {/* Both views are full-screen overlays over the three columns, and both
+          revert to the columns after idle (CLAUDE.md rule 1 —
+          display.viewResetSeconds). */}
       <footer className="pb-col-foot">
-        <button type="button" className="pb-action" disabled>
+        <button type="button" className="pb-action" onClick={onViewWeek} disabled={!onViewWeek}>
           View Week
         </button>
         <span className="pb-action-sep">|</span>
-        <button type="button" className="pb-action" disabled>
+        <button type="button" className="pb-action" onClick={onViewMonth} disabled={!onViewMonth}>
           View Month
         </button>
         <span className="pb-action-sep">|</span>
