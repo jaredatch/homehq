@@ -13,6 +13,7 @@ import { planWallWeeks } from './wall-layout';
 import {
   assignEventsToDays,
   chunkWeeks,
+  bandEvents,
   computeWeekSegments,
   formatLocalDate,
   formatSyncLabel,
@@ -229,10 +230,12 @@ export default function CalendarGrid({
     return map;
   }, [days, dayEventsMap]);
 
-  const allDayEvents = useMemo(() => visibleEvents.filter((e) => e.all_day), [visibleEvents]);
+  // All-day events PLUS any timed event running past midnight — the band is
+  // the only place a week grid can draw something spanning two days.
+  const bandBarEvents = useMemo(() => bandEvents(visibleEvents), [visibleEvents]);
   const weekSegments = useMemo(
-    () => weeksOfDays.map((w) => computeWeekSegments(allDayEvents, w)),
-    [weeksOfDays, allDayEvents]
+    () => weeksOfDays.map((w) => computeWeekSegments(bandBarEvents, w)),
+    [weeksOfDays, bandBarEvents]
   );
   // Per-week, per-column band reservation — each day's own band height now varies
   // (a day no all-day event touches reserves nothing), so capacity is per-column.

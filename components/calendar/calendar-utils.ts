@@ -147,31 +147,96 @@ export interface AllDaySegment {
  * into slots greedily by start date so overlapping events stack without
  * colliding. All-day `end_time` is exclusive (the day after the last covered).
  */
+/**
+ * The inclusive first day and the EXCLUSIVE last day an event covers, as plain
+ * `YYYY-MM-DD` strings.
+ *
+ * This is the one place that knows how the two storage shapes differ. An
+ * all-day event is already stored as bare dates with Google's exclusive end, so
+ * it passes straight through. A timed event is a full ISO string with an
+ * offset, and its exclusive end is the day AFTER the one it finishes on —
+ * unless it finishes at exactly midnight, which makes 11pm–12am a Tuesday
+ * event rather than a Tuesday-and-Wednesday one.
+ *
+ * Deriving the date by slicing (rather than via `Date`) is deliberate: it is
+ * what `assignEventsToDays` has always done, and the stored offset is the
+ * calendar's own, so the slice already reads as local. Parsing here and slicing
+ * there would put a read/write disagreement between the band and the stacks.
+ */
+export function eventDaySpan(event: {
+  start_time: string;
+  end_time: string;
+  all_day: number | boolean;
+}): { from: string; to: string } {
+  const from = event.start_time.slice(0, 10);
+  if (event.all_day) return { from, to: event.end_time.slice(0, 10) };
+  const endDay = event.end_time.slice(0, 10);
+  const endsAtMidnight = event.end_time.slice(11, 19) === '00:00:00';
+  return { from, to: endsAtMidnight ? endDay : addDays(endDay, 1) };
+}
+
+/** Whether an event covers more than one calendar day, and so has to draw as a
+ * spanning bar rather than a chip in a single day's stack. */
+export function spansMultipleDays(event: {
+  start_time: string;
+  end_time: string;
+  all_day: number | boolean;
+}): boolean {
+  const { from, to } = eventDaySpan(event);
+  return to > addDays(from, 1);
+}
+
+/**
+ * The events a week's all-day band draws: every all-day event, plus any timed
+ * event that runs past midnight.
+ *
+ * A week grid has exactly one way to draw something covering two days — a bar
+ * spanning the columns — so an overnight event has to leave the timed stack to
+ * be shown honestly. The alternative, a chip on each day, reads as two separate
+ * events and counts twice against "+N more".
+ *
+ * Every grid in the house calls this instead of filtering on `all_day`, so the
+ * wall, month view, and both personal-board views agree on what a band is.
+ */
+export function bandEvents(events: CalendarEvent[]): CalendarEvent[] {
+  return events.filter((e) => e.all_day || spansMultipleDays(e));
+}
+
 export function computeWeekSegments(
-  allDayEvents: CalendarEvent[],
+  bandEvents: CalendarEvent[],
   weekDays: string[]
 ): { segments: AllDaySegment[]; slotCount: number; laneByColumn: number[] } {
   const first = weekDays[0];
   const last = weekDays[weekDays.length - 1];
   const dayAfterLast = addDays(last, 1);
 
-  const intersecting = allDayEvents
-    .filter((e) => e.start_time <= last && e.end_time > first)
+  // Normalise to date-only bounds FIRST. The column scan below compares against
+  // `YYYY-MM-DD` strings, and a raw timed start ("2026-09-01T20:00:00-05:00")
+  // compares GREATER than its own date because the date is a prefix of it — so
+  // an overnight event fed in raw silently lands a column to the right. All-day
+  // events are already bare dates, so for them this is the identity.
+  const intersecting = bandEvents
+    .map((e) => ({ event: e, ...eventDaySpan(e) }))
+    .filter((s) => s.from <= last && s.to > first)
     .sort((a, b) => {
-      if (a.start_time !== b.start_time) return a.start_time < b.start_time ? -1 : 1;
+      if (a.from !== b.from) return a.from < b.from ? -1 : 1;
+      // An all-day event outranks a timed one starting the same day: it IS the
+      // whole day, so it takes the top lane. Constant across an all-day-only
+      // band, which is why the pre-existing order is untouched.
+      if (!!a.event.all_day !== !!b.event.all_day) return a.event.all_day ? -1 : 1;
       // Longer events first so they claim the lower slots.
-      if (a.end_time !== b.end_time) return a.end_time > b.end_time ? -1 : 1;
-      return a.event_id < b.event_id ? -1 : 1;
+      if (a.to !== b.to) return a.to > b.to ? -1 : 1;
+      return a.event.event_id < b.event.event_id ? -1 : 1;
     });
 
   const slotLastCol: number[] = []; // last column each slot is occupied through
   const segments: AllDaySegment[] = [];
 
-  for (const e of intersecting) {
+  for (const s of intersecting) {
     let startCol = 0;
-    while (startCol < 7 && weekDays[startCol] < e.start_time) startCol++;
+    while (startCol < 7 && weekDays[startCol] < s.from) startCol++;
     let endCol = 6;
-    while (endCol >= 0 && weekDays[endCol] >= e.end_time) endCol--;
+    while (endCol >= 0 && weekDays[endCol] >= s.to) endCol--;
     if (startCol > 6 || endCol < 0 || endCol < startCol) continue;
 
     let slot = 0;
@@ -179,12 +244,12 @@ export function computeWeekSegments(
     slotLastCol[slot] = endCol;
 
     segments.push({
-      event: e,
+      event: s.event,
       startCol,
       span: endCol - startCol + 1,
       slot,
-      continuesLeft: e.start_time < first,
-      continuesRight: e.end_time > dayAfterLast,
+      continuesLeft: s.from < first,
+      continuesRight: s.to > dayAfterLast,
     });
   }
 
@@ -257,17 +322,20 @@ export function assignEventsToDays(
   }
 
   for (const event of events) {
-    if (event.all_day) {
+    const { from, to } = eventDaySpan(event);
+    // Anything covering more than one day belongs to the band on every day it
+    // touches — an all-day event, and a timed one that runs past midnight. A
+    // same-day timed event still lands in exactly one day's stack.
+    if (event.all_day || to > addDays(from, 1)) {
       for (const day of days) {
-        if (day >= event.start_time && day < event.end_time) {
+        if (day >= from && day < to) {
           map.get(day)!.allDay.push(event);
         }
       }
       continue;
     }
 
-    const startDate = event.start_time.slice(0, 10);
-    const entry = map.get(startDate);
+    const entry = map.get(from);
     if (entry) {
       entry.timed.push(event);
     }

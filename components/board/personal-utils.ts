@@ -1,4 +1,9 @@
-import { addDays, type CalendarEvent } from '@/components/calendar/calendar-utils';
+import {
+  addDays,
+  eventDaySpan,
+  spansMultipleDays,
+  type CalendarEvent,
+} from '@/components/calendar/calendar-utils';
 
 /**
  * Pure helpers behind the personal board's Upcoming column. Kept out of the
@@ -88,17 +93,18 @@ export function buildAgenda(events: CalendarEvent[], today: string, dayCount: nu
   }
 
   for (const event of events) {
-    if (event.all_day) {
-      // Google's all-day end is exclusive and the cache stores it that way, so
-      // a multi-day event spans [start, end).
+    // One rule for "which days is this on", shared with both grids: an all-day
+    // event spans [start, end) with Google's exclusive end, and a timed event
+    // running past midnight spans the days it actually covers. Anything else
+    // lands in one day's timed list.
+    const { from, to } = eventDaySpan(event);
+    if (event.all_day || spansMultipleDays(event)) {
       for (const day of days) {
-        if (day >= event.start_time && day < event.end_time) {
-          byDay.get(day)!.allDay.push(event);
-        }
+        if (day >= from && day < to) byDay.get(day)!.allDay.push(event);
       }
       continue;
     }
-    const entry = byDay.get(event.start_time.slice(0, 10));
+    const entry = byDay.get(from);
     if (entry) entry.timed.push(event);
   }
 

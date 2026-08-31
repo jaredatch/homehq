@@ -11,6 +11,7 @@ import {
   addDays,
   assignEventsToDays,
   chunkWeeks,
+  bandEvents,
   computeWeekSegments,
   formatSyncLabel,
   generateRollingDays,
@@ -234,10 +235,12 @@ export default function PersonalWeek({
     return map;
   }, [days, dayEventsMap]);
 
-  const allDayEvents = useMemo(() => visibleEvents.filter((e) => e.all_day), [visibleEvents]);
+  // All-day events PLUS any timed event running past midnight — the band is
+  // the only place a week grid can draw something spanning two days.
+  const bandBarEvents = useMemo(() => bandEvents(visibleEvents), [visibleEvents]);
   const weekSegments = useMemo(
-    () => weeksOfDays.map((w) => computeWeekSegments(allDayEvents, w)),
-    [weeksOfDays, allDayEvents]
+    () => weeksOfDays.map((w) => computeWeekSegments(bandBarEvents, w)),
+    [weeksOfDays, bandBarEvents]
   );
 
   const metrics = useWeekGridMetrics(gridRef, measureRef, days, visibleEvents, timezone);

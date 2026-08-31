@@ -936,6 +936,37 @@
    anything is wrong. Month view got this right from the start
    (.mon-band-bar--clickable); the wall grid didn't, so all-day events were
    inert here from v1.1.x until this was found. */
+/* A timed event that runs past midnight draws as a band bar, because a bar is
+   the only thing in a week grid that can cover two days. It then has to carry
+   its times the way a chip does.
+
+   Every rule here is scoped to --timed, and the end time is absolutely
+   positioned. That is not fussiness: .cal-band-bar's height must stay exactly
+   equal to its invisible .cal-band-spacer, or the whole absolute band overlay
+   drifts off the lanes each day reserved (see .cal-band-label). Out-of-flow
+   content and horizontal padding cannot move that height; a flex row or an
+   inline-block could. */
+.cal-band-bar--timed {
+	position: relative;
+	/* Room for the end time, so a long title ellipsizes before it reaches it. */
+	padding-right: 4rem;
+}
+.cal-band-time {
+	margin-right: 0.375rem;
+	font-weight: var(--weight-medium);
+	opacity: 0.9;
+}
+.cal-band-end {
+	position: absolute;
+	top: 0;
+	right: 0.5rem;
+	bottom: 0;
+	display: flex;
+	align-items: center;
+	font-weight: var(--weight-medium);
+	opacity: 0.9;
+}
+
 .cal-band-bar--clickable {
 	pointer-events: auto;
 	cursor: pointer;

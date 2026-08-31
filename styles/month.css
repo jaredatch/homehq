@@ -450,6 +450,26 @@ button.mon-more:hover {
 /* Clickable bars (readwrite only). The band overlay is pointer-events:none so
    clicks in its empty areas fall through to the day cell (empty-day create);
    real bars opt back in only when they're actually interactive. */
+/* Timed band bar — see calendar.css for why these are scoped and why the end
+   time is out of flow. em-based, like everything inside .mon-calendar. */
+.mon-band-bar--timed {
+	position: relative;
+	padding-right: 3.2em;
+}
+.mon-band-time {
+	margin-right: 0.3em;
+	opacity: 0.9;
+}
+.mon-band-end {
+	position: absolute;
+	top: 0;
+	right: 0.45em;
+	bottom: 0;
+	display: flex;
+	align-items: center;
+	opacity: 0.9;
+}
+
 .mon-band-bar--clickable {
 	pointer-events: auto;
 	cursor: pointer;

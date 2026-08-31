@@ -248,9 +248,13 @@ export default function MonthWeek({
                   }}
                 >
                   <div
-                    className={
-                      onEventClick ? 'mon-band-bar mon-band-bar--clickable' : 'mon-band-bar'
-                    }
+                    className={[
+                      'mon-band-bar',
+                      onEventClick ? 'mon-band-bar--clickable' : '',
+                      seg.event.all_day ? '' : 'mon-band-bar--timed',
+                    ]
+                      .filter(Boolean)
+                      .join(' ')}
                     style={
                       paint.shared
                         ? { background: stripes(paint.colors), color: '#fff' }
@@ -271,11 +275,23 @@ export default function MonthWeek({
                         : undefined
                     }
                   >
+                    {/* A timed bar ran past midnight and carries its times —
+                        see WeekRow. Timed-only, so all-day bars are unchanged. */}
+                    {!seg.event.all_day && (
+                      <span className="mon-band-time">
+                        {formatEventTime(seg.event.start_time, timezone)}
+                      </span>
+                    )}
                     {/* Scrimmed only when shared — see WeekRow. */}
                     {paint.shared ? (
                       <span className="cal-band-label">{seg.event.summary || '(No title)'}</span>
                     ) : (
                       seg.event.summary || '(No title)'
+                    )}
+                    {!seg.event.all_day && (
+                      <span className="mon-band-end">
+                        {formatEventTime(seg.event.end_time, timezone)}
+                      </span>
                     )}
                   </div>
                 </div>

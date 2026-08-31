@@ -1,5 +1,10 @@
 import EventItem from './EventItem';
-import { isWeekendDate, type AllDaySegment, type CalendarEvent } from './calendar-utils';
+import {
+  formatEventTime,
+  isWeekendDate,
+  type AllDaySegment,
+  type CalendarEvent,
+} from './calendar-utils';
 import { accentStripes, eventPaint, stripes } from './event-paint';
 
 interface WeekRowProps {
@@ -201,9 +206,13 @@ export default function WeekRow({
                 >
                   <div
                     data-band-row
-                    className={
-                      onEventClick ? 'cal-band-bar cal-band-bar--clickable' : 'cal-band-bar'
-                    }
+                    className={[
+                      'cal-band-bar',
+                      onEventClick ? 'cal-band-bar--clickable' : '',
+                      seg.event.all_day ? '' : 'cal-band-bar--timed',
+                    ]
+                      .filter(Boolean)
+                      .join(' ')}
                     style={
                       paint.shared
                         ? { background: stripes(paint.colors), color: '#fff' }
@@ -224,6 +233,16 @@ export default function WeekRow({
                         : undefined
                     }
                   >
+                    {/* A timed event in the band ran past midnight, so it
+                        carries its times the way a chip would: start inline
+                        before the title, end pinned to the far edge — over the
+                        day it actually finishes on. Both spans render ONLY for
+                        a timed bar, so an all-day bar's DOM is unchanged. */}
+                    {!seg.event.all_day && (
+                      <span className="cal-band-time">
+                        {formatEventTime(seg.event.start_time, timezone)}
+                      </span>
+                    )}
                     {/* Shared bars scrim the title so it stays legible over the
                         stripes. Wrapped ONLY when shared — an ordinary bar keeps
                         its bare text node, so its DOM is unchanged. */}
@@ -231,6 +250,11 @@ export default function WeekRow({
                       <span className="cal-band-label">{seg.event.summary || '(No title)'}</span>
                     ) : (
                       seg.event.summary || '(No title)'
+                    )}
+                    {!seg.event.all_day && (
+                      <span className="cal-band-end">
+                        {formatEventTime(seg.event.end_time, timezone)}
+                      </span>
                     )}
                   </div>
                 </div>

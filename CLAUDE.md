@@ -52,6 +52,8 @@ If `DEV_AUTH_BYPASS=1` is set in your `.env`, plain `npm run dev` skips the PIN.
 - `.cal-band-label` must stay `display: inline` with symmetric vertical padding.
 - `.cal-modal` is 27rem because three native date/time inputs need ~23.7rem; a squeezed date input clips its value. `.cal-field--date` never shrinks.
 - Google's all-day `end.date` is exclusive; the UI shows the inclusive last day. Convert on both read and write.
+- `eventDaySpan()` is the one definition of which days an event covers, and the band takes `bandEvents()` — all-day events **plus timed events crossing midnight**. Never feed a raw timed event to `computeWeekSegments`: a date is a string prefix of its own timestamp, so `"2026-09-01" < "2026-09-01T20:00:00-05:00"` is true and the bar lands a column late.
+- A band bar's height must equal its `.cal-band-spacer` exactly or the overlay drifts off every reserved lane. A timed bar's times are scoped to `--timed` and positioned out of flow for that reason.
 - Month view has no measurement layer by design. If it seems to need one, the design drifted.
 - A grid's measuring is shared with the personal board; its **space policy is not**. The wall's anchor week, "expand next week", and the collapse rule live in `wall-layout.ts` (pure + unit-tested); a personal board just fills its one row.
 - `--cal-stripe-angle` is 135deg (45deg draws a backslash).
