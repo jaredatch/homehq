@@ -36,7 +36,7 @@ interface WeekRowProps {
   /** A day's "+N more" was clicked. The wall uses `weekIndex` to move its
    * expand anchor; the personal board's week uses `date` to open that day in
    * full. Both are passed so neither caller has to derive the other. */
-  onMoreClick: (weekIndex: number, date: string) => void;
+  onMoreClick: (weekIndex: number, date: string, cell: HTMLElement | null) => void;
   /** Tooltip for "+N more". The wall's default describes the expand toggle it
    * drives; a caller that does something else with the click says so here. */
   moreTitle?: (date: string, hiddenCount: number) => string;
@@ -187,7 +187,9 @@ export default function WeekRow({
                     <button
                       type="button"
                       className="cal-more"
-                      onClick={() => onMoreClick(weekIndex, date)}
+                      onClick={(e) =>
+                        onMoreClick(weekIndex, date, e.currentTarget.closest('[data-events]'))
+                      }
                       title={
                         moreTitle
                           ? moreTitle(date, hiddenCount)

@@ -11,6 +11,8 @@ import { useMinuteTick } from '@/components/clock/use-minute';
 import { useCalendarFilter, filterEvents, scopeToCalendars } from './calendar-filter';
 import { useWeekGridMetrics } from './week-metrics';
 import { planWallWeeks } from './wall-layout';
+import DayPopover from './DayPopover';
+import { popoverLayout, type PopoverBox } from './month-utils';
 import {
   assignEventsToDays,
   chunkWeeks,
@@ -76,12 +78,19 @@ export default function CalendarGrid({
   const [loading, setLoading] = useState(true);
   const [today, setToday] = useState(() => todayInZone(timezone));
   const gridRef = useRef<HTMLDivElement>(null);
+  const measureRef = useRef<HTMLDivElement>(null);
+  // .cal-grid — the day popover floats inside it, never inside .cal-weeks,
+  // which is overflow:clip and holds the measurement layer. Same containment
+  // month view uses (.mon-calendar vs .mon-grid).
+  const calRef = useRef<HTMLDivElement>(null);
+  // Read by the "+N more" handler, which must not re-create itself per render.
+  const anchorWeekRef = useRef(0);
+
   // Wall-clock minute, for dimming today's finished events. The same store the
   // clock uses, so an event greys out on the tick the clock moves; 0 until the
   // client hydrates, which is why nothing dims on the server render.
   const minute = useMinuteTick();
   const now = minute === 0 ? 0 : minute * 60000;
-  const measureRef = useRef<HTMLDivElement>(null);
 
   // Per-person filter (shared across views, empty = show all). When empty this
   // returns the SAME `events` reference below, so the default wall render is
@@ -93,12 +102,48 @@ export default function CalendarGrid({
   // purpose (no persistence): the always-on wall kiosk must never boot stuck in
   // this mode, and a reload always returns to the default current-week view.
   const [expanded, setExpanded] = useState(false);
-  // Clicking a day's "+N more" toggles the expand state by week: a next-week
-  // (week ≥ 1) "+N more" expands next week; a current-week (week 0) one returns
-  // to the normal view. Pairs with the footer toggle.
-  const handleMoreClick = useCallback((weekIndex: number) => {
-    setExpanded(weekIndex !== 0);
-  }, []);
+  // The day popover — one day's full list, floating over the grid. Ephemeral
+  // like every other peek: never persisted, closed by Esc, a click outside, a
+  // resize, and the idle timer below.
+  const [popover, setPopover] = useState<{ date: string; box: PopoverBox } | null>(null);
+
+  // One rule for "+N more": give that week the screen, and if it already has
+  // the screen, open the day.
+  //
+  // Clicking a week that ISN'T the anchor moves the anchor there, which is what
+  // this button has always done — a next-week "+N more" expands next week, and
+  // one in the current week while next week is expanded collapses back. But
+  // when the clicked week is ALREADY the anchor there is no height left to win,
+  // and the click used to be silently dead: setExpanded would be handed the
+  // value it already held. That is the common case now, since the collapse rule
+  // usually leaves the current week alone on screen. It is also the only case
+  // that can ever be answered, because a day like a school-year Tuesday wants
+  // more height than the whole grid has.
+  //
+  // It covers a case that predates the collapse rule too: a PAST day of the
+  // current week crops last (priority 3), so with two weeks up it can show
+  // "+9 more" while week 0 is the anchor and not capped. Expanding could never
+  // have helped that day either.
+  const handleMoreClick = useCallback(
+    (weekIndex: number, date: string, cell: HTMLElement | null) => {
+      if (weekIndex !== anchorWeekRef.current) {
+        setExpanded(weekIndex !== 0);
+        return;
+      }
+      const grid = calRef.current;
+      if (!grid || !cell) return;
+      const gr = grid.getBoundingClientRect();
+      const r = cell.getBoundingClientRect();
+      setPopover({
+        date,
+        box: popoverLayout(
+          { left: r.left - gr.left, top: r.top - gr.top, width: r.width, height: r.height },
+          { width: gr.width, height: gr.height }
+        ),
+      });
+    },
+    []
+  );
 
   // Auto-revert: the current week is the default, most-important view, so a peek
   // at next week must never stick on the always-on wall. A fresh timer starts
@@ -111,6 +156,46 @@ export default function CalendarGrid({
     const t = setTimeout(() => setExpanded(false), expandResetMs);
     return () => clearTimeout(t);
   }, [expanded, expandResetMs]);
+
+  // Esc closes the popover; a click anywhere outside it does too. Both are
+  // skipped while the modal is up: a click inside the modal must not dismiss
+  // the popover underneath it, or closing the modal would land on nothing.
+  // A resize invalidates the anchor the box was measured against, so it just
+  // closes.
+  useEffect(() => {
+    if (!popover) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') setPopover(null);
+    };
+    const onDown = (e: MouseEvent) => {
+      const t = e.target as HTMLElement | null;
+      if (!t?.closest('.cal-pop')) setPopover(null);
+    };
+    const onResize = () => setPopover(null);
+    window.addEventListener('keydown', onKey);
+    window.addEventListener('resize', onResize);
+    // Deferred a tick: the click that opened it is still propagating.
+    const id = setTimeout(() => document.addEventListener('mousedown', onDown), 0);
+    return () => {
+      window.removeEventListener('keydown', onKey);
+      window.removeEventListener('resize', onResize);
+      document.removeEventListener('mousedown', onDown);
+      clearTimeout(id);
+    };
+  }, [popover]);
+
+  // Auto-revert, on the same key as the expand toggle. Both are the same kind
+  // of peek behind the same button, so they share a timer rather than growing
+  // the config a near-duplicate key. Month view's popover needs none of this —
+  // its whole view reverts and takes the popover with it.
+  useEffect(() => {
+    if (!popover || expandResetMs <= 0) return;
+    const t = setTimeout(() => setPopover(null), expandResetMs);
+    return () => clearTimeout(t);
+  }, [popover, expandResetMs]);
+
+  // Expanding re-lays out every track, so the box the popover measured is stale.
+  useEffect(() => setPopover(null), [expanded]);
 
   // Event modal — ephemeral (like the expand toggle), so the wall never boots
   // with a form open. null = closed; otherwise create (blank) or edit (a clicked
@@ -269,13 +354,14 @@ export default function CalendarGrid({
   // layout yet, so every week renders uncropped and the grid settles on the
   // next frame.
   const shownWeeks = layout?.shownWeeks ?? weeksOfDays.length;
+  anchorWeekRef.current = layout?.anchorWeek ?? 0;
   // Did the collapse rule take a week off the screen? Only the footer toggle's
   // wording depends on this: "expand" is the wrong verb for a week that isn't
   // drawn at all.
   const collapsed = shownWeeks < weeksOfDays.length;
 
   return (
-    <div className="cal-grid">
+    <div ref={calRef} className="cal-grid">
       {/* Weekday header — shown once, so day cells don't repeat it per row */}
       <div className="cal-weekdays">
         {labels.map((label) => (
@@ -346,6 +432,24 @@ export default function CalendarGrid({
           </div>
         </div>
       </div>
+
+      {/* Day popover — floats over the grid, deliberately outside .cal-weeks
+          (clip + the measurement layer). */}
+      {popover && (
+        <DayPopover
+          date={popover.date}
+          box={popover.box}
+          today={today}
+          allDay={dayEventsMap.get(popover.date)?.allDay ?? []}
+          timed={timedByDay.get(popover.date) ?? []}
+          colorMap={colorMap}
+          timezone={timezone}
+          todayColor={todayColor}
+          now={now}
+          onClose={() => setPopover(null)}
+          onEventClick={calendarWriteEnabled ? handleEventClick : undefined}
+        />
+      )}
 
       {/* Footer — shared across views (CalendarFooter): legend, view switch,
           + Add event, then this view's expand toggle trailing last. */}

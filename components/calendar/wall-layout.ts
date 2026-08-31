@@ -20,6 +20,10 @@ import { bandHeightFor, fitCount, stackHeight, type GridMetrics } from './week-m
 export interface WallWeekLayout {
   /** How many week rows the grid renders, counting from the current week. */
   shownWeeks: number;
+  /** The week that is maximized — 0 by default, 1 while expanded. Exposed so
+   * the "+N more" click rule can ask "is this week already maximized?" without
+   * re-deriving the anchor and drifting from it. */
+  anchorWeek: number;
   /** `grid-template-rows` for `.cal-weeks` — one track per shown week. */
   gridRows: string;
   /** Timed events to show per day; `Infinity` means every one. */
@@ -142,6 +146,7 @@ export function planWallWeeks(
 
   return {
     shownWeeks,
+    anchorWeek,
     // The anchor needs an explicit px track only to reserve height AGAINST the
     // other weeks. As the only row it takes `1fr` instead: `availH` comes from
     // `clientHeight`, which is a rounded integer, so pinning the track to it

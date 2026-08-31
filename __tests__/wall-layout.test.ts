@@ -158,6 +158,34 @@ describe('planWallWeeks — collapse', () => {
   });
 });
 
+describe('planWallWeeks — anchorWeek', () => {
+  // The "+N more" click rule reads this: clicking a week that IS the anchor
+  // opens the day popover (there is no height left to win), and clicking any
+  // other week moves the anchor there, as the button always did. Getting the
+  // anchor wrong would silently restore the dead click.
+  it('is the current week by default', () => {
+    expect(
+      planWallWeeks(withBusiestDay(4), [WEEK_0, WEEK_1], noLanes(2), MONDAY, false).anchorWeek
+    ).toBe(0);
+  });
+
+  it('is still the current week when the grid has collapsed to it', () => {
+    expect(
+      planWallWeeks(withBusiestDay(14), [WEEK_0, WEEK_1], noLanes(2), MONDAY, false).anchorWeek
+    ).toBe(0);
+  });
+
+  it('moves to next week while expanded', () => {
+    expect(
+      planWallWeeks(withBusiestDay(4), [WEEK_0, WEEK_1], noLanes(2), MONDAY, true).anchorWeek
+    ).toBe(1);
+  });
+
+  it('cannot point past a one-week grid', () => {
+    expect(planWallWeeks(withBusiestDay(4), [WEEK_0], noLanes(1), MONDAY, true).anchorWeek).toBe(0);
+  });
+});
+
 describe('planWallWeeks — expand next week', () => {
   it('keeps next week on screen no matter how full the current week is', () => {
     // An explicit request to see next week outranks the collapse rule.

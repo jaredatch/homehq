@@ -7,6 +7,12 @@
 
 /* ---- Grid shell (CalendarGrid) ---------------------------------------- */
 .cal-grid {
+	/* Positioning context for the floating day popover (.cal-pop), which must
+	   live outside .cal-weeks — that's overflow:clip and holds the measurement
+	   layer. Mirrors .mon-calendar / .mon-grid in month view. `relative` alone
+	   changes no layout, and .cal-modal is position:fixed, which a relative
+	   ancestor doesn't capture. */
+	position: relative;
 	display: flex;
 	height: 100%;
 	flex-direction: column;
@@ -502,6 +508,90 @@
 	display: flex;
 	align-items: center;
 	gap: 0.5rem;
+}
+
+/* ---- Day popover (DayPopover) ------------------------------------------
+   The "+N more" card: one day's full list, floating over the week grid.
+   rem-based like the rest of the wall's chrome — month view's .mon-pop is em
+   against .mon-calendar's clamp() and would land at the wrong scale here. Rows
+   are real .cal-event / .cal-band-bar, so the card reads as that cell zoomed
+   rather than as a different surface. */
+.cal-pop {
+	position: absolute;
+	z-index: 30;
+	display: flex;
+	flex-direction: column;
+	padding: 0.375rem 0.5rem 0.5rem;
+	background: var(--gray-900);
+	border: 1px solid var(--gray-700);
+	border-radius: 0.5rem;
+	box-shadow: 0 0.75rem 2.5rem color-mix(in oklab, var(--gray-950) 70%, transparent);
+}
+
+.cal-pop-header {
+	display: flex;
+	align-items: center;
+	gap: 0.5rem;
+	flex-shrink: 0;
+	padding: 0 0.125rem 0.375rem;
+}
+
+.cal-pop-weekday {
+	font-size: var(--text-xs);
+	font-weight: var(--weight-semibold);
+	letter-spacing: 0.06em;
+	text-transform: uppercase;
+	color: var(--gray-400);
+}
+
+.cal-pop-daynum {
+	font-size: var(--text-lg);
+	font-weight: var(--weight-semibold);
+	color: var(--gray-100);
+}
+/* Today gets the pill, matching the grid's accent dot. */
+.cal-pop-daynum--today {
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	min-width: 1.75rem;
+	height: 1.75rem;
+	padding: 0 0.375rem;
+	border-radius: var(--radius-full);
+}
+
+.cal-pop-close {
+	margin-left: auto;
+	padding: 0 0.25rem;
+	font-size: var(--text-lg);
+	line-height: 1;
+	color: var(--gray-400);
+	cursor: pointer;
+}
+.cal-pop-close:hover {
+	color: var(--gray-100);
+}
+
+/* A long day scrolls HERE, never the page (.app-main is overflow:clip). */
+.cal-pop-list {
+	display: flex;
+	flex-direction: column;
+	gap: 0.125rem;
+	min-height: 0;
+	overflow-y: auto;
+}
+/* Rows keep their natural height. Flex children shrink by default, and a day
+   longer than the card was compressing every row to fit instead of scrolling —
+   the band bars collapsed into each other and clipped their own text. */
+.cal-pop-list > * {
+	flex-shrink: 0;
+}
+/* A past day keeps the grid's dim, so the card reads as that cell. */
+.cal-pop-list--past {
+	opacity: var(--cal-past-opacity);
+}
+.cal-pop-list .cal-band-bar {
+	border-radius: var(--radius);
 }
 
 .cal-sync {
