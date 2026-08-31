@@ -26,7 +26,17 @@ The measurement layer must stay `overflow: hidden`. Its uncropped stacks are tal
 2. Every other week gets an even share of what's left.
 3. The anchor week's past days crop last.
 
+Every de-prioritized week keeps a floor of about two rows, so none of them collapses to a sliver. When the anchor wants more height than that leaves, it is capped, and its protected days crop behind `+N more` like any other day rather than being silently clipped by `.cal-week`'s overflow.
+
+This whole policy is `planWallWeeks` in `wall-layout.ts` — a pure function over the measured metrics, unit-tested in `__tests__/wall-layout.test.ts`. It is the wall's alone; sharing it with a personal board is exactly the second set of constraints CLAUDE.md rule 12 warns about.
+
+**Collapsing to one week.** A capped anchor means today and tomorrow are hiding events while a later week holds height it can barely use — at this household's volume that trailing week sits pinned at its two-row floor showing almost nothing. So in the default view the grid drops trailing weeks, from the far end, one at a time, and only while the anchor is still capped. The current week is never the row that goes. With one week left it takes the whole grid rather than a track sized to its content, which would leave dead grid painted underneath.
+
+It is a pure function of the measured metrics and the data, recomputed every render — nothing to persist and nothing to revert, and it un-collapses on its own as soon as the week thins out. This is a deliberate, named change to the default render for data that triggers it; a week that already fits is untouched, which is what the byte-for-byte diff proves.
+
 **Expand next week.** A footer toggle and any `+N more` button in next week move the anchor to next week: it then shows everything while the current week takes the remaining share and crops. Because all of next week is in the future, the same `date >= today` predicate protects the whole row, so the default render is unchanged. A `+N more` in the current week (or the toggle) returns to normal. Reverts after `display.expandResetSeconds`.
+
+The toggle is also the escape hatch when the grid has collapsed: the button stays in the footer whenever `calendarWeeks > 1`, so next week is always one click away even when it is not on screen, and the same timer puts the board back.
 
 ## Month view (`CalendarView`, `MonthGrid`, `MonthWeek`, `MonthDayPopover`)
 

@@ -8,7 +8,8 @@ import { calendarIdsForEvent, isMembershipLocked, mergeGroups } from './event-gr
 import { accentStripes, eventPaint } from './event-paint';
 import CalendarFooter from './CalendarFooter';
 import { useCalendarFilter, filterEvents, scopeToCalendars } from './calendar-filter';
-import { bandHeightFor, fitCount, stackHeight, useWeekGridMetrics } from './week-metrics';
+import { useWeekGridMetrics } from './week-metrics';
+import { planWallWeeks } from './wall-layout';
 import {
   assignEventsToDays,
   chunkWeeks,
@@ -246,90 +247,19 @@ export default function CalendarGrid({
   // spent differs, and that policy stays right below.
   const metrics = useWeekGridMetrics(gridRef, measureRef, days, visibleEvents, timezone);
 
-  // Space policy, by priority:
-  //   1. the "protected" days of the ANCHOR week show every event, and their
-  //      real content sets the anchor week's track height — up to the point
-  //      where the other weeks would drop below a readable floor. Past that the
-  //      anchor is capped and its protected days crop behind "+N more" too;
-  //   2. every other week gets an even share of the remaining height (maximize
-  //      what it shows);
-  //   3. non-protected days of the anchor week crop to whatever's left in its
-  //      track — lowest priority, so they never steal from the other weeks.
-  // The anchor is the current week by default (protected = today-onward). When
-  // "Expand next week" is on, the anchor becomes next week — and because all of
-  // next week is in the future, the SAME `date >= today` predicate protects the
-  // whole row, while the current week falls to a remaining-height share that
-  // crops behind "+N more".
-  // Per-day visible counts come from greedy-packing the REAL row heights, so a
-  // cell fills with as many events as actually fit. All-day bands always show.
-  const layout = useMemo(() => {
-    if (!metrics) return null;
-    const { availH, headerH, rowGap, rowPadV, rowUnitPx, dayHeights } = metrics;
+  // How the measured height gets spent: the anchor week, the "expand next
+  // week" peek, and the collapse rule. Pure and unit-tested in wall-layout.ts —
+  // this is the wall's own policy and is deliberately NOT shared with the
+  // personal board's week (CLAUDE.md rule 12).
+  const layout = useMemo(
+    () => (metrics ? planWallWeeks(metrics, weeksOfDays, laneByWeek, today, expanded) : null),
+    [metrics, weeksOfDays, laneByWeek, today, expanded]
+  );
 
-    // Which week is maximized. Default = current week (0); "Expand next week"
-    // moves the anchor to week 1 (guarded so it can't point past the grid).
-    const anchorWeek = expanded ? Math.min(1, weeksOfDays.length - 1) : 0;
-    const anchorDays = weeksOfDays[anchorWeek] ?? [];
-    const anchorLanes = laneByWeek[anchorWeek] ?? [];
-
-    // Priority 1: busiest protected day sets the anchor week's height — its band
-    // counts per-column, since a protected day's own all-day rows sit in its cell.
-    let protectedPx = 0;
-    anchorDays.forEach((date, col) => {
-      if (date >= today) {
-        protectedPx = Math.max(
-          protectedPx,
-          bandHeightFor(metrics, anchorLanes[col] ?? 0) +
-            stackHeight(metrics, dayHeights[date] ?? [])
-        );
-      }
-    });
-    // Keep a week at least ~2 rows tall so it never collapses to a sliver.
-    const floorPx = rowPadV + (rowUnitPx > 0 ? 2 * rowUnitPx + rowGap : 0);
-    const otherWeeks = Math.max(0, weeks - 1);
-    // Every de-prioritized week keeps a readable floor, in BOTH modes. This used
-    // to apply to expanded mode only, on the theory that the protected current
-    // week could safely take up to the whole screen. A school-year week (12-13
-    // events a day) disproved it: the anchor asked for more height than the grid
-    // had, next week was left holding a date header with nothing under it, and
-    // the overflow pushed the footer clean off the bottom edge. The anchor now
-    // yields whatever the other weeks need to stay legible.
-    const minOtherPx = otherWeeks > 0 ? otherWeeks * (headerH + floorPx) : 0;
-    const maxAnchorPx = Math.max(0, availH - minOtherPx);
-    const wantedAnchorPx = Math.ceil(headerH + Math.max(protectedPx, floorPx) + 6);
-    const anchorPx = Math.min(wantedAnchorPx, maxAnchorPx);
-    // Did the anchor get everything it asked for? When it didn't, its protected
-    // days can no longer show every event — and they have to crop behind
-    // "+N more" like any other day, not be silently clipped by .cal-week's
-    // overflow. Uncapped (the ordinary case) this stays false and nothing moves.
-    const anchorCapped = anchorPx < wantedAnchorPx;
-    const otherWeekPx = otherWeeks > 0 ? Math.max(0, availH - anchorPx) / otherWeeks : 0;
-
-    // Per-day visible counts. Protected days (anchor week, today-onward) = all
-    // (Infinity); every other day greedily packs into whatever its track leaves
-    // below the header and that column's own band.
-    const visibleByDay: Record<string, number> = {};
-    weeksOfDays.forEach((weekDays, wi) => {
-      const isAnchor = wi === anchorWeek;
-      const trackPx = isAnchor ? anchorPx : otherWeekPx;
-      const lanes = laneByWeek[wi] ?? [];
-      weekDays.forEach((date, col) => {
-        if (isAnchor && date >= today && !anchorCapped) {
-          visibleByDay[date] = Infinity;
-        } else {
-          const inner = trackPx - headerH - bandHeightFor(metrics, lanes[col] ?? 0);
-          visibleByDay[date] = fitCount(metrics, dayHeights[date] ?? [], inner);
-        }
-      });
-    });
-
-    return {
-      gridRows: weeksOfDays
-        .map((_, wi) => (wi === anchorWeek ? `${anchorPx}px` : 'minmax(0, 1fr)'))
-        .join(' '),
-      visibleByDay,
-    };
-  }, [metrics, weeksOfDays, laneByWeek, today, weeks, expanded]);
+  // Weeks actually rendered. Until the first measurement lands there is no
+  // layout yet, so every week renders uncropped and the grid settles on the
+  // next frame.
+  const shownWeeks = layout?.shownWeeks ?? weeksOfDays.length;
 
   return (
     <div className="cal-grid">
@@ -348,7 +278,7 @@ export default function CalendarGrid({
         className="cal-weeks"
         style={{ gridTemplateRows: layout?.gridRows ?? `repeat(${weeks}, minmax(0, 1fr))` }}
       >
-        {weeksOfDays.map((weekDays, wi) => {
+        {weeksOfDays.slice(0, shownWeeks).map((weekDays, wi) => {
           const { segments, slotCount, laneByColumn } = weekSegments[wi];
           const capacities = weekDays.map((date) =>
             layout ? (layout.visibleByDay[date] ?? Infinity) : Infinity

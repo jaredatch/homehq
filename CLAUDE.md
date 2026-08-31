@@ -53,7 +53,7 @@ If `DEV_AUTH_BYPASS=1` is set in your `.env`, plain `npm run dev` skips the PIN.
 - `.cal-modal` is 27rem because three native date/time inputs need ~23.7rem; a squeezed date input clips its value. `.cal-field--date` never shrinks.
 - Google's all-day `end.date` is exclusive; the UI shows the inclusive last day. Convert on both read and write.
 - Month view has no measurement layer by design. If it seems to need one, the design drifted.
-- A grid's measuring is shared with the personal board; its **space policy is not**. The wall's anchor week and "expand next week" stay in `CalendarGrid`.
+- A grid's measuring is shared with the personal board; its **space policy is not**. The wall's anchor week, "expand next week", and the collapse rule live in `wall-layout.ts` (pure + unit-tested); a personal board just fills its one row.
 - `--cal-stripe-angle` is 135deg (45deg draws a backslash).
 
 ## Working with the maintainer
