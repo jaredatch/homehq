@@ -5,12 +5,11 @@ import {
   canEditEvent,
   eventTargets,
   fullWeekday,
-  isFinished,
   longDate,
   personOptions,
   shortDate,
 } from '@/components/board/personal-utils';
-import type { CalendarEvent } from '@/components/calendar/calendar-utils';
+import { isFinished, type CalendarEvent } from '@/components/calendar/calendar-utils';
 
 function event(over: Partial<CalendarEvent>): CalendarEvent {
   return {

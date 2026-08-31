@@ -163,6 +163,21 @@ export interface AllDaySegment {
  * calendar's own, so the slice already reads as local. Parsing here and slicing
  * there would put a read/write disagreement between the band and the stacks.
  */
+/**
+ * Whether a timed event has already finished. Drives the dimming that makes
+ * "what's left of my day" readable at a glance — the most useful thing a screen
+ * can say at 4pm. All-day events never dim: a birthday is still true at
+ * bedtime.
+ *
+ * `now` is 0 until the client has hydrated (see `useMinuteTick`), and 0 is
+ * before every event, so nothing dims on the server render.
+ */
+export function isFinished(event: CalendarEvent, now: number): boolean {
+  if (event.all_day) return false;
+  const end = Date.parse(event.end_time);
+  return Number.isFinite(end) && end < now;
+}
+
 export function eventDaySpan(event: {
   start_time: string;
   end_time: string;

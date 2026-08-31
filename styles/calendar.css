@@ -158,8 +158,19 @@
 	min-height: 0;
 	overflow: hidden;
 }
+/* One dim level for everything already behind us: a whole past day, a spent
+   all-day bar, and an event on TODAY that has already finished. Tune here. */
+:root {
+	--cal-past-opacity: 0.4;
+}
+
 .cal-day--past {
-	opacity: 0.4;
+	opacity: var(--cal-past-opacity);
+}
+/* A finished event in today's column. Applied per event and only on today —
+   a past day dims its whole cell, and both would compound to 16%. */
+.cal-event--past {
+	opacity: var(--cal-past-opacity);
 }
 
 /* Per-column reservation for the all-day band — invisible spacers that match a
@@ -217,7 +228,7 @@
 	min-width: 0;
 }
 .cal-band-seg--past {
-	opacity: 0.4;
+	opacity: var(--cal-past-opacity);
 }
 
 /* A band bar and its invisible spacer share one box, so reserved height equals

@@ -118,18 +118,6 @@ export function buildAgenda(events: CalendarEvent[], today: string, dayCount: nu
   return out;
 }
 
-/**
- * Whether a timed event has already finished. Drives the dimming that makes
- * "what's left of my day" readable at a glance — the most useful thing an
- * agenda can say at 4pm. All-day events never dim: a birthday is still true at
- * bedtime.
- */
-export function isFinished(event: CalendarEvent, now: number): boolean {
-  if (event.all_day) return false;
-  const end = Date.parse(event.end_time);
-  return Number.isFinite(end) && end < now;
-}
-
 export interface PersonOption {
   /** Stable key for the option, and what the dropdown shows. */
   label: string;

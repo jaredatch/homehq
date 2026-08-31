@@ -6,7 +6,7 @@ import {
   formatEventTimeRange,
   type CalendarEvent,
 } from '@/components/calendar/calendar-utils';
-import { isFinished } from './personal-utils';
+import { isFinished } from '@/components/calendar/calendar-utils';
 
 /**
  * The personal board's event row: colour rail · start time · title, with the

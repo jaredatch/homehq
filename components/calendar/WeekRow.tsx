@@ -1,6 +1,7 @@
 import EventItem from './EventItem';
 import {
   formatEventTime,
+  isFinished,
   isWeekendDate,
   type AllDaySegment,
   type CalendarEvent,
@@ -24,6 +25,12 @@ interface WeekRowProps {
   timezone?: string;
   /** Today's accent dot color (any CSS color), from config.display.todayColor. */
   todayColor: string;
+  /** Wall-clock ms, from `useMinuteTick`. Dims events on TODAY that have
+   * already finished, so the current column reads like the past days do. 0 (or
+   * omitted) dims nothing — that's the server render, before the client knows
+   * the time. Only today: a past day's whole cell already dims, and dimming
+   * twice would compound to 16%. */
+  now?: number;
   /** Click handler for a day's "+N more" — receives this row's week index so the
    * grid can expand next week (week ≥ 1) or return to normal (week 0). */
   /** A day's "+N more" was clicked. The wall uses `weekIndex` to move its
@@ -70,6 +77,7 @@ export default function WeekRow({
   capacities,
   timezone,
   todayColor,
+  now = 0,
   onMoreClick,
   moreTitle,
   onEventClick,
@@ -124,6 +132,8 @@ export default function WeekRow({
         <div className="cal-week-timed">
           {weekDays.map((date, col) => {
             const isPast = date < today;
+            // Only today's column dims per event; see the `now` prop.
+            const dimFinished = date === today && now > 0;
             const lanes = laneByColumn[col] ?? 0;
             const timed = timedByDay.get(date) ?? [];
             const capacity = capacities[col] ?? Infinity;
@@ -153,6 +163,7 @@ export default function WeekRow({
                         color={paint.primary}
                         accent={paint.shared ? accentStripes(paint.colors) : undefined}
                         timeZone={timezone}
+                        past={dimFinished && isFinished(event, now)}
                         onClick={onEventClick ? () => onEventClick(event) : undefined}
                       />
                     );

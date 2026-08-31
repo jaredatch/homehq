@@ -18,16 +18,33 @@ interface EventItemProps {
    * hidden measurement layer and in read-only deployments, so the box is
    * unchanged there. */
   onClick?: () => void;
+  /** This event has already finished, so it dims the way a past day does.
+   * Opacity only — it can never change the row's height, which the measurement
+   * layer depends on. */
+  past?: boolean;
 }
 
 // Timed events only — all-day events render as spanning bars in WeekRow's band.
-export default function EventItem({ event, color, accent, timeZone, onClick }: EventItemProps) {
+export default function EventItem({
+  event,
+  color,
+  accent,
+  timeZone,
+  onClick,
+  past,
+}: EventItemProps) {
   const interactive = !!onClick;
   const time = eventTimeRangeParts(event.start_time, event.end_time, timeZone);
   return (
     <div
       data-event-row
-      className={interactive ? 'cal-event cal-event--clickable' : 'cal-event'}
+      className={[
+        'cal-event',
+        interactive ? 'cal-event--clickable' : '',
+        past ? 'cal-event--past' : '',
+      ]
+        .filter(Boolean)
+        .join(' ')}
       title={event.summary}
       role={interactive ? 'button' : undefined}
       tabIndex={interactive ? 0 : undefined}

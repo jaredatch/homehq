@@ -7,6 +7,7 @@ import EventModal, { type EditableEvent } from './EventModal';
 import { calendarIdsForEvent, isMembershipLocked, mergeGroups } from './event-groups';
 import { accentStripes, eventPaint } from './event-paint';
 import CalendarFooter from './CalendarFooter';
+import { useMinuteTick } from '@/components/clock/use-minute';
 import { useCalendarFilter, filterEvents, scopeToCalendars } from './calendar-filter';
 import { useWeekGridMetrics } from './week-metrics';
 import { planWallWeeks } from './wall-layout';
@@ -75,6 +76,11 @@ export default function CalendarGrid({
   const [loading, setLoading] = useState(true);
   const [today, setToday] = useState(() => todayInZone(timezone));
   const gridRef = useRef<HTMLDivElement>(null);
+  // Wall-clock minute, for dimming today's finished events. The same store the
+  // clock uses, so an event greys out on the tick the clock moves; 0 until the
+  // client hydrates, which is why nothing dims on the server render.
+  const minute = useMinuteTick();
+  const now = minute === 0 ? 0 : minute * 60000;
   const measureRef = useRef<HTMLDivElement>(null);
 
   // Per-person filter (shared across views, empty = show all). When empty this
@@ -304,6 +310,7 @@ export default function CalendarGrid({
               capacities={capacities}
               timezone={timezone}
               todayColor={todayColor}
+              now={now}
               onMoreClick={handleMoreClick}
               onEventClick={calendarWriteEnabled ? handleEventClick : undefined}
             />
