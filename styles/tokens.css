@@ -20,6 +20,14 @@
 	--gray-900: #101828;
 	--gray-950: #030712;
 
+	/* One step off the gray ramp, on purpose. Same hue as --gray-600 (~215) but
+	   carrying more saturation, because chroma reads weaker as lightness climbs:
+	   --gray-400 sits at the right brightness for a secondary label yet goes flat
+	   neutral next to the darker grays, which looks foreign beside them. This is
+	   the same lightness with the blue put back. Used for the calendar event's
+	   start time, which pairs directly with --gray-600. */
+	--slate-400: #94a3b8;
+
 	--blue-400: #54a2ff;
 	--blue-500: #3080ff;
 	--blue-600: #155dfc;

@@ -359,11 +359,17 @@
 
 /* Time prefix — muted against the brighter title so the eye can still scan
    titles down the column, but readable through the past-day dim ("before or
-   after pickup?" is half of why someone opens this view). */
+   after pickup?" is half of why someone opens this view).
+
+   Same --slate-400 as the wall's `.cal-event-time-start`: an event's time reads
+   the same in both grids, so toggling between views doesn't shift it. It is a
+   hair bluer than the --gray-400 chrome around it (the weekday headers) on
+   purpose -- that is the ramp's flat neutral, and event text is now its own
+   thing. */
 .mon-chip-time {
 	flex-shrink: 0;
 	font-variant-numeric: tabular-nums;
-	color: var(--gray-400);
+	color: var(--slate-400);
 }
 
 .mon-chip-title {

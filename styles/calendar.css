@@ -271,9 +271,9 @@
                          the gradient LINE and the bands run perpendicular to it,
                          so 45deg renders as a backslash "\" -- 135deg is the one
                          that leans forward. 180deg = horizontal bands.
-     --cal-stripe-accent band width on the timed event's ~1px accent sliver.
-                         Much tighter on purpose: at the full period that bar
-                         shows one flat band and reads as a single color. */
+     --cal-stripe-accent band width on the timed event's accent rail. Much
+                         tighter on purpose: at the full period that rail shows
+                         one flat band and reads as a single color. */
 :root {
 	--cal-stripe: 0.55em;
 	--cal-stripe-angle: 135deg;
@@ -322,27 +322,70 @@
 }
 
 /* ---- Timed event (EventItem) ------------------------------------------ */
+/* The row's colour signal is the accent rail ALONE. The time used to carry the
+   calendar colour too (inline, from EventItem), which doubled the chroma in
+   every cell -- a dozen rows across seven columns of saturated text competing
+   with the titles. Identity moved onto one thicker rail so the type could go
+   neutral, which also lines week view up with month view: there the colour has
+   always lived in `.mon-chip-dot` and the time has always been `--gray-400`. */
 .cal-event {
+	/* One value for the row's vertical padding AND the accent's inset. The rail
+	   is meant to span exactly the text block, so the two have to move together;
+	   as separate literals they drift apart the first time the padding is tuned. */
+	--cal-event-pad-y: 0.2rem;
+	/* Rail width, and the ONE knob the whole left edge is built from: the row's
+	   left padding is derived from it below, so widening the rail pushes the text
+	   over by the same amount and the gap between them never changes. */
+	--cal-event-rail-w: 0.2rem;
+	/* Clear space between rail and text. 0.3625 + the 0.2 rail reproduces the
+	   0.5625rem text inset the row has always had. */
+	--cal-event-rail-gap: 0.3625rem;
+	/* Deliberately under --text-xs (0.75rem), and a local var rather than a
+	   global token because only this row wants it. Root font-size is
+	   clamp(20px, 2vh, 46px), so this is ~30px of type on the 4K wall and the
+	   line box shrinks in proportion -- together with the padding it takes about
+	   7px off every row, which is roughly one more event per column before the
+	   cell crops to "+N more". */
+	--cal-event-time-size: 0.7rem;
 	position: relative;
-	padding: 0.25rem 0.375rem 0.25rem 0.5625rem;
+	padding: var(--cal-event-pad-y) 0.375rem var(--cal-event-pad-y)
+		calc(var(--cal-event-rail-w) + var(--cal-event-rail-gap));
 	line-height: var(--leading-snug);
 }
 
-/* Accent bar, inset top/bottom so events read as slightly more spaced. Width is
-   rem-based so it scales with the wall. Color comes from inline style. */
+/* Accent rail -- now the only per-calendar colour on the row, so it is wide
+   enough to still read as colour from across the kitchen (0.2rem is ~8.6px at
+   4K, ~4px on a personal board's panel). Inset top/bottom by the row padding so
+   it spans the text block exactly. Colour comes from inline style. */
 .cal-event-accent {
 	position: absolute;
-	top: 0.25rem;
-	bottom: 0.25rem;
+	top: var(--cal-event-pad-y);
+	bottom: var(--cal-event-pad-y);
 	left: 0;
-	width: 0.0625rem;
+	width: var(--cal-event-rail-w);
 }
 
+/* Two steps of hierarchy inside one line: the start time is the scanning key,
+   the "-- end" is rarely needed at a glance. `.cal-event-time` colours the
+   separator and end; the start overrides it below. Both are on the blue-tinted
+   ramp, not neutral greys, so they sit in the same family as the rest of the
+   chrome. */
 .cal-event-time {
-	font-size: var(--text-xs);
+	font-size: var(--cal-event-time-size);
+	/* Borrowed ratio, not a leftover: --text-xs-lh is unitless, so it holds the
+	   same proportion at the smaller size. */
 	line-height: var(--text-xs-lh);
 	font-weight: var(--weight-medium);
 	font-variant-numeric: tabular-nums;
+	color: var(--gray-600);
+}
+
+/* --slate-400, not the ramp's --gray-400, because this sits directly beside
+   --gray-600 and a flat neutral next to a blue-tinted gray reads as the odd one
+   out. Month view's `.mon-chip-time` carries the same value, so an event's time
+   looks identical in both grids. Move one and move the other. */
+.cal-event-time-start {
+	color: var(--slate-400);
 }
 
 .cal-event-title {
