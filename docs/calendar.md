@@ -72,7 +72,7 @@ Sizing overrides live under `.pb-view` in `personal.css`; `calendar.css` and `mo
 
 ## Footer (`CalendarFooter`)
 
-One shared component renders the bottom bar in both views so the controls hold identical positions. Left to right: the legend (which is also the filter, with a chevron to collapse it), the view switcher, **+ Add event** (read-write only), and view-specific extras (week view's expand toggle). On the right: the sync indicator and a reload button that calls `window.location.reload()`. The reload button is a no-confirm escape hatch for when the long-lived page gets weird and nobody's on site; it also picks up the latest deploy.
+One shared component renders the bottom bar in both views so the controls hold identical positions. Its top rule is an inset box-shadow rather than a `border-top`, because a border is part of the box: it would take a pixel off `.cal-weeks` and shift every week track, which is exactly what used to make month view's grid 1px shorter than the wall's back when only it drew the rule. Week view never had a real rule at all — what looked like one was the fractional remainder of `.cal-weeks` showing under the last row, a 0.06 device-pixel hairline that came and went with the viewport height. Left to right: the legend (which is also the filter, with a chevron to collapse it), the view switcher, **+ Add event** (read-write only), and view-specific extras (week view's expand toggle). On the right: the sync indicator and a reload button that calls `window.location.reload()`. The reload button is a no-confirm escape hatch for when the long-lived page gets weird and nobody's on site; it also picks up the latest deploy.
 
 ## Per-person filter
 

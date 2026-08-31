@@ -142,8 +142,17 @@ export function planWallWeeks(
 
   return {
     shownWeeks,
+    // The anchor needs an explicit px track only to reserve height AGAINST the
+    // other weeks. As the only row it takes `1fr` instead: `availH` comes from
+    // `clientHeight`, which is a rounded integer, so pinning the track to it
+    // left the container's fractional remainder (~0.03px) showing as a hairline
+    // of `.cal-weeks`' own grey background under the row — a sub-pixel line
+    // that appeared or vanished depending on where the boundary landed on the
+    // device pixel grid. `1fr` resolves to the real height, so nothing is left
+    // over. The arithmetic above still uses `availH`; the difference is far
+    // below one event row.
     gridRows: shown
-      .map((_, wi) => (wi === anchorWeek ? `${anchorPx}px` : 'minmax(0, 1fr)'))
+      .map((_, wi) => (wi === anchorWeek && otherWeeks > 0 ? `${anchorPx}px` : 'minmax(0, 1fr)'))
       .join(' '),
     visibleByDay,
   };

@@ -340,11 +340,18 @@
 	padding: 0.25rem 1rem;
 	font-size: var(--text-xs);
 	line-height: var(--text-xs-lh);
-}
-/* Month view's variant — its grid has no bottom chrome of its own, so the
-   footer draws the divider the wall gets for free. */
-.cal-footer--rule {
-	border-top: 1px solid var(--gray-800);
+	/* The rule above the footer, in EVERY view. Week view never actually had
+	   one: the "divider the wall gets for free" was the fractional remainder of
+	   .cal-weeks showing under the last row — a 0.06 device-pixel hairline that
+	   appeared or vanished with the viewport height (see wall-layout.ts).
+
+	   An inset shadow, not a border-top, because a border is part of the box: it
+	   would take a pixel off .cal-weeks and shift every week track. That is also
+	   why month view's grid was silently 1px shorter than the wall's while only
+	   it had the border. A shadow paints the same line and occupies nothing, so
+	   both views hold identical geometry and switching between them moves
+	   nothing. */
+	box-shadow: inset 0 1px 0 var(--gray-800);
 }
 
 /* The legend is an active filter: a chevron toggles collapse, each name is a

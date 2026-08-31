@@ -57,6 +57,7 @@ If `DEV_AUTH_BYPASS=1` is set in your `.env`, plain `npm run dev` skips the PIN.
 - Month view has no measurement layer by design. If it seems to need one, the design drifted.
 - A grid's measuring is shared with the personal board; its **space policy is not**. The wall's anchor week, "expand next week", and the collapse rule live in `wall-layout.ts` (pure + unit-tested); a personal board just fills its one row.
 - `--cal-stripe-angle` is 135deg (45deg draws a backslash).
+- The footer's top rule is an inset box-shadow, never a `border-top` — a border would take a pixel off `.cal-weeks` and move every week track. And never size a grid track to `availH` in px: it comes from `clientHeight` (a rounded integer), so the container's fractional remainder shows as a sub-pixel hairline. The last track takes `1fr`.
 
 ## Working with the maintainer
 

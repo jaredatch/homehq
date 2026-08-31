@@ -94,9 +94,21 @@ describe('planWallWeeks — collapse', () => {
     expect(layout.shownWeeks).toBe(1);
   });
 
-  it('hands the whole grid to the surviving week, leaving no dead track', () => {
+  it('hands the whole grid to the surviving week as one filling track', () => {
+    // Not `913px`. availH comes from clientHeight, a ROUNDED integer, so a
+    // pinned track leaves the container's fractional remainder (~0.03px)
+    // showing as a hairline of .cal-weeks' grey background under the row —
+    // visible or not depending on where it landed on the device pixel grid.
     const layout = planWallWeeks(withBusiestDay(14), [WEEK_0, WEEK_1], noLanes(2), MONDAY, false);
-    expect(layout.gridRows).toBe('913px');
+    expect(layout.gridRows).toBe('minmax(0, 1fr)');
+    expect(layout.gridRows).not.toMatch(/px/);
+  });
+
+  it('still pins the anchor in px while another week has to be fed', () => {
+    // The px track is how the anchor reserves height AGAINST its neighbours;
+    // it is only pointless when it is the sole row.
+    const layout = planWallWeeks(withBusiestDay(9), [WEEK_0, WEEK_1], noLanes(2), MONDAY, false);
+    expect(layout.gridRows).toMatch(/^\d+px minmax\(0, 1fr\)$/);
   });
 
   it('spends the reclaimed height on more events', () => {

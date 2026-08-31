@@ -31,9 +31,6 @@ interface CalendarFooterProps {
    * so the shared controls hold the same positions in every view. */
   children?: ReactNode;
   sync: SyncLabel;
-  /** Draw a rule above the footer (month view — its grid has no bottom chrome
-   * of its own, so the footer needs the divider the wall gets for free). */
-  rule?: boolean;
 }
 
 /**
@@ -54,7 +51,6 @@ export default function CalendarFooter({
   onAddClick,
   children,
   sync,
-  rule,
 }: CalendarFooterProps) {
   // Legend — on by default while the family learns the colors, collapsible to
   // a faint dot cluster once it's just noise. Choice persists across views.
@@ -73,7 +69,7 @@ export default function CalendarFooter({
   const total = calendars.length;
 
   return (
-    <div className={rule ? 'cal-footer cal-footer--rule' : 'cal-footer'}>
+    <div className="cal-footer">
       <div className="cal-footer-left">
         <div className="cal-legend-group">
           <button

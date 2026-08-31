@@ -378,7 +378,6 @@ export default function MonthGrid({
         onViewClick={onExit}
         onAddClick={calendarWriteEnabled ? handleFooterAdd : undefined}
         sync={label}
-        rule
       />
 
       {/* Create pre-fills the clicked day — the check-then-add workflow in one
