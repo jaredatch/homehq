@@ -18,7 +18,7 @@ const FALLBACK = '#6b7280';
 const PERIOD = 'var(--cal-stripe)';
 const ANGLE = 'var(--cal-stripe-angle)';
 
-/** Tighter period for the timed accent — it's only ~1px wide and a couple of em
+/** Tighter period for the timed accent — it is a narrow rail a couple of em
  * tall, so a full-size period would show as a single flat band and read as one
  * color. See `accentStripes`. */
 const ACCENT_PERIOD = 'var(--cal-stripe-accent)';
@@ -74,13 +74,18 @@ export function stripes(colors: string[]): string {
 }
 
 /**
- * Stripes for the timed event's accent bar. It's a sliver — roughly 1px wide by
- * a couple of em tall — so a single 50/50 split reads as one color unless you
- * already know to look. Several alternating bands down its length are the thing
- * that actually catches the eye at wall distance, so it gets its own (much
- * tighter) period, always banded across the bar's width.
+ * Stripes for the timed event's accent rail. A single 50/50 split reads as one
+ * color on something this small unless you already know to look, so it takes
+ * several alternating bands down its length and a much tighter period than a
+ * filled bar.
+ *
+ * Shares `--cal-stripe-angle` with `stripes()` — the same forward-leaning "/"
+ * barber pole the all-day bars use, so "two people" looks the same whether the
+ * event landed in the band or in a day column. It was banded flat at 180deg
+ * while the rail was a 1px sliver, where a diagonal had no width to travel
+ * across; `.cal-event--shared` doubles the rail precisely so it does.
  */
 export function accentStripes(colors: string[]): string {
   const [a, b] = colors;
-  return `repeating-linear-gradient(180deg, ${a} 0 ${ACCENT_PERIOD}, ${b} ${ACCENT_PERIOD} calc(${ACCENT_PERIOD} * 2))`;
+  return `repeating-linear-gradient(${ANGLE}, ${a} 0 ${ACCENT_PERIOD}, ${b} ${ACCENT_PERIOD} calc(${ACCENT_PERIOD} * 2))`;
 }

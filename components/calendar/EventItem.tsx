@@ -44,6 +44,9 @@ export default function EventItem({
         'cal-event',
         interactive ? 'cal-event--clickable' : '',
         past ? 'cal-event--past' : '',
+        // `accent` is set only on a merged shared event, so it doubles as the
+        // "two calendars" flag the fat-rail rule keys off.
+        accent ? 'cal-event--shared' : '',
       ]
         .filter(Boolean)
         .join(' ')}

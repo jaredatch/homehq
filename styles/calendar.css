@@ -273,7 +273,10 @@
                          that leans forward. 180deg = horizontal bands.
      --cal-stripe-accent band width on the timed event's accent rail. Much
                          tighter on purpose: at the full period that rail shows
-                         one flat band and reads as a single color. */
+                         one flat band and reads as a single color. The rail
+                         takes the same forward angle as a filled bar, which is
+                         what .cal-event--shared's doubled width is for -- a
+                         diagonal needs some width to travel across. */
 :root {
 	--cal-stripe: 0.55em;
 	--cal-stripe-angle: 135deg;
@@ -351,6 +354,20 @@
 	padding: var(--cal-event-pad-y) 0.375rem var(--cal-event-pad-y)
 		calc(var(--cal-event-rail-w) + var(--cal-event-rail-gap));
 	line-height: var(--leading-snug);
+}
+
+/* A shared event (two calendars) just gets a FAT rail -- double width, so "more
+   than one person" is legible as a shape from across the room before you have
+   read a single letter. Nothing else about the row changes: the left padding is
+   derived from the rail width above, so the text slides over with it and keeps
+   its usual gap. Note that a shared row's title therefore has ~0.2rem less
+   width than an ordinary one and can wrap a line earlier -- accepted, the
+   distinctness is worth more than the rare extra line.
+
+   Must stay AFTER .cal-event: same specificity, so source order is what lets it
+   win. */
+.cal-event--shared {
+	--cal-event-rail-w: 0.4rem;
 }
 
 /* Accent rail -- now the only per-calendar colour on the row, so it is wide
