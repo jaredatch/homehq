@@ -104,7 +104,11 @@ export default function WeekRow({
           const { dayNum, monthName } = dayNumber(date);
           const showMonth = (weekIndex === 0 && date === weekDays[0]) || date.slice(8, 10) === '01';
           return (
-            <div key={date} data-day-header className="cal-day-header">
+            <div
+              key={date}
+              data-day-header
+              className={isToday ? 'cal-day-header cal-day-header--today' : 'cal-day-header'}
+            >
               {/* Today is styled like every other day; a dot is the only marker. */}
               <span className="cal-day-header-row">
                 <span className={`cal-date ${isPast ? 'cal-date--past' : ''}`}>
@@ -132,15 +136,26 @@ export default function WeekRow({
         <div className="cal-week-timed">
           {weekDays.map((date, col) => {
             const isPast = date < today;
+            const isToday = date === today;
             // Only today's column dims per event; see the `now` prop.
-            const dimFinished = date === today && now > 0;
+            const dimFinished = isToday && now > 0;
             const lanes = laneByColumn[col] ?? 0;
             const timed = timedByDay.get(date) ?? [];
             const capacity = capacities[col] ?? Infinity;
             const visible = timed.slice(0, Math.max(0, capacity));
             const hiddenCount = timed.length - visible.length;
             return (
-              <div key={date} data-events className={`cal-day ${isPast ? 'cal-day--past' : ''}`}>
+              <div
+                key={date}
+                data-events
+                className={[
+                  'cal-day',
+                  isPast ? 'cal-day--past' : '',
+                  isToday ? 'cal-day--today' : '',
+                ]
+                  .filter(Boolean)
+                  .join(' ')}
+              >
                 {/* Reserve this column's band rows with invisible, self-sizing
                     bars — same box as a real bar, so the overlay lines up without
                     passing pixel measurements down. */}

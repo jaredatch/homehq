@@ -173,6 +173,14 @@
 	opacity: var(--cal-past-opacity);
 }
 
+/* Today's date header and day cell carry `--today` hooks with no styles of
+   their own — deliberately. Today is marked by the accent dot alone (a full
+   cell tint was tried and lost: it fights every event colour in the column),
+   but the hooks are here so that can be experimented with without touching
+   WeekRow. Anything added here reaches the personal board's week too, which
+   renders the same component; scope it under `.pb-view` in personal.css to
+   keep the two apart. */
+
 /* Per-column reservation for the all-day band — invisible spacers that match a
    real bar's box, so the overlay lines up without passing pixel measurements. */
 .cal-band-reserve {

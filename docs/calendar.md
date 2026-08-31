@@ -20,6 +20,8 @@ The measuring and the packing arithmetic live in `week-metrics.ts` (`useWeekGrid
 
 The measurement layer must stay `overflow: hidden`. Its uncropped stacks are taller than the grid; with overflow visible that spill became scrollable overflow that a focus nudge could scroll the whole grid into, clipping the header. `getBoundingClientRect` is unaffected by clipping. `.app-main` is `overflow: clip` as a backstop.
 
+**Today's hooks.** Today's date header and day cell carry `cal-day-header--today` and `cal-day--today`, with no styles attached. Today is marked by its accent dot alone — a full-cell tint fights every event colour in the column — but the hooks exist so that can be tried without touching `WeekRow`. Note they reach the personal board's week too, which renders the same component; scope anything under `.pb-view` in `personal.css` to keep the two apart.
+
 **Anchor week.** Track heights and cropping follow a strict priority around an anchor week (the current week by default):
 
 1. The anchor week's days on or after today show every event and set the anchor week's track height.
