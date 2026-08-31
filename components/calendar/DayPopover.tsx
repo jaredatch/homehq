@@ -1,15 +1,55 @@
 import EventItem from './EventItem';
-import { accentStripes, eventPaint, stripes } from './event-paint';
-import { contrastText, formatEventTime, isFinished, type CalendarEvent } from './calendar-utils';
-import { weekdayShortOf, type PopoverBox } from './month-utils';
+import { accentStripes, eventPaint } from './event-paint';
+import { contrastText, isFinished, type CalendarEvent } from './calendar-utils';
+import { weekdayShortOf } from './month-utils';
+
+/** Where the card sits, relative to `.cal-grid`. Vertically it anchors by ONE
+ * edge — `bottom` to grow upward out of the button, `top` to grow down. */
+export interface DayPopoverBox {
+  left: number;
+  width: number;
+  top?: number;
+  bottom?: number;
+  maxHeight: number;
+}
+
+const clamp = (v: number, lo: number, hi: number) => Math.max(lo, Math.min(v, hi));
+
+/**
+ * Place the card over its day column, growing away from the "+N more" button.
+ *
+ * Horizontally this matches month view's `popoverLayout` — a bit wider than the
+ * column, centred on it, clamped inside the region. Vertically it does not, and
+ * can't: month view anchors to a small cell and reserves half the region to
+ * grow into, which is right when a cell is one row of six. A week column is the
+ * full height of the grid and its "+N more" is always the last thing in it, so
+ * that rule opened a three-row card ~400px above the button that summoned it.
+ *
+ * Here the button's own edge is the anchor and the card grows into whichever
+ * side has more room — upward in practice, since the button sits at the bottom
+ * of a full-height column. Pure, so the clamping is unit-testable.
+ */
+export function dayPopoverBox(
+  button: { top: number; bottom: number },
+  cell: { left: number; width: number },
+  container: { width: number; height: number },
+  pad = 8
+): DayPopoverBox {
+  const width = Math.min(Math.max(cell.width * 1.35, 240), Math.max(0, container.width - 2 * pad));
+  const left = clamp(cell.left + cell.width / 2 - width / 2, pad, container.width - pad - width);
+  const above = button.bottom;
+  const below = container.height - button.top;
+  return above >= below
+    ? { left, width, bottom: container.height - button.bottom, maxHeight: Math.max(0, above - pad) }
+    : { left, width, top: button.top, maxHeight: Math.max(0, below - pad) };
+}
 
 interface DayPopoverProps {
   date: string; // YYYY-MM-DD
-  box: PopoverBox;
+  box: DayPopoverBox;
   today: string;
-  /** The day's complete set — band bars first, then timed chips. */
-  allDay: CalendarEvent[];
-  timed: CalendarEvent[];
+  /** ONLY the events the cell had to crop — the ones behind "+N more". */
+  hidden: CalendarEvent[];
   colorMap: Map<string, { color: string; textColor?: string }>;
   /** IANA zone for event times. Undefined = browser-local. */
   timezone?: string;
@@ -25,8 +65,18 @@ interface DayPopoverProps {
 }
 
 /**
- * The wall's "+N more" day popover: one day's complete event list, floating
- * over the week grid.
+ * The wall's "+N more" popover: the events that didn't fit, floating over the
+ * week grid.
+ *
+ * It shows the hidden events ONLY, not the whole day. Month view's popover
+ * shows the day in full because a month cell holds two or three chips and the
+ * rest is genuinely unseen. A week column shows a dozen, so repeating them
+ * would answer a question nobody asked while covering the neighbouring days to
+ * do it. "+3 more" opens three rows.
+ *
+ * That is also why there are no band bars here: an all-day event, and a timed
+ * one running past midnight, always draw in the band. Cropping only ever
+ * touches the timed stack, so nothing in the band can be behind "+N more".
  *
  * Month view has its own (`MonthDayPopover`) and this is deliberately not it.
  * The two share the part that is genuinely one thing — `popoverLayout()`, the
@@ -46,8 +96,7 @@ export default function DayPopover({
   date,
   box,
   today,
-  allDay,
-  timed,
+  hidden,
   colorMap,
   timezone,
   todayColor,
@@ -62,7 +111,13 @@ export default function DayPopover({
   return (
     <div
       className="cal-pop"
-      style={{ left: box.left, top: box.top, width: box.width, maxHeight: box.maxHeight }}
+      style={{
+        left: box.left,
+        top: box.top,
+        bottom: box.bottom,
+        width: box.width,
+        maxHeight: box.maxHeight,
+      }}
       role="dialog"
       aria-label={`Events on ${weekdayShortOf(date)} ${date}`}
     >
@@ -90,57 +145,7 @@ export default function DayPopover({
       {/* A past day keeps the grid's dim, so the card reads as that cell rather
           than as a different surface. */}
       <div className={isPastDay ? 'cal-pop-list cal-pop-list--past' : 'cal-pop-list'}>
-        {allDay.map((event) => {
-          const paint = eventPaint(event, colorMap);
-          // A timed event in this list ran past midnight, so it carries its
-          // times the way the band bar does — see WeekRow.
-          const spanning = !event.all_day;
-          return (
-            <div
-              key={`${event.event_id}-${event.calendar_id}`}
-              className={[
-                'cal-band-bar',
-                onEventClick ? 'cal-band-bar--clickable' : '',
-                spanning ? 'cal-band-bar--timed' : '',
-              ]
-                .filter(Boolean)
-                .join(' ')}
-              style={
-                paint.shared
-                  ? { background: stripes(paint.colors), color: '#fff' }
-                  : { backgroundColor: paint.primary, color: paint.textColor }
-              }
-              title={event.summary}
-              role={onEventClick ? 'button' : undefined}
-              tabIndex={onEventClick ? 0 : undefined}
-              onClick={onEventClick ? () => onEventClick(event) : undefined}
-              onKeyDown={
-                onEventClick
-                  ? (e) => {
-                      if (e.key === 'Enter' || e.key === ' ') {
-                        e.preventDefault();
-                        onEventClick(event);
-                      }
-                    }
-                  : undefined
-              }
-            >
-              {spanning && (
-                <span className="cal-band-time">{formatEventTime(event.start_time, timezone)}</span>
-              )}
-              {paint.shared ? (
-                <span className="cal-band-label">{event.summary || '(No title)'}</span>
-              ) : (
-                event.summary || '(No title)'
-              )}
-              {spanning && (
-                <span className="cal-band-end">{formatEventTime(event.end_time, timezone)}</span>
-              )}
-            </div>
-          );
-        })}
-
-        {timed.map((event) => {
+        {hidden.map((event) => {
           const paint = eventPaint(event, colorMap);
           return (
             <EventItem

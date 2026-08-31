@@ -11,8 +11,7 @@ import { useMinuteTick } from '@/components/clock/use-minute';
 import { useCalendarFilter, filterEvents, scopeToCalendars } from './calendar-filter';
 import { useWeekGridMetrics } from './week-metrics';
 import { planWallWeeks } from './wall-layout';
-import DayPopover from './DayPopover';
-import { popoverLayout, type PopoverBox } from './month-utils';
+import DayPopover, { dayPopoverBox, type DayPopoverBox } from './DayPopover';
 import {
   assignEventsToDays,
   chunkWeeks,
@@ -105,7 +104,7 @@ export default function CalendarGrid({
   // The day popover — one day's full list, floating over the grid. Ephemeral
   // like every other peek: never persisted, closed by Esc, a click outside, a
   // resize, and the idle timer below.
-  const [popover, setPopover] = useState<{ date: string; box: PopoverBox } | null>(null);
+  const [popover, setPopover] = useState<{ date: string; box: DayPopoverBox } | null>(null);
 
   // One rule for "+N more": give that week the screen, and if it already has
   // the screen, open the day.
@@ -125,19 +124,22 @@ export default function CalendarGrid({
   // "+9 more" while week 0 is the anchor and not capped. Expanding could never
   // have helped that day either.
   const handleMoreClick = useCallback(
-    (weekIndex: number, date: string, cell: HTMLElement | null) => {
+    (weekIndex: number, date: string, button: HTMLElement | null) => {
       if (weekIndex !== anchorWeekRef.current) {
         setExpanded(weekIndex !== 0);
         return;
       }
       const grid = calRef.current;
-      if (!grid || !cell) return;
+      const cell = button?.closest('[data-events]');
+      if (!grid || !button || !cell) return;
       const gr = grid.getBoundingClientRect();
-      const r = cell.getBoundingClientRect();
+      const cr = cell.getBoundingClientRect();
+      const br = button.getBoundingClientRect();
       setPopover({
         date,
-        box: popoverLayout(
-          { left: r.left - gr.left, top: r.top - gr.top, width: r.width, height: r.height },
+        box: dayPopoverBox(
+          { top: br.top - gr.top, bottom: br.bottom - gr.top },
+          { left: cr.left - gr.left, width: cr.width },
           { width: gr.width, height: gr.height }
         ),
       });
@@ -350,6 +352,17 @@ export default function CalendarGrid({
     [metrics, weeksOfDays, laneByWeek, today, expanded]
   );
 
+  // What the popover shows: ONLY the events its cell had to crop. The column
+  // behind it is already showing the rest, so listing the whole day would
+  // repeat a dozen rows and cover the neighbouring days to do it. A protected
+  // day shows everything (capacity Infinity) and has no "+N more" to click.
+  const popoverHidden = useMemo(() => {
+    if (!popover) return [];
+    const timed = timedByDay.get(popover.date) ?? [];
+    const capacity = layout?.visibleByDay[popover.date] ?? Infinity;
+    return Number.isFinite(capacity) ? timed.slice(capacity) : [];
+  }, [popover, timedByDay, layout]);
+
   // Weeks actually rendered. Until the first measurement lands there is no
   // layout yet, so every week renders uncropped and the grid settles on the
   // next frame.
@@ -398,6 +411,11 @@ export default function CalendarGrid({
               todayColor={todayColor}
               now={now}
               onMoreClick={handleMoreClick}
+              moreTitle={(_date, n) =>
+                wi === (layout?.anchorWeek ?? 0)
+                  ? `Show the ${n} not shown here`
+                  : 'Expand next week to show all its events'
+              }
               onEventClick={calendarWriteEnabled ? handleEventClick : undefined}
             />
           );
@@ -435,13 +453,12 @@ export default function CalendarGrid({
 
       {/* Day popover — floats over the grid, deliberately outside .cal-weeks
           (clip + the measurement layer). */}
-      {popover && (
+      {popover && popoverHidden.length > 0 && (
         <DayPopover
           date={popover.date}
           box={popover.box}
           today={today}
-          allDay={dayEventsMap.get(popover.date)?.allDay ?? []}
-          timed={timedByDay.get(popover.date) ?? []}
+          hidden={popoverHidden}
           colorMap={colorMap}
           timezone={timezone}
           todayColor={todayColor}
