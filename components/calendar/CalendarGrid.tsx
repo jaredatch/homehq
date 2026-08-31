@@ -260,6 +260,10 @@ export default function CalendarGrid({
   // layout yet, so every week renders uncropped and the grid settles on the
   // next frame.
   const shownWeeks = layout?.shownWeeks ?? weeksOfDays.length;
+  // Did the collapse rule take a week off the screen? Only the footer toggle's
+  // wording depends on this: "expand" is the wrong verb for a week that isn't
+  // drawn at all.
+  const collapsed = shownWeeks < weeksOfDays.length;
 
   return (
     <div className="cal-grid">
@@ -348,12 +352,16 @@ export default function CalendarGrid({
             type="button"
             onClick={() => setExpanded((v) => !v)}
             title={
-              expanded ? 'Show the current week in full' : 'Expand next week to show all its events'
+              expanded
+                ? 'Show the current week in full'
+                : collapsed
+                  ? 'Show next week'
+                  : 'Expand next week to show all its events'
             }
             aria-pressed={expanded}
             className="cal-expand"
           >
-            {expanded ? '‹ Current week' : 'Expand next week ›'}
+            {expanded ? '‹ Current week' : collapsed ? 'Next week ›' : 'Expand next week ›'}
           </button>
         )}
       </CalendarFooter>

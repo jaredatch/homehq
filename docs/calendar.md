@@ -36,7 +36,7 @@ It is a pure function of the measured metrics and the data, recomputed every ren
 
 **Expand next week.** A footer toggle and any `+N more` button in next week move the anchor to next week: it then shows everything while the current week takes the remaining share and crops. Because all of next week is in the future, the same `date >= today` predicate protects the whole row, so the default render is unchanged. A `+N more` in the current week (or the toggle) returns to normal. Reverts after `display.expandResetSeconds`.
 
-The toggle is also the escape hatch when the grid has collapsed: the button stays in the footer whenever `calendarWeeks > 1`, so next week is always one click away even when it is not on screen, and the same timer puts the board back.
+The toggle is also the escape hatch when the grid has collapsed: the button stays in the footer whenever `calendarWeeks > 1`, so next week is always one click away even when it is not on screen, and the same timer puts the board back. It reads **Next week ›** then rather than **Expand next week ›** — "expand" is the wrong verb for a week that isn't drawn at all.
 
 ## Month view (`CalendarView`, `MonthGrid`, `MonthWeek`, `MonthDayPopover`)
 
