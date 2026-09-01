@@ -1,21 +1,22 @@
 # Architecture
 
-HomeHQ is a Next.js 16 (App Router) app with a SQLite cache in the middle. The browser never talks to Google or Open-Meteo; a pair of background jobs on the server do, and the dashboard reads whatever they last wrote.
+HomeHQ is a Next.js 16 (App Router) app with a SQLite cache in the middle. The browser never talks to Google, Open-Meteo, or Todoist; background jobs on the server do, and every screen reads whatever they last wrote.
 
 ```
-Google Calendar ──(every 5 min)──┐
-                                  ├──► SQLite (data/homehq.db) ──► API routes ──► browser (polls)
-Open-Meteo ──────(every 30 min)──┘
+Google Calendar ──(every 5 min)───┐
+Open-Meteo ───────(every 30 min)──┼──► SQLite (data/homehq.db) ──► API routes ──► browser (polls)
+Todoist ──────────(every 1 min)───┘
 ```
 
 That shape buys three things: credentials stay server-side, the wall keeps showing the last good data through any outage, and rendering never waits on an external API.
 
 ## Server-side sync
 
-Both schedulers start once, from `instrumentation.ts`, when the server boots.
+The schedulers start once, from `instrumentation.ts`, when the server boots.
 
 - **Calendar** (`lib/google/sync.ts`): every 5 minutes, for each calendar in `config.json`, fetch events in a window of 60 days back to 210 days ahead (`google.syncDaysBack` / `syncDaysAhead`), expand recurrences (`singleEvents: true`, so each row is one occurrence), normalise, and replace that calendar's rows wholesale (`upsertCalendarEvents`). The fetch paginates, so a wide window is safe. The window is also the hard limit on how far the UI can look: past it the cache has no rows and month view would show empty cells that aren't empty.
 - **Weather** (`lib/weather/sync.ts`): every 30 minutes, fetch current conditions and the forecast for the configured lat/long from Open-Meteo (no API key) and cache the JSON.
+- **Todoist** (`lib/todoist/sync.ts`): every minute, for each project a board names, pull open tasks into the `todos` table. It runs only when `TODOIST_API_KEY` is set and some board declares a project, so an install without to-dos never makes the call. A minute rather than five: a to-do ticked on a phone should be gone from the bedroom panel before anyone wonders whether it worked.
 
 Each sync records success or failure in `sync_status`. The footer's sync indicator reads that and turns amber with the reason when the last attempt failed. Timestamps are ISO 8601 UTC with a `Z` suffix throughout; nothing a browser parses ever comes from SQLite's `datetime('now')`.
 
@@ -34,6 +35,10 @@ All under `app/api/`. The dashboard polls the read routes; the write routes exis
 | `/api/calendar/create` | POST   | Create a Google event (gated)                                          |
 | `/api/calendar/update` | POST   | Edit via `events.patch` (gated; recurring occurrences 409)             |
 | `/api/calendar/delete` | POST   | Delete (gated; recurring 409; idempotent)                              |
+| `/api/todos`           | GET    | Cached to-dos for a board's project                                    |
+| `/api/todos/create`    | POST   | Add a task to Todoist                                                  |
+| `/api/todos/complete`  | POST   | Close a task                                                           |
+| `/api/todos/reopen`    | POST   | Reopen one, for the tick that was a mis-tap                            |
 
 `isCalendarWriteEnabled()` in `lib/config` is the single gate for the OAuth scope, the write routes, the "+ Add event" button, and click-to-edit.
 
@@ -45,11 +50,30 @@ Recurring occurrences are blocked from edit and delete, in the UI and again in t
 
 ## Auth
 
-A single six-digit PIN for the household, checked by `POST /api/auth`. Success sets an HMAC-SHA256 signed cookie (`lib/auth/session.ts`, Web Crypto). Sessions last 30 days and renew on use after 7, so an always-on kiosk never logs out. `proxy.ts` (the Next.js 16 name for middleware) gates every page and API route on that cookie.
+A six-digit PIN checked by `POST /api/auth`. Success sets an HMAC-SHA256 signed cookie (`lib/auth/session.ts`, Web Crypto). Sessions last 30 days and renew on use after 7, so an always-on kiosk never logs out. `proxy.ts` (the Next.js 16 name for middleware) gates every page and API route on that cookie.
+
+The household PIN from `auth.pin` opens everything. A board may also declare its own `pin`, and a session minted with it is stamped with that board and opens only that board: the code a kid types on her bedroom panel is not the code that opens the kitchen wall, and it reaches neither `/setup` nor the OAuth routes. `lib/auth/board-access.ts` enforces the stamp.
+
+An unstamped session opens everything, and that is deliberate rather than an oversight. The household PIN mints one on purpose: it keeps every cookie issued before per-board PINs existed working, which is why the family board's own case must never be stamped.
 
 PIN attempts are rate-limited per client IP in memory (`lib/auth/rate-limit.ts`). Behind a reverse proxy the limiter keys on `X-Real-IP`, which is why the nginx config in [deployment.md](deployment.md) is careful about which header it forwards.
 
 `DEV_AUTH_BYPASS=1` skips the gate in development only; production builds ignore it.
+
+## Boards
+
+One install serves any number of screens off the same database, sync, and Google connection. A **board** is one configured screen.
+
+The **family board** is the kitchen wall: the dense layout the app has always had, served at `/`, built straight from the top-level config. A **personal board** is one person's 10" touch panel, served at `/b/<slug>` or at its own hostname when it declares a `host`. Hostname resolution happens in the page rather than the proxy, because middleware runs on the Edge runtime and cannot read a config file off disk.
+
+A board is an override layer, never a replacement. It can replace a top-level value and can never supply a base one, so a config with no `boards` key resolves to exactly the values the wall used before boards existed. That is enforced by the shape of the thing rather than by anyone remembering. `lib/config/boards.ts` resolves it.
+
+- A calendar marked `hidden` still syncs but reaches only a board that names it, which is how a kid's private room calendar stays off the kitchen wall while still having data behind it.
+- Both grids are bounded by `scopeToCalendars`. The sync no longer fetches exactly what the wall draws, so an unbounded grid would leak a hidden calendar onto it.
+
+A personal board owns its own chrome and shares only the presentational grids. It renders `WeekRow` and `MonthWeek` unchanged, so there is one definition of a week and a month house-wide, and it shares the measuring modules and the write routes. It never shares a form or a footer: bending `EventModal` around a second set of constraints is how the family board gets broken. Nothing on it takes text focus either, because an `<input>` invites a platform keyboard the Pi cannot show. The drawn on-screen keyboard writes into a `div`.
+
+Every key is in [configuration.md](configuration.md#boards); the layout side is in [calendar.md](calendar.md#what-a-personal-board-borrows-personalweek-personalmonth).
 
 ## Google OAuth
 
@@ -97,9 +121,11 @@ One trap: those subsets claim the digits `0-9` (keycap bases). The emoji face mu
 
 Weather icons are inline SVGs for the same reason (`lib/weather/weather-icon-svgs.ts`, regenerated by `npm run weather-icons`).
 
+Event-title icons take a third approach. Font Awesome Free ships as a server dependency, and the board looks up only the handful of glyphs a config names, handing the browser their path data. The catalogue never reaches the client, and adding a rule is a config edit and a restart rather than a rebuild. Font Awesome's own SVG-replacement script would not work here: it rewrites `<i>` into `<svg>` after the document renders, and the week grid measures event rows before paint, so every cell's `+N more` would be computed against rows that had not grown their icons yet. See [configuration.md](configuration.md#event-title-icons).
+
 ## Database
 
-SQLite via better-sqlite3, WAL mode, migrated on boot from `lib/db/migrations/`. Tables: `calendar_events` (cache), `weather_cache`, `oauth_tokens`, `sync_status`. The OAuth refresh token is the only thing in it that can't be regenerated by a sync.
+SQLite via better-sqlite3, WAL mode, migrated on boot from `lib/db/migrations/`. Tables: `calendar_events`, `weather_cache`, `todos`, `sync_status` (all caches), plus `oauth_tokens`. The refresh token is the only thing in the database that a sync can't regenerate, which is what makes it the one row worth backing up.
 
 Tests never touch the default path: `getDb()` refuses `data/homehq.db` under Vitest and tests open temp files via `_setDefaultDb()`. (That guard exists because a fixture once wiped a live refresh token.)
 
@@ -109,23 +135,30 @@ Tests never touch the default path: `getDb()` refuses `data/homehq.db` under Vit
 proxy.ts                 auth gate
 instrumentation.ts       starts the two sync schedulers
 app/
-  page.tsx               the dashboard (TopBar + CalendarView)
+  page.tsx               whichever board this hostname resolves to
+  b/[slug]/              a board by URL path
   login/  setup/         PIN entry, Google connect
   api/                   routes listed above
 components/
-  calendar/              CalendarView, CalendarGrid, WeekRow, EventItem,
+  board/                 FamilyBoard, PersonalBoard + PersonalShell and its
+                         columns, sheets, and on-screen keyboard
+  calendar/              CalendarView, CalendarGrid, WeekRow, EventItem, EventTitle,
                          MonthGrid/MonthWeek/MonthDayPopover, CalendarFooter,
                          EventModal, CalendarPicker, *-utils.ts
   clock/  weather/  dashboard/
 lib/
-  auth/                  session cookie, rate limiter
-  calendar/              event-links (what counts as one event), event-timing (form validation)
-  config/                config.json loader + isCalendarWriteEnabled
+  auth/                  session cookie, rate limiter, per-board access
+  calendar/              event-links (what counts as one event), event-timing (form
+                         validation), title-rules + title-icons (title icons)
+  config/                config.json loader, board resolution, isCalendarWriteEnabled
   db/                    SQLite setup, migrations, queries
   google/                Calendar API client, OAuth, sync
+  todoist/               Todoist client and sync
   weather/               Open-Meteo client, WMO code map, sync, icon SVGs
   version.ts             build token
 styles/                  tokens, base, per-area stylesheets
-scripts/                 deploy.sh, kiosk-reload.sh, asset generators
-data/                    config.json + homehq.db (gitignored), config.example.json
+scripts/                 deploy.sh, kiosk-reload.sh, config-sync.sh, cf-dns.sh,
+                         asset generators
+data/                    config.json, homehq.db, icons/ (gitignored),
+                         config.example.json
 ```

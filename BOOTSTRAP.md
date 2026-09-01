@@ -52,16 +52,17 @@ To see the app on the actual display before the server exists, point a Pi's Chro
 
 Everything in `data/` except the example config is gitignored.
 
-| File                       | Created by     | Notes                                          |
-| -------------------------- | -------------- | ---------------------------------------------- |
-| `data/config.json`         | you            | Copy from the example                          |
-| `data/config.example.json` | committed      | The template; edit your copy, not this         |
-| `data/homehq.db`           | app at runtime | SQLite, WAL mode, migrated on first run        |
-| `data/deploy-version`      | deploy script  | Build token the kiosk polls (see architecture) |
+| File                       | Created by     | Notes                                                        |
+| -------------------------- | -------------- | ------------------------------------------------------------ |
+| `data/config.json`         | you            | Copy from the example                                        |
+| `data/config.example.json` | committed      | The template; edit your copy, not this                       |
+| `data/homehq.db`           | app at runtime | SQLite, WAL mode, migrated on first run                      |
+| `data/deploy-version`      | deploy script  | Build token the kiosk polls (see architecture)               |
+| `data/icons/`              | you, if needed | SVGs for `local:` title icons, for glyphs Font Awesome lacks |
 
 ## Troubleshooting
 
-**Config errors on startup.** The app validates `config.json` on load and the error names the field. Common ones: file missing (copy the example), PIN not a six-digit string, `display.weatherIcons` not one of the four sets, `display.timezone` not a valid IANA zone. In production the example PIN `123456` is refused outright.
+**Config errors on startup.** The app validates `config.json` on load and the error names the field. Common ones: file missing (copy the example), PIN not a six-digit string, `display.weatherIcons` not one of the four sets, `display.timezone` not a valid IANA zone, and a `display.titleIcons` rule naming an icon the build doesn't have (the error lists the nearest matches). In production the example PIN `123456` is refused outright.
 
 **`next build` fails with `useContext` or `<Html>` errors.** `NODE_ENV=development` is set in your shell profile. Next sets it itself; remove yours (`echo $NODE_ENV` to check) and open a new terminal.
 

@@ -80,6 +80,21 @@ What they do not share is the chrome or the forms. Each owns its own header, pag
 
 Sizing overrides live under `.pb-view` in `personal.css`; `calendar.css` and `month.css` are untouched, which is what keeps the wall unmoved by construction.
 
+## Event-title icons
+
+`display.titleIcons` rewrites a title as a glyph plus the rest, in the grids only. `Dropoff Alex` draws as a car and the name. Every key is in [configuration.md](configuration.md#event-title-icons). What follows is how it stays out of the way of everything above.
+
+The matching is pure and lives in `lib/calendar/title-rules.ts`. A title that matches no rule returns the bare string, which every call site then renders as the same text node it always did, so the default wall render cannot have moved. The glyph is resolved server-side in `title-icons.ts` and travels down as path data; Font Awesome's catalogue never reaches the browser.
+
+Nothing is rewritten in the database, at sync, or on the way back to Google. `event-links.ts` joins `summary` into the key that decides what counts as one event, so a rewritten title would make the read side and the write side disagree and insert a third copy. Tooltips and both event forms show what was typed.
+
+Two layout traps, both found by measuring rather than by thinking about it:
+
+- `base.css` resets `svg` to `display: block` so icons don't pick up baseline whitespace. A block inside a title takes a line of its own, which grew `.cal-band-bar` from 29.5px to 47px against a 29.5px spacer and slid the entire band overlay off its lanes. `.cal-title-icon` is `inline-block`, `0.875em`, at `vertical-align: -0.1em`, which fits inside the line box Inter already makes at every leading here.
+- Font Awesome's viewBoxes are not square. Fitting `car-side` (640×512) and `phone` (512×512) into the same square box matched their widths and drew the car 30% shorter. The box is fixed-width so the gutter still lines up, and the svg inside is sized by height, out of flow, free to overhang into the gap.
+
+An icon shortens a title, which can pull a two-line row onto one line and let a cell fit another event. The hidden measurement layer therefore has to render the rules too, or it measures rows the grid isn't drawing and crops cells that had room.
+
 ## Footer (`CalendarFooter`)
 
 One shared component renders the bottom bar in both views so the controls hold identical positions. Its top rule is an inset box-shadow rather than a `border-top`, because a border is part of the box: it would take a pixel off `.cal-weeks` and shift every week track, which is exactly what used to make month view's grid 1px shorter than the wall's back when only it drew the rule. Week view never had a real rule at all — what looked like one was the fractional remainder of `.cal-weeks` showing under the last row, a 0.06 device-pixel hairline that came and went with the viewport height. Left to right: the legend (which is also the filter, with a chevron to collapse it), the view switcher, **+ Add event** (read-write only), and view-specific extras (week view's expand toggle). On the right: the sync indicator and a reload button that calls `window.location.reload()`. The reload button is a no-confirm escape hatch for when the long-lived page gets weird and nobody's on site; it also picks up the latest deploy.
@@ -95,7 +110,7 @@ Two copies of one event (see [architecture.md](architecture.md#shared-events-and
 Paint lives in `event-paint.ts` with every knob a CSS variable in `styles/calendar.css`:
 
 - All-day bar: forward-slash stripes of the two colours. `--cal-stripe` is the period in `em` so it scales; `--cal-stripe-angle` is **135deg** because a gradient angle names the gradient line and the bands run perpendicular to it (45deg draws a backslash).
-- Timed event: a tighter banding (`--cal-stripe-accent`) on the ~1px accent sliver. A 50/50 split there reads as one colour.
+- Timed event: a doubled-width rail (`.cal-event--shared` sets `--cal-event-rail-w` to `0.4rem`) carrying a tight barber-pole banding, `--cal-stripe-accent`. Two things had to change together. The rail is now the row's only per-calendar colour, since the start time used to be tinted too and dropping that is what let the rail get wide enough to read across a kitchen; and a diagonal needs some width to travel across, so a shared row doubles it. At the full period the rail shows one flat band and reads as a single colour. The row's left padding derives from the rail width, so the text slides over with it and keeps its gap: a shared title has about 0.2rem less width and can wrap a line earlier, which is accepted because the distinctness is worth more than the rare extra line.
 - Month chip: two whole dots rather than one split circle. A split circle is a muddy blob when the two hues are close.
 
 The all-day fill is the only surface where text sits on the colour, so it gets `.cal-band-label`, a dark scrim, which frees the fill from having to pick one contrast colour for two hues. The scrim must stay `display: inline`: `inline-block` sizes the line box from its own padded height, makes a shared bar taller than its invisible spacer, and drifts the whole band overlay off the lanes each day reserved. Its vertical padding must stay symmetric; re-measure if the band's font-size or line-height changes.

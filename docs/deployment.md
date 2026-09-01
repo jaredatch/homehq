@@ -275,6 +275,27 @@ The validation is the app's own: config is checked on load, so a live request af
 is a real test of the file you just pushed. That's why a failure rolls back rather than leaving
 you to notice later.
 
+### Adding a screen
+
+A new board is a `boards` block in `config.json` and a DNS record. Nginx and TLS already handle
+unknown subdomains, so nothing on the droplet changes.
+
+1. Add the board to your local `config.json` (see
+   [configuration.md](configuration.md#boards)). Give it a `host`, its own `pin`, and the
+   calendars it should see. A calendar marked `hidden` syncs but reaches only a board that names
+   it, which is how a private room calendar stays off the kitchen wall.
+2. Point the subdomain at the droplet: `./scripts/cf-dns.sh add kidb`, which reuses the IP an
+   existing record points at, or pass one explicitly. `list` shows the zone. Credentials live in
+   a gitignored `private/cloudflare.env` (a `Zone:DNS:Edit` + `Zone:Zone:Read` token, the zone
+   name, and optionally the zone id). There is deliberately no `delete`: taking a screen off the
+   network should be a decision made where you can see what you're pointing at.
+3. `./scripts/config-sync.sh push`. It backs up, restarts, health-checks, and rolls back if the
+   new config doesn't boot.
+4. Point the screen at `https://<host>/` and enter that board's PIN once.
+
+`/b/<slug>` works without any DNS at all, so a panel on the LAN can use
+`http://homehq.local:3000/b/kidb` and skip steps 2 and 4's hostname entirely.
+
 ### Backups
 
 Everything worth backing up lives in three files: `data/homehq.db` (the OAuth refresh token

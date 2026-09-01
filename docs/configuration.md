@@ -61,6 +61,8 @@ Weather comes from [Open-Meteo](https://open-meteo.com/), which needs no API key
 | `timezone`               | browser   | IANA zone (`America/Chicago`). Pins the clock and all event times to one zone regardless of the kiosk's OS clock. Leave unset to use the browser's zone. |
 | `weatherIcons`           | `lucide`  | `lucide` · `meteocons` · `weather-icons` · `emoji`. The first three are self-hosted SVGs. See [Weather icons](#weather-icons).                           |
 | `todayColor`             | `#60a5fa` | Colour of today's marker dot.                                                                                                                            |
+| `titleIcons`             | unset     | Rules that draw an event's title as an icon plus the rest, in the calendar grids only. See [Event-title icons](#event-title-icons).                      |
+| `titleIconColor`         | unset     | Default colour for those icons: any CSS colour, or `calendar` for the event's own calendar colour. Unset means they take the title's colour.             |
 | `expandResetSeconds`     | `300`     | How long "expand next week" stays up before the wall snaps back. `0` disables.                                                                           |
 | `createFormResetSeconds` | `120`     | How long an idle event form stays open before it closes itself. `0` disables.                                                                            |
 | `monthViewResetSeconds`  | `180`     | How long month view stays up when idle before reverting to the week grid. `0` disables.                                                                  |
@@ -124,6 +126,65 @@ Ids in `calendars`, `ownCalendars`, `alwaysShow`, and `defaultCalendar` are all 
 **Reaching a board.** `/b/<slug>` always works, so a kiosk with no DNS of its own can point at `http://homehq.local:3000/b/kida`. Subdomains are a convenience on top: give a board a `host` and that hostname serves it at `/`.
 
 **PINs.** The household PIN opens everything, so a parent is never locked out. A board's own PIN opens only that board, and it can't reach `/setup` or the OAuth routes. Each hostname holds its own session cookie, so every screen is signed in once and stays that way.
+
+## Event-title icons
+
+`display.titleIcons` swaps recurring words in an event title for an icon, so `Dropoff Alex` draws as a car and the name. Repeated conventions end up with their glyphs stacked down the left of a column, which is much easier to pick out from across a room than the words were.
+
+```json
+"titleIcons": [
+  { "contains": ["🚖", "🚕", "🚗"], "icon": "solid:car-side" },
+  { "prefix": ["Drive to", "Dropoff", "Pickup", "Drive"], "icon": "solid:car-side" },
+  { "prefix": ["Call w/", "Call with", "Call"], "icon": "solid:phone" },
+  { "suffix": ["Appointment", "Appt"], "icon": "solid:user-clock" },
+  { "equals": "Trash day", "keep": true, "icon": "solid:trash-can" }
+]
+```
+
+Each rule sets exactly one match kind, and each takes a string or an array:
+
+| Kind       | Matches                |
+| ---------- | ---------------------- |
+| `equals`   | the whole title        |
+| `prefix`   | the start of the title |
+| `suffix`   | the end of the title   |
+| `contains` | anywhere in the title  |
+
+Matching ignores case, and a pattern that starts or ends in a letter needs a word boundary there. `Drive` catches `Drive Alex to practice` and leaves `Driveway repair` alone. An emoji needs no boundary, so `🚖Jamie` works as well as `🚖 Jamie`.
+
+The icon always goes at the front, and the matched words are dropped unless you set `keep: true`. `Dentist Appt` becomes the icon and `Dentist`; `Trash day` keeps its words and just gains a glyph. Leftover punctuation goes with the match, so `Dropoff: Alex` gives you `Alex` rather than `: Alex`. If dropping the match would leave the title empty, the words come back.
+
+Rules are tried in order and the first match wins. One icon per title. Within a single rule the longest pattern is tried first, so listing both `Drive to` and `Drive` gives you `Austin` from `Drive to Austin` no matter which order you wrote them in.
+
+### Naming an icon
+
+Font Awesome Free ships with the app, so any of its icons is a config edit away with no rebuild:
+
+- `solid:<name>` for the solid set, which is the one you want at wall sizes
+- `regular:<name>` for the outline set
+- `brands:<name>` for logos
+
+Browse names at [fontawesome.com/search](https://fontawesome.com/search?o=r&m=free). A name the build doesn't have makes the app refuse to start, with the nearest matches in the error, so a typo turns up at boot instead of as a wall quietly missing its glyphs.
+
+For anything Font Awesome lacks (there is no pig, though there is a cow, a horse and a tractor), drop an SVG into `data/icons/` and name it `local:<file>`. `data/icons/pig.svg` becomes `"icon": "local:pig"`. The file needs a `viewBox` and at least one `<path>`, and it has to be a solid outline rather than stroked line art. Line art turns to mush at chip size, the same way a mono emoji face did before this app shipped a colour one.
+
+### Colouring an icon
+
+By default an icon takes the colour of the title beside it. `display.titleIconColor` sets a different colour for all of them, and a rule's own `color` overrides that for one:
+
+```json
+{ "prefix": "Call", "icon": "solid:phone", "color": "#22d3ee" }
+```
+
+`"color": "calendar"` uses the event's own calendar colour, so a shared convention still tells you whose event it is. An event on two calendars has two colours and gets neither: painting it with the first would claim it belongs to one person, which is the opposite of what a shared event means. Those fall back to `titleIconColor`, so setting a neutral there and `"color": "calendar"` on the rules gives you rail-coloured icons everywhere except the shared rows, which stay neutral and stand out.
+
+All-day bars are the exception. Their background already _is_ the calendar colour, so an icon there keeps the bar's contrast text and ignores whatever colour you set. Otherwise it would either vanish into the bar or fail contrast the next time you retuned a palette.
+
+### What it does and does not touch
+
+HomeHQ rewrites a title as it draws it, and only in the calendar grids: the week grid, month view, the day popovers, and a personal board's rows. It never touches the database or anything sent back to Google. The event modal, the personal board's editor, and every hover tooltip show the title exactly as it was typed, so the original is always one hover away and editing an event never quietly renames it.
+
+Personal boards inherit the top-level rules and can override them per board like any other `display` key.
 
 ## Weather icons
 
