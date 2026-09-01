@@ -1,4 +1,6 @@
 import { eventTimeRangeParts } from './calendar-utils';
+import EventTitle from './EventTitle';
+import type { TitleIconSet } from '@/lib/calendar/title-rules';
 
 interface EventItemProps {
   event: {
@@ -24,6 +26,11 @@ interface EventItemProps {
    * Opacity only — it can never change the row's height, which the measurement
    * layer depends on. */
   past?: boolean;
+  /** Configured title-icon rules (display.titleIcons). Undefined draws the bare
+   * title, unchanged. MUST be passed to the hidden measurement layer's copy of
+   * this row as well: an icon can shorten a two-line title to one line, and a
+   * layer measuring un-iconed rows would crop cells that had room to spare. */
+  titleIcons?: TitleIconSet;
 }
 
 // Timed events only — all-day events render as spanning bars in WeekRow's band.
@@ -34,6 +41,7 @@ export default function EventItem({
   timeZone,
   onClick,
   past,
+  titleIcons,
 }: EventItemProps) {
   const interactive = !!onClick;
   const time = eventTimeRangeParts(event.start_time, event.end_time, timeZone);
@@ -83,7 +91,17 @@ export default function EventItem({
         <span className="cal-event-time-start">{time.start}</span>
         {` – ${time.end}`}
       </div>
-      <div className="cal-event-title">{event.summary || '(No title)'}</div>
+      <div className="cal-event-title">
+        <EventTitle
+          summary={event.summary}
+          icons={titleIcons}
+          // Withheld on a shared row: `accent` is set only when this event is on
+          // two calendars, and `color` is merely the FIRST of the pair. Handing
+          // it over would paint the glyph as one person's.
+          calendarColor={accent ? undefined : color}
+          empty="(No title)"
+        />
+      </div>
     </div>
   );
 }

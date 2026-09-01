@@ -38,7 +38,7 @@ If `DEV_AUTH_BYPASS=1` is set in your `.env`, plain `npm run dev` skips the PIN.
 3. **Never hit external APIs on render.** Browser reads the SQLite cache through API routes; only the schedulers in `instrumentation.ts` talk to Google/Open-Meteo.
 4. **Tests never open `data/homehq.db`.** `getDb()` refuses the default path under Vitest; use a temp path + `_setDefaultDb()`.
 5. **Timestamps are ISO 8601 UTC with `Z`.** Never SQLite's `datetime('now')` for anything a browser parses.
-6. **`lib/calendar/event-links.ts` is the one definition of "same event."** Grids merge with it and update/delete resolve siblings with it. A read/write disagreement inserts a third copy.
+6. **`lib/calendar/event-links.ts` is the one definition of "same event."** Grids merge with it and update/delete resolve siblings with it. A read/write disagreement inserts a third copy. Related: `display.titleIcons` rewrites a title only as it is DRAWN (`lib/calendar/title-rules.ts`, no match = the bare string, so the wall default is untouched). Never at sync, never in the DB, never in a modal or a tooltip — a rewritten `summary` would make the linking key disagree with itself.
 7. **Plain CSS only.** Tokens in `styles/tokens.css`, per-area prefixed stylesheets, `rem` everywhere except inside `.mon-calendar` (`em`). No Tailwind, no CSS Modules. CSS is tab-indented, TS two-space.
 8. **Font stack order.** Inter before the emoji face, or every digit on the wall becomes a keycap. `__tests__/emoji-font.test.ts` guards it.
 9. **`isCalendarWriteEnabled()`** is the single gate for the OAuth scope, the write routes, the button, and click-to-edit.
@@ -57,6 +57,7 @@ If `DEV_AUTH_BYPASS=1` is set in your `.env`, plain `npm run dev` skips the PIN.
 - Month view has no measurement layer by design. If it seems to need one, the design drifted.
 - A day popover mounts in `.cal-grid` / `.mon-calendar`, never in `.cal-weeks` / `.mon-grid` — those are `overflow: clip` and hold the measuring. The wall and month view each own their popover and share only `popoverLayout()`; `.mon-pop` is `em` against month view's `clamp()` font size and is not portable.
 - A grid's measuring is shared with the personal board; its **space policy is not**. The wall's anchor week, "expand next week", and the collapse rule live in `wall-layout.ts` (pure + unit-tested); a personal board just fills its one row.
+- An icon drawn inside a title must be `display: inline-block`. `base.css` resets `img, svg, video, canvas` to `display: block` so icons don't pick up baseline whitespace, and a block inside a title takes a line of its own: `.cal-band-bar` grew from 29.5px to 47px against a 29.5px spacer and the whole all-day overlay slid off its lanes. `.cal-title-icon` is 1em at `vertical-align: -0.125em`, which fits inside the line box Inter already makes at every leading here. Verified equal to the spacer at 1920x1080 and at the wall's 43.2px root.
 - `--cal-stripe-angle` is 135deg (45deg draws a backslash).
 - The footer's top rule is an inset box-shadow, never a `border-top` — a border would take a pixel off `.cal-weeks` and move every week track. And never size a grid track to `availH` in px: it comes from `clientHeight` (a rounded integer), so the container's fractional remainder shows as a sub-pixel hairline. The last track takes `1fr`.
 

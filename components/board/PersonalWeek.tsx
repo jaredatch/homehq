@@ -25,6 +25,7 @@ import {
 import type { CalendarConfig } from '@/lib/config/types';
 import PersonalSheet from './PersonalSheet';
 import PersonalEventRow from './PersonalEventRow';
+import type { TitleIconSet } from '@/lib/calendar/title-rules';
 import { agendaLabel } from './personal-utils';
 
 interface PersonalWeekProps {
@@ -50,6 +51,9 @@ interface PersonalWeekProps {
   onClose: () => void;
   /** Idle auto-revert back to the three columns (ms). 0 disables. */
   resetMs: number;
+  /** Configured title-icon rules (display.titleIcons), resolved server-side.
+   * Undefined draws every title as the bare text node it always was. */
+  titleIcons?: TitleIconSet;
 }
 
 const POLL_INTERVAL_MS = 60_000;
@@ -106,6 +110,7 @@ export default function PersonalWeek({
   onViewMonth,
   onClose,
   resetMs,
+  titleIcons,
 }: PersonalWeekProps) {
   const [events, setEvents] = useState<CalendarEvent[]>([]);
   const [sync, setSync] = useState<SyncStatus>({
@@ -350,6 +355,7 @@ export default function PersonalWeek({
                 onMoreClick={(_wi, date) => setOpenDay(date)}
                 moreTitle={(date) => `Everything on ${agendaLabel(date, today)}`}
                 onEventClick={(event) => onOpenEvent(event, events)}
+                titleIcons={titleIcons}
               />
             );
           })}
@@ -370,6 +376,9 @@ export default function PersonalWeek({
                         color={paint.primary}
                         accent={paint.shared ? accentStripes(paint.colors) : undefined}
                         timeZone={timezone}
+                        // The measurement layer draws the same rows the grid
+                        // does, icons included — see CalendarGrid's copy.
+                        titleIcons={titleIcons}
                       />
                     );
                   })}
@@ -421,6 +430,7 @@ export default function PersonalWeek({
                   setOpenDay(null);
                   onOpenEvent(e, events);
                 }}
+                titleIcons={titleIcons}
               />
             ))}
           </ul>

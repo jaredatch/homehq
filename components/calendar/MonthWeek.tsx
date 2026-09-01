@@ -7,6 +7,8 @@ import {
 } from './calendar-utils';
 import { isAdjacentMonth, shortMonthName } from './month-utils';
 import { eventPaint, stripes } from './event-paint';
+import EventTitle from './EventTitle';
+import type { TitleIconSet } from '@/lib/calendar/title-rules';
 
 interface MonthWeekProps {
   weekDays: string[]; // 7 date strings (YYYY-MM-DD)
@@ -37,6 +39,9 @@ interface MonthWeekProps {
    * and a day already full of events can still take one more. Omitted in
    * read-only deployments. */
   onDayClick?: (date: string) => void;
+  /** Configured title-icon rules (display.titleIcons). Undefined draws every
+   * chip and bar with the bare title it always had. */
+  titleIcons?: TitleIconSet;
 }
 
 /**
@@ -63,6 +68,7 @@ export default function MonthWeek({
   onMoreClick,
   onEventClick,
   onDayClick,
+  titleIcons,
 }: MonthWeekProps) {
   return (
     <div className="mon-week">
@@ -186,7 +192,14 @@ export default function MonthWeek({
                         <span className="mon-chip-time">
                           {formatEventTime(event.start_time, timezone)}
                         </span>
-                        <span className="mon-chip-title">{event.summary || '(No title)'}</span>
+                        <span className="mon-chip-title">
+                          <EventTitle
+                            summary={event.summary}
+                            icons={titleIcons}
+                            calendarColor={paint.shared ? undefined : paint.primary}
+                            empty="(No title)"
+                          />
+                        </span>
                       </div>
                     );
                   })}
@@ -284,9 +297,21 @@ export default function MonthWeek({
                     )}
                     {/* Scrimmed only when shared — see WeekRow. */}
                     {paint.shared ? (
-                      <span className="cal-band-label">{seg.event.summary || '(No title)'}</span>
+                      <span className="cal-band-label">
+                        <EventTitle
+                          summary={seg.event.summary}
+                          icons={titleIcons}
+                          onFill
+                          empty="(No title)"
+                        />
+                      </span>
                     ) : (
-                      seg.event.summary || '(No title)'
+                      <EventTitle
+                        summary={seg.event.summary}
+                        icons={titleIcons}
+                        onFill
+                        empty="(No title)"
+                      />
                     )}
                     {!seg.event.all_day && (
                       <span className="mon-band-end">

@@ -5,6 +5,7 @@ import CalendarGrid from './CalendarGrid';
 import MonthGrid from './MonthGrid';
 import { useCalendarFilter, clearFilter } from './calendar-filter';
 import type { WeekStart } from './calendar-utils';
+import type { TitleIconSet } from '@/lib/calendar/title-rules';
 
 interface CalendarViewProps {
   calendars: { id: string; name: string; color: string; textColor?: string }[];
@@ -26,6 +27,11 @@ interface CalendarViewProps {
    * before auto-clearing to "show all" (ms). 0 disables. From
    * config.display.filterResetSeconds. */
   filterResetMs: number;
+  /** Configured title-icon rules (display.titleIcons), resolved server-side by
+   * the board so the browser is handed the handful of glyphs in use rather than
+   * Font Awesome's catalogue. Undefined = the feature is unconfigured and every
+   * title renders exactly the bare text node it always did. */
+  titleIcons?: TitleIconSet;
 }
 
 /**
@@ -109,6 +115,7 @@ export default function CalendarView({
         todayColor={gridProps.todayColor}
         calendarWriteEnabled={gridProps.calendarWriteEnabled}
         createFormResetMs={gridProps.createFormResetMs}
+        titleIcons={gridProps.titleIcons}
         onExit={exitMonth}
       />
     );

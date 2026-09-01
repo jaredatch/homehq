@@ -28,11 +28,52 @@
     "weekStartsOn": "monday",
     "weatherIcons": "lucide",
     "todayColor": "#60a5fa",
+    "titleIcons": [
+      {
+        "contains": [
+          "🚖",
+          "🚕",
+          "🚗"
+        ],
+        "icon": "solid:car-side"
+      },
+      {
+        "prefix": [
+          "Drive to",
+          "Dropoff",
+          "Pickup",
+          "Drive"
+        ],
+        "icon": "solid:car-side"
+      },
+      {
+        "prefix": [
+          "Call w/",
+          "Call with",
+          "Call"
+        ],
+        "icon": "solid:phone"
+      },
+      {
+        "suffix": [
+          "Appointment",
+          "Appt"
+        ],
+        "icon": "solid:user-clock"
+      },
+      {
+        "equals": "Trash day",
+        "keep": true,
+        "icon": "solid:trash-can",
+        "color": "calendar"
+      }
+    ],
     "timezone": "America/Chicago",
     "expandResetSeconds": 300,
     "createFormResetSeconds": 120,
     "monthViewResetSeconds": 180,
-    "filterResetSeconds": 300
+    "filterResetSeconds": 300,
+    "titleIconColor": "#d1d5dc"
   },
   "auth": {
     "pin": "123456"

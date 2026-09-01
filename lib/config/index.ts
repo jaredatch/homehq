@@ -1,5 +1,6 @@
 import { readFileSync } from 'fs';
 import { resolve } from 'path';
+import { lookupTitleIcon, suggestIcons } from '@/lib/calendar/title-icons';
 import type { AppConfig } from './types';
 
 const DEFAULT_CONFIG_PATH = resolve(process.cwd(), 'data/config.json');
@@ -52,6 +53,71 @@ function validateDisplayKeys(d: Record<string, unknown>, label: string): void {
       throw new Error(`Config: ${label}.timezone "${d.timezone}" is not a valid IANA time zone`);
     }
   }
+  validateTitleIcons(d, label);
+}
+
+/** The four ways a title icon rule can match. Exactly one per rule. */
+const MATCH_KINDS = ['equals', 'prefix', 'suffix', 'contains'] as const;
+
+/**
+ * Validate `display.titleIcons`. Everything here fails at config LOAD rather
+ * than at render, and that placement is the whole safety net: `config-sync.sh`
+ * pushes `config.json` on its own, health-checks the box and rolls back on a
+ * bad boot. A typo'd icon name caught here rolls back; the same typo caught at
+ * render is a wall quietly missing its glyphs until somebody walks past.
+ */
+function validateTitleIcons(d: Record<string, unknown>, label: string): void {
+  if (d.titleIconColor !== undefined && typeof d.titleIconColor !== 'string') {
+    throw new Error(`Config: ${label}.titleIconColor must be a CSS color string, or "calendar"`);
+  }
+  if (d.titleIcons === undefined) return;
+  if (!Array.isArray(d.titleIcons)) {
+    throw new Error(`Config: ${label}.titleIcons must be an array of rules`);
+  }
+
+  d.titleIcons.forEach((value, i) => {
+    const at = `${label}.titleIcons[${i}]`;
+    if (typeof value !== 'object' || value === null || Array.isArray(value)) {
+      throw new Error(`Config: ${at} must be an object`);
+    }
+    const rule = value as Record<string, unknown>;
+
+    const used = MATCH_KINDS.filter((k) => rule[k] !== undefined);
+    if (used.length !== 1) {
+      throw new Error(
+        `Config: ${at} must set exactly one of ${MATCH_KINDS.join(', ')} (found ${
+          used.length ? used.join(' + ') : 'none'
+        })`
+      );
+    }
+    const raw = rule[used[0]];
+    const list = Array.isArray(raw) ? raw : [raw];
+    if (!list.length || list.some((v) => typeof v !== 'string' || !v.trim())) {
+      throw new Error(`Config: ${at}.${used[0]} must be a non-empty string or array of them`);
+    }
+
+    if (typeof rule.icon !== 'string' || !rule.icon) {
+      throw new Error(
+        `Config: ${at}.icon must be an icon id — "solid:taxi", "regular:calendar", "brands:google", or "local:<file>" for data/icons/<file>.svg`
+      );
+    }
+    if (!lookupTitleIcon(rule.icon)) {
+      const near = suggestIcons(rule.icon);
+      throw new Error(
+        `Config: ${at}.icon "${rule.icon}" is not an icon this build has` +
+          (near.length ? ` — did you mean ${near.join(', ')}?` : '') +
+          (rule.icon.startsWith('local:')
+            ? ` (expected data/icons/${rule.icon.slice(6)}.svg to exist and contain a path)`
+            : '')
+      );
+    }
+    if (rule.color !== undefined && typeof rule.color !== 'string') {
+      throw new Error(`Config: ${at}.color must be a CSS color string, or "calendar"`);
+    }
+    if (rule.keep !== undefined && typeof rule.keep !== 'boolean') {
+      throw new Error(`Config: ${at}.keep must be true or false`);
+    }
+  });
 }
 
 /** Slugs become URL path segments (`/b/<slug>`), so keep them boring. */

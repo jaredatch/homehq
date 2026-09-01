@@ -405,6 +405,61 @@
 	color: var(--slate-400);
 }
 
+/* An event title's configured icon (display.titleIcons). One class for every
+   surface that draws a title -- the wall's timed rows and all-day bars, month
+   chips, the personal board's rows -- sized in `em` so each inherits it at its
+   own scale without knowing this exists.
+
+   THE HEIGHT IS LOAD-BEARING. On an all-day bar the icon shares a line box with
+   the title, and .cal-band-bar's height must stay exactly equal to its invisible
+   .cal-band-spacer or the whole absolute band overlay drifts off the lanes each
+   day reserved (see .cal-band-label). A 1em box nudged 0.125em below the
+   baseline sits entirely inside the box Inter's ascent and descent already make
+   at every leading this app uses, so it costs nothing. Grow it, or align it
+   `middle`, and you move the band.
+
+   `fill` lives on the path as currentColor, so a rule that names no colour
+   inherits whatever the title is already painted -- which is what keeps a glyph
+   legible on a calendar-coloured bar. */
+.cal-title-icon {
+	/* The reset in base.css makes every svg `display: block` so icons don't pick
+	   up baseline whitespace. A title icon is the one place that is wrong: a block
+	   here takes a line of its own, which grew .cal-band-bar from 29.5px to 47px
+	   against a 29.5px spacer and slid the entire all-day overlay off its lanes.
+	   It has to be back in the line box, explicitly. */
+	/* One knob for the glyph's size. A full 1em matched the line box but read as
+	   OVERSIZED against the text: Inter's cap height is ~0.73em, so a 1em glyph
+	   stands a quarter taller than the capitals beside it. 0.875em sits closer to
+	   cap height while staying comfortably inside the line box. */
+	--cal-title-icon-size: 0.875em;
+	display: inline-block;
+	position: relative;
+	width: var(--cal-title-icon-size);
+	height: var(--cal-title-icon-size);
+	/* Centres the glyph on the capitals rather than parking it on the baseline. */
+	vertical-align: -0.1em;
+	margin-inline-end: 0.45em;
+}
+
+/* Sized by HEIGHT, natural width, centred in the box above and free to overhang
+   it. Font Awesome's viewBoxes are not square (car-side 640x512, phone
+   512x512), so fitting each into the same square box matched their WIDTHS and
+   left the car drawn 30% shorter than the phone. Matching heights is what makes
+   a row of mixed icons look like one set.
+
+   Out of flow on purpose: the box keeps its exact --cal-title-icon-size height
+   whatever the glyph's aspect, which is what .cal-band-bar needs to stay equal
+   to its .cal-band-spacer. */
+.cal-title-icon svg {
+	position: absolute;
+	top: 0;
+	left: 50%;
+	transform: translateX(-50%);
+	height: 100%;
+	width: auto;
+	max-width: none;
+}
+
 .cal-event-title {
 	display: -webkit-box;
 	-webkit-box-orient: vertical;

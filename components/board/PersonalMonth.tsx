@@ -22,6 +22,7 @@ import { addMonths, monthGridDays, monthLabel, monthOf } from '@/components/cale
 import type { CalendarConfig } from '@/lib/config/types';
 import PersonalSheet from './PersonalSheet';
 import PersonalEventRow from './PersonalEventRow';
+import type { TitleIconSet } from '@/lib/calendar/title-rules';
 import { agendaLabel } from './personal-utils';
 
 interface PersonalMonthProps {
@@ -39,6 +40,9 @@ interface PersonalMonthProps {
   onClose: () => void;
   /** Idle auto-revert back to the three columns (ms). 0 disables. */
   resetMs: number;
+  /** Configured title-icon rules (display.titleIcons), resolved server-side.
+   * Undefined draws every title as the bare text node it always was. */
+  titleIcons?: TitleIconSet;
 }
 
 const POLL_INTERVAL_MS = 60_000;
@@ -68,6 +72,7 @@ export default function PersonalMonth({
   onViewWeek,
   onClose,
   resetMs,
+  titleIcons,
 }: PersonalMonthProps) {
   const [month, setMonth] = useState(() => monthOf(todayInZone(timezone)));
   const [events, setEvents] = useState<CalendarEvent[]>([]);
@@ -274,6 +279,7 @@ export default function PersonalMonth({
                 capacities={capacities}
                 timezone={timezone}
                 todayColor={todayColor}
+                titleIcons={titleIcons}
                 onMoreClick={(date) => setOpenDay(date)}
                 onEventClick={(event) => onOpenEvent(event, events)}
                 // No hover-"+" create: there is no hover on a touch panel, and
@@ -341,6 +347,7 @@ export default function PersonalMonth({
                   setOpenDay(null);
                   onOpenEvent(e, events);
                 }}
+                titleIcons={titleIcons}
               />
             ))}
           </ul>

@@ -1,4 +1,5 @@
 import { getDeployVersion } from '@/lib/version';
+import { resolveTitleIcons } from '@/lib/calendar/title-icons';
 import type { ResolvedBoard } from '@/lib/config/boards';
 import PersonalShell from './PersonalShell';
 
@@ -47,6 +48,10 @@ export default function PersonalBoard({ board }: { board: ResolvedBoard }) {
       weekStartsOn={display.weekStartsOn ?? 'monday'}
       todayColor={display.todayColor ?? '#60a5fa'}
       appVersion={getDeployVersion()}
+      // Resolved server-side, from this board's MERGED display block — so a
+      // personal board inherits the wall's conventions by default and can still
+      // override them the way it overrides any other display key.
+      titleIcons={resolveTitleIcons(display)}
     />
   );
 }

@@ -8,6 +8,7 @@ import { calendarIdsForEvent, isMembershipLocked, mergeGroups } from './event-gr
 import MonthDayPopover from './MonthDayPopover';
 import MonthWeek from './MonthWeek';
 import { monthCapacityByDay, useMonthGridMetrics } from './month-metrics';
+import type { TitleIconSet } from '@/lib/calendar/title-rules';
 import {
   addDays,
   assignEventsToDays,
@@ -47,6 +48,9 @@ interface MonthGridProps {
   /** Leave month view — back to the wall's week grid. Wired to the header
    * button and Esc; CalendarView flips viewMode back to 'week'. */
   onExit: () => void;
+  /** Configured title-icon rules (display.titleIcons). Undefined draws every
+   * chip and bar with the bare title it always had. */
+  titleIcons?: TitleIconSet;
 }
 
 const POLL_INTERVAL_MS = 60_000;
@@ -59,6 +63,7 @@ export default function MonthGrid({
   calendarWriteEnabled,
   createFormResetMs,
   onExit,
+  titleIcons,
 }: MonthGridProps) {
   // The month being shown. Owned here, never persisted — month view itself is
   // ephemeral (CalendarView unmounts it on exit), so a fresh entry always
@@ -322,6 +327,7 @@ export default function MonthGrid({
                 onMoreClick={openDayPopover}
                 onEventClick={calendarWriteEnabled ? handleEventClick : undefined}
                 onDayClick={calendarWriteEnabled ? handleDayClick : undefined}
+                titleIcons={titleIcons}
               />
             );
           })}
@@ -365,6 +371,7 @@ export default function MonthGrid({
             todayColor={todayColor}
             onClose={() => setPopover(null)}
             onEventClick={calendarWriteEnabled ? handleEventClick : undefined}
+            titleIcons={titleIcons}
           />
         )}
       </div>

@@ -7,6 +7,8 @@ import {
   type CalendarEvent,
 } from './calendar-utils';
 import { accentStripes, eventPaint, stripes } from './event-paint';
+import EventTitle from './EventTitle';
+import type { TitleIconSet } from '@/lib/calendar/title-rules';
 
 interface WeekRowProps {
   weekDays: string[]; // 7 date strings (YYYY-MM-DD)
@@ -43,6 +45,9 @@ interface WeekRowProps {
   /** When set, events are clickable and open the edit modal. Omitted in
    * read-only deployments, so events stay inert there. */
   onEventClick?: (event: CalendarEvent) => void;
+  /** Configured title-icon rules (display.titleIcons). Undefined draws every
+   * title as the bare text node it always was. */
+  titleIcons?: TitleIconSet;
 }
 
 const MONTH_NAMES = [
@@ -81,6 +86,7 @@ export default function WeekRow({
   onMoreClick,
   moreTitle,
   onEventClick,
+  titleIcons,
 }: WeekRowProps) {
   return (
     <div className="cal-week">
@@ -180,6 +186,7 @@ export default function WeekRow({
                         timeZone={timezone}
                         past={dimFinished && isFinished(event, now)}
                         onClick={onEventClick ? () => onEventClick(event) : undefined}
+                        titleIcons={titleIcons}
                       />
                     );
                   })}
@@ -273,9 +280,21 @@ export default function WeekRow({
                         stripes. Wrapped ONLY when shared — an ordinary bar keeps
                         its bare text node, so its DOM is unchanged. */}
                     {paint.shared ? (
-                      <span className="cal-band-label">{seg.event.summary || '(No title)'}</span>
+                      <span className="cal-band-label">
+                        <EventTitle
+                          summary={seg.event.summary}
+                          icons={titleIcons}
+                          onFill
+                          empty="(No title)"
+                        />
+                      </span>
                     ) : (
-                      seg.event.summary || '(No title)'
+                      <EventTitle
+                        summary={seg.event.summary}
+                        icons={titleIcons}
+                        onFill
+                        empty="(No title)"
+                      />
                     )}
                     {!seg.event.all_day && (
                       <span className="cal-band-end">

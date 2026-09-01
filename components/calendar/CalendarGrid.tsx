@@ -11,6 +11,7 @@ import { useMinuteTick } from '@/components/clock/use-minute';
 import { useCalendarFilter, filterEvents, scopeToCalendars } from './calendar-filter';
 import { useWeekGridMetrics } from './week-metrics';
 import { planWallWeeks } from './wall-layout';
+import type { TitleIconSet } from '@/lib/calendar/title-rules';
 import DayPopover, { dayPopoverBox, type DayPopoverBox } from './DayPopover';
 import {
   assignEventsToDays,
@@ -52,6 +53,9 @@ interface CalendarGridProps {
    * the grid itself stays view-agnostic — CalendarView owns the mode switch;
    * without it the footer renders exactly as before month view existed. */
   onMonthClick?: () => void;
+  /** Configured title-icon rules (display.titleIcons), resolved server-side.
+   * Undefined draws every title exactly as it always was. */
+  titleIcons?: TitleIconSet;
 }
 
 const POLL_INTERVAL_MS = 60_000;
@@ -67,6 +71,7 @@ export default function CalendarGrid({
   createFormResetMs,
   appVersion,
   onMonthClick,
+  titleIcons,
 }: CalendarGridProps) {
   const [events, setEvents] = useState<CalendarEvent[]>([]);
   const [sync, setSync] = useState<SyncStatus>({
@@ -417,6 +422,7 @@ export default function CalendarGrid({
                   : 'Expand next week to show all its events'
               }
               onEventClick={calendarWriteEnabled ? handleEventClick : undefined}
+              titleIcons={titleIcons}
             />
           );
         })}
@@ -439,6 +445,10 @@ export default function CalendarGrid({
                       color={paint.primary}
                       accent={paint.shared ? accentStripes(paint.colors) : undefined}
                       timeZone={timezone}
+                      // Same rules as the visible rows, deliberately: an icon can
+                      // pull a two-line title onto one line, and a layer that
+                      // measured un-iconed rows would crop cells with room left.
+                      titleIcons={titleIcons}
                     />
                   );
                 })}
@@ -465,6 +475,7 @@ export default function CalendarGrid({
           now={now}
           onClose={() => setPopover(null)}
           onEventClick={calendarWriteEnabled ? handleEventClick : undefined}
+          titleIcons={titleIcons}
         />
       )}
 

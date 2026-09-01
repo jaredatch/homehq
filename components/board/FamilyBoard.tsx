@@ -1,6 +1,7 @@
 import TopBar from '@/components/dashboard/TopBar';
 import CalendarView from '@/components/calendar/CalendarView';
 import { getDeployVersion } from '@/lib/version';
+import { resolveTitleIcons } from '@/lib/calendar/title-icons';
 import type { ResolvedBoard } from '@/lib/config/boards';
 
 /**
@@ -16,6 +17,9 @@ export default function FamilyBoard({ board }: { board: ResolvedBoard }) {
   // Stamp the page with the build it was served by; the grid reloads itself when
   // the server later reports a different one (a deploy or a manual kiosk-reload).
   const appVersion = getDeployVersion();
+  // Resolved HERE, on the server, where Font Awesome's catalogue already lives:
+  // the browser is handed the few glyphs this config names and never the pack.
+  const titleIcons = resolveTitleIcons(display);
 
   return (
     <div className="app-shell">
@@ -37,6 +41,7 @@ export default function FamilyBoard({ board }: { board: ResolvedBoard }) {
           appVersion={appVersion}
           monthViewResetMs={(display.monthViewResetSeconds ?? 180) * 1000}
           filterResetMs={(display.filterResetSeconds ?? 300) * 1000}
+          titleIcons={titleIcons}
         />
       </main>
     </div>

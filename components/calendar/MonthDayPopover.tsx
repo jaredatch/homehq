@@ -1,6 +1,8 @@
 import { contrastText, formatEventTime, type CalendarEvent } from './calendar-utils';
 import { weekdayShortOf, type PopoverBox } from './month-utils';
 import { eventPaint, stripes } from './event-paint';
+import EventTitle from './EventTitle';
+import type { TitleIconSet } from '@/lib/calendar/title-rules';
 
 interface MonthDayPopoverProps {
   date: string; // YYYY-MM-DD
@@ -18,6 +20,9 @@ interface MonthDayPopoverProps {
   /** When set, rows are clickable and open the edit modal. Omitted in
    * read-only deployments — the popover is a read surface there. */
   onEventClick?: (event: CalendarEvent) => void;
+  /** Configured title-icon rules (display.titleIcons), so the card matches the
+   * grid it floats over. */
+  titleIcons?: TitleIconSet;
 }
 
 /**
@@ -41,6 +46,7 @@ export default function MonthDayPopover({
   todayColor,
   onClose,
   onEventClick,
+  titleIcons,
 }: MonthDayPopoverProps) {
   const dayNum = Number(date.slice(8, 10));
   const isPastDay = date < today;
@@ -108,9 +114,16 @@ export default function MonthDayPopover({
               {...rowProps(event)}
             >
               {paint.shared ? (
-                <span className="cal-band-label">{event.summary || '(No title)'}</span>
+                <span className="cal-band-label">
+                  <EventTitle
+                    summary={event.summary}
+                    icons={titleIcons}
+                    onFill
+                    empty="(No title)"
+                  />
+                </span>
               ) : (
-                event.summary || '(No title)'
+                <EventTitle summary={event.summary} icons={titleIcons} onFill empty="(No title)" />
               )}
             </div>
           );
@@ -139,7 +152,14 @@ export default function MonthDayPopover({
                 />
               )}
               <span className="mon-chip-time">{formatEventTime(event.start_time, timezone)}</span>
-              <span className="mon-chip-title">{event.summary || '(No title)'}</span>
+              <span className="mon-chip-title">
+                <EventTitle
+                  summary={event.summary}
+                  icons={titleIcons}
+                  calendarColor={paint.shared ? undefined : paint.primary}
+                  empty="(No title)"
+                />
+              </span>
             </div>
           );
         })}

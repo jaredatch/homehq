@@ -1,4 +1,5 @@
 import EventItem from './EventItem';
+import type { TitleIconSet } from '@/lib/calendar/title-rules';
 import { accentStripes, eventPaint } from './event-paint';
 import { contrastText, isFinished, type CalendarEvent } from './calendar-utils';
 import { weekdayShortOf } from './month-utils';
@@ -62,6 +63,9 @@ interface DayPopoverProps {
   /** When set, rows open the edit modal. Omitted in read-only deployments —
    * the popover is a read surface there, as in month view. */
   onEventClick?: (event: CalendarEvent) => void;
+  /** Configured title-icon rules (display.titleIcons), so the card reads as the
+   * cell it came from rather than as a different surface. */
+  titleIcons?: TitleIconSet;
 }
 
 /**
@@ -103,6 +107,7 @@ export default function DayPopover({
   now,
   onClose,
   onEventClick,
+  titleIcons,
 }: DayPopoverProps) {
   const dayNum = Number(date.slice(8, 10));
   const isPastDay = date < today;
@@ -156,6 +161,7 @@ export default function DayPopover({
               timeZone={timezone}
               past={isToday && now > 0 && isFinished(event, now)}
               onClick={onEventClick ? () => onEventClick(event) : undefined}
+              titleIcons={titleIcons}
             />
           );
         })}

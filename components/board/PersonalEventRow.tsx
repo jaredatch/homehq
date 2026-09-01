@@ -1,6 +1,8 @@
 'use client';
 
 import { eventPaint } from '@/components/calendar/event-paint';
+import EventTitle from '@/components/calendar/EventTitle';
+import type { TitleIconSet } from '@/lib/calendar/title-rules';
 import {
   formatEventTime,
   formatEventTimeRange,
@@ -26,6 +28,10 @@ export interface PersonalEventRowProps {
    * the client knows the time, so the server render never guesses. */
   now: number;
   onOpen: (event: CalendarEvent) => void;
+  /** Configured title-icon rules (display.titleIcons), merged with this board's
+   * own display overrides — a personal board draws the same conventions the
+   * kitchen wall does. */
+  titleIcons?: TitleIconSet;
 }
 
 /** The colour rail down the left of a row. A shared event carries two calendar
@@ -45,6 +51,7 @@ export default function PersonalEventRow({
   timezone,
   now,
   onOpen,
+  titleIcons,
 }: PersonalEventRowProps) {
   const paint = eventPaint(event, colorMap);
   const past = now > 0 && isFinished(event, now);
@@ -70,7 +77,13 @@ export default function PersonalEventRow({
           {event.all_day ? 'All day' : formatEventTime(event.start_time, timezone)}
         </span>
         <span className="pb-event-body">
-          <span className="pb-event-title">{event.summary}</span>
+          <span className="pb-event-title">
+            <EventTitle
+              summary={event.summary}
+              icons={titleIcons}
+              calendarColor={paint.shared ? undefined : paint.primary}
+            />
+          </span>
           {meta && <span className="pb-event-meta">{meta}</span>}
         </span>
       </button>

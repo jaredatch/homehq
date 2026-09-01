@@ -14,6 +14,7 @@ import type { WeatherData } from '@/lib/weather/types';
 import type { CalendarConfig, WeatherIconSet } from '@/lib/config/types';
 import { buildAgenda, canEditEvent, eventTargets, personOptions } from './personal-utils';
 import PersonalUpcoming from './PersonalUpcoming';
+import type { TitleIconSet } from '@/lib/calendar/title-rules';
 import PersonalTodo from './PersonalTodo';
 import PersonalStatus from './PersonalStatus';
 import PersonalEventSheet from './PersonalEventSheet';
@@ -50,6 +51,9 @@ interface PersonalShellProps {
   /** Today's marker colour, shared with the wall's grids. */
   todayColor: string;
   appVersion: string;
+  /** Configured title-icon rules (display.titleIcons) with this board's own
+   * display overrides merged in, resolved server-side by PersonalBoard. */
+  titleIcons?: TitleIconSet;
 }
 
 const POLL_INTERVAL_MS = 60_000;
@@ -86,6 +90,7 @@ export default function PersonalShell({
   weekStartsOn,
   todayColor,
   appVersion,
+  titleIcons,
 }: PersonalShellProps) {
   const [events, setEvents] = useState<CalendarEvent[]>([]);
   const [sync, setSync] = useState<SyncStatus>({
@@ -268,6 +273,7 @@ export default function PersonalShell({
   return (
     <div className="pb" style={{ '--pb-accent': accent } as CSSProperties}>
       <PersonalUpcoming
+        titleIcons={titleIcons}
         days={days}
         colorMap={colorMap}
         timezone={timezone}
@@ -296,6 +302,7 @@ export default function PersonalShell({
 
       {view === 'week' && (
         <PersonalWeek
+          titleIcons={titleIcons}
           calendars={calendars}
           scopeIds={people[person]?.calendarIds ?? calendarOrder}
           weeks={calendarWeeks}
@@ -312,6 +319,7 @@ export default function PersonalShell({
 
       {view === 'month' && (
         <PersonalMonth
+          titleIcons={titleIcons}
           calendars={calendars}
           scopeIds={people[person]?.calendarIds ?? calendarOrder}
           weekStartsOn={weekStartsOn}

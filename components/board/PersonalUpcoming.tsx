@@ -2,6 +2,7 @@
 
 import type { CalendarEvent } from '@/components/calendar/calendar-utils';
 import PersonalEventRow from './PersonalEventRow';
+import type { TitleIconSet } from '@/lib/calendar/title-rules';
 import type { AgendaDay, PersonOption } from './personal-utils';
 
 interface PersonalUpcomingProps {
@@ -25,6 +26,9 @@ interface PersonalUpcomingProps {
   onViewWeek?: () => void;
   /** Opens the full-screen month. */
   onViewMonth?: () => void;
+  /** Configured title-icon rules (display.titleIcons), resolved server-side.
+   * Undefined draws every title as the bare text node it always was. */
+  titleIcons?: TitleIconSet;
 }
 
 /**
@@ -46,6 +50,7 @@ export default function PersonalUpcoming({
   onAddEvent,
   onViewWeek,
   onViewMonth,
+  titleIcons,
 }: PersonalUpcomingProps) {
   return (
     <section className="pb-col pb-col--upcoming">
@@ -89,6 +94,7 @@ export default function PersonalUpcoming({
                       timezone={timezone}
                       now={now}
                       onOpen={onOpenEvent}
+                      titleIcons={titleIcons}
                     />
                   ))}
                 </ul>

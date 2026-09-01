@@ -11,6 +11,45 @@ export interface CalendarConfig {
   hidden?: boolean;
 }
 
+/**
+ * One event-title icon rule. Exactly ONE of the four match kinds is set; each
+ * takes a bare string or an array of them, and matching is case-insensitive.
+ *
+ * The icon is always drawn at the FRONT of the title, and the matched words are
+ * dropped unless `keep` says otherwise. That one shape covers every case the
+ * feature was built for:
+ *
+ *   { "contains": "🚖",   "icon": "solid:taxi" }            🚖 Alex     -> [taxi] Alex
+ *   { "prefix": "Dropoff",  "icon": "solid:car-side" }        Dropoff Alex    -> [car] Alex
+ *   { "suffix": "Appt",     "icon": "solid:user-clock" }     Dentist Appt    -> [clock] Dentist
+ *   { "equals": "Bins", "keep": true, "icon": "local:bin" }   Bins            -> [bin] Bins
+ *
+ * Deliberately NOT regular expressions. A bad pattern in a hand-edited config
+ * is a crash or a catastrophic backtrack, and the only place anyone would find
+ * out is the kitchen wall.
+ */
+export interface TitleIconRuleConfig {
+  /** The whole title, trimmed, equals this. */
+  equals?: string | string[];
+  /** The title starts with this, on a word boundary. */
+  prefix?: string | string[];
+  /** The title ends with this, on a word boundary. */
+  suffix?: string | string[];
+  /** This appears anywhere in the title, on a word boundary. */
+  contains?: string | string[];
+  /** "solid:taxi" | "regular:calendar" | "brands:google" | "local:pig".
+   * The first three come from Font Awesome Free, which ships with the app; the
+   * last reads `data/icons/<name>.svg`, for glyphs Font Awesome lacks. */
+  icon: string;
+  /** Any CSS colour, or "calendar" for the event's own calendar colour.
+   * Overrides `titleIconColor`. Unset inherits the title's text colour.
+   * Ignored on an all-day band bar, where the background IS the calendar
+   * colour and the glyph must stay on the bar's contrast text. */
+  color?: string;
+  /** Keep the matched words instead of dropping them ("Bins" -> [bin] Bins). */
+  keep?: boolean;
+}
+
 export interface WeatherConfig {
   latitude: number;
   longitude: number;
@@ -56,6 +95,15 @@ export interface DisplayConfig {
    * board left on next month isn't still there three days later. The timer
    * restarts on any touch. Defaults to 120. Set to 0 to disable auto-revert. */
   viewResetSeconds?: number;
+  /** Rewrite event titles as an icon plus the rest, in the calendar grids only
+   * (never a modal, a tooltip, or anything written back to Google). Unset means
+   * every title renders exactly the bare text node it always has. See
+   * `lib/calendar/title-rules.ts`. */
+  titleIcons?: TitleIconRuleConfig[];
+  /** Default colour for every title icon (any CSS colour, or "calendar" for the
+   * event's own calendar colour). A rule's own `color` wins over this; unset
+   * means the glyph inherits the title's text colour. */
+  titleIconColor?: string;
 }
 
 export interface AuthConfig {
