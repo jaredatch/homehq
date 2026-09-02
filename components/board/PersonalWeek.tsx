@@ -25,8 +25,10 @@ import {
 import type { CalendarConfig } from '@/lib/config/types';
 import PersonalSheet from './PersonalSheet';
 import PersonalEventRow from './PersonalEventRow';
+import PersonPicker from './PersonPicker';
+import PersonalViewFooter from './PersonalViewFooter';
 import type { TitleIconSet } from '@/lib/calendar/title-rules';
-import { agendaLabel } from './personal-utils';
+import { agendaLabel, type PersonOption } from './personal-utils';
 
 interface PersonalWeekProps {
   /** The board's calendars, in draw order. */
@@ -35,6 +37,12 @@ interface PersonalWeekProps {
    * that peeking at a sister's agenda and then tapping "View Week" doesn't
    * silently snap back to her own. */
   scopeIds: string[];
+  /** Every option the picker offers, and the current one. Both are the shell's
+   * state, so switching here and switching in the Upcoming column are the same
+   * switch — and the same idle revert applies. */
+  people: PersonOption[];
+  person: number;
+  onPersonChange: (index: number) => void;
   /** Week rows to draw (display.calendarWeeks). A personal board defaults to 1:
    * one row on an 800px panel gives a day cell ~590px, which is about ten
    * events before it has to crop. */
@@ -104,6 +112,9 @@ function rangeLabel(first: string, last: string): string {
 export default function PersonalWeek({
   calendars,
   scopeIds,
+  people,
+  person,
+  onPersonChange,
   weeks,
   weekStartsOn,
   timezone,
@@ -283,11 +294,20 @@ export default function PersonalWeek({
 
   const syncLabel = loading ? { text: 'Loading…', isError: false } : formatSyncLabel(sync);
 
+  /**
+   * What "+N more" opens: the events the cell CROPPED, and nothing else.
+   *
+   * It used to open the whole day, so tapping "+3 more" meant scrolling past
+   * the three rows already on screen to reach the three you tapped for. The
+   * band's all-day bars are never cropped — WeekRow only ever hides timed rows
+   * past `capacity` — so they belong on the grid, not in here.
+   */
   const openDayEvents = useMemo(() => {
     if (!openDay) return [];
-    const entry = dayEventsMap.get(openDay);
-    return [...(entry?.allDay ?? []), ...(entry?.timed ?? [])];
-  }, [openDay, dayEventsMap]);
+    const timed = dayEventsMap.get(openDay)?.timed ?? [];
+    const capacity = capacityByDay?.[openDay] ?? Infinity;
+    return timed.slice(Math.max(0, capacity));
+  }, [openDay, dayEventsMap, capacityByDay]);
 
   return (
     <div className="pb-view">
@@ -295,6 +315,15 @@ export default function PersonalWeek({
         <h2 className="pb-view-title">{page === 0 ? 'This Week' : 'Week'}</h2>
         <span className="pb-view-range">{rangeLabel(days[0], days[days.length - 1])}</span>
         <span className="pb-view-spacer" />
+        {/* Whose week, and a way to change it without going back to the columns
+            first — there is room for it up here and the answer is not obvious
+            from a grid of somebody's events. */}
+        <PersonPicker
+          people={people}
+          person={person}
+          onChange={onPersonChange}
+          className="pb-view-person"
+        />
         <div className="pb-view-nav">
           <button
             type="button"
@@ -357,7 +386,9 @@ export default function PersonalWeek({
                 timezone={timezone}
                 todayColor={todayColor}
                 onMoreClick={(_wi, date) => setOpenDay(date)}
-                moreTitle={(date) => `Everything on ${agendaLabel(date, today)}`}
+                moreTitle={(date, hidden) =>
+                  `The ${hidden} this cell couldn't fit on ${agendaLabel(date, today)}`
+                }
                 onEventClick={(event) => onOpenEvent(event, events)}
                 titleIcons={titleIcons}
               />
@@ -396,7 +427,7 @@ export default function PersonalWeek({
         </div>
       </div>
 
-      <footer className="pb-view-foot">
+      <PersonalViewFooter onHome={onClose} sync={syncLabel}>
         <button type="button" className="pb-action" onClick={onViewMonth}>
           View Month
         </button>
@@ -404,21 +435,14 @@ export default function PersonalWeek({
         <button type="button" className="pb-action" onClick={onAddEvent} disabled={!onAddEvent}>
           Add Event
         </button>
-        <span className="pb-action-sep">|</span>
-        <button type="button" className="pb-action" onClick={onClose}>
-          Close
-        </button>
-        <span className={syncLabel.isError ? 'pb-sync pb-sync--error' : 'pb-sync'}>
-          {syncLabel.text}
-        </span>
-      </footer>
+      </PersonalViewFooter>
 
       {/* A cropped day, in full. The Upcoming column's row format rather than the
           grid's dense chip — this is a read-at-arm's-length list, and it is the
           one place on this board where an event's whole title is legible. */}
       {openDay && (
         <PersonalSheet
-          title={agendaLabel(openDay, today)}
+          title={`${openDayEvents.length} more · ${agendaLabel(openDay, today)}`}
           resetMs={resetMs}
           onClose={() => setOpenDay(null)}
         >

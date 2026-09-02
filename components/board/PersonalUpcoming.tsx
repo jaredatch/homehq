@@ -2,6 +2,7 @@
 
 import type { CalendarEvent } from '@/components/calendar/calendar-utils';
 import PersonalEventRow from './PersonalEventRow';
+import PersonPicker from './PersonPicker';
 import type { TitleIconSet } from '@/lib/calendar/title-rules';
 import type { AgendaDay, PersonOption } from './personal-utils';
 
@@ -56,24 +57,7 @@ export default function PersonalUpcoming({
     <section className="pb-col pb-col--upcoming">
       <header className="pb-col-head">
         <h2 className="pb-col-title">Upcoming</h2>
-        {/* Only worth a picker when there IS someone else to look at. A board
-            scoped to one person renders its own name as plain text. */}
-        {people.length > 1 ? (
-          <select
-            className="pb-person"
-            value={person}
-            onChange={(e) => onPersonChange(Number(e.target.value))}
-            aria-label="Whose calendar to show"
-          >
-            {people.map((option, i) => (
-              <option key={option.label} value={i}>
-                {option.label}
-              </option>
-            ))}
-          </select>
-        ) : (
-          <span className="pb-person pb-person--fixed">{people[0]?.label}</span>
-        )}
+        <PersonPicker people={people} person={person} onChange={onPersonChange} />
       </header>
 
       <div className="pb-col-body">

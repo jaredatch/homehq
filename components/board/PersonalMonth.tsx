@@ -22,13 +22,20 @@ import { addMonths, monthGridDays, monthLabel, monthOf } from '@/components/cale
 import type { CalendarConfig } from '@/lib/config/types';
 import PersonalSheet from './PersonalSheet';
 import PersonalEventRow from './PersonalEventRow';
+import PersonPicker from './PersonPicker';
+import PersonalViewFooter from './PersonalViewFooter';
 import type { TitleIconSet } from '@/lib/calendar/title-rules';
-import { agendaLabel } from './personal-utils';
+import { agendaLabel, type PersonOption } from './personal-utils';
 
 interface PersonalMonthProps {
   calendars: CalendarConfig[];
   /** Whose month — inherited from the Upcoming column, like the week view. */
   scopeIds: string[];
+  /** The picker's options and current selection — the shell's own state, so
+   * switching here is the same switch the Upcoming column makes. */
+  people: PersonOption[];
+  person: number;
+  onPersonChange: (index: number) => void;
   weekStartsOn: WeekStart;
   timezone?: string;
   todayColor: string;
@@ -67,6 +74,9 @@ const POLL_INTERVAL_MS = 60_000;
 export default function PersonalMonth({
   calendars,
   scopeIds,
+  people,
+  person,
+  onPersonChange,
   weekStartsOn,
   timezone,
   todayColor,
@@ -209,11 +219,14 @@ export default function PersonalMonth({
 
   const syncLabel = loading ? { text: 'Loading…', isError: false } : formatSyncLabel(sync);
 
+  /** What "N more" opens: only the rows the cell cropped. Band bars are never
+   * cropped by capacity, so they stay on the grid. Same rule as the week. */
   const openDayEvents = useMemo(() => {
     if (!openDay) return [];
-    const entry = dayEventsMap.get(openDay);
-    return [...(entry?.allDay ?? []), ...(entry?.timed ?? [])];
-  }, [openDay, dayEventsMap]);
+    const timed = timedByDay.get(openDay) ?? [];
+    const capacity = capacityByDay?.[openDay] ?? Infinity;
+    return timed.slice(Math.max(0, capacity));
+  }, [openDay, timedByDay, capacityByDay]);
 
   const goToday = useCallback(() => setMonth(monthOf(todayInZone(timezone))), [timezone]);
   const thisMonth = month === monthOf(today);
@@ -223,6 +236,14 @@ export default function PersonalMonth({
       <header className="pb-view-head">
         <h2 className="pb-view-title">{monthLabel(month)}</h2>
         <span className="pb-view-spacer" />
+        {/* Whose month — the same control the week header and the Upcoming
+            column carry, driving the same state. */}
+        <PersonPicker
+          people={people}
+          person={person}
+          onChange={onPersonChange}
+          className="pb-view-person"
+        />
         <div className="pb-view-nav">
           <button
             type="button"
@@ -316,7 +337,7 @@ export default function PersonalMonth({
         </div>
       </div>
 
-      <footer className="pb-view-foot">
+      <PersonalViewFooter onHome={onClose} sync={syncLabel}>
         <button type="button" className="pb-action" onClick={onViewWeek}>
           View Week
         </button>
@@ -324,18 +345,11 @@ export default function PersonalMonth({
         <button type="button" className="pb-action" onClick={onAddEvent} disabled={!onAddEvent}>
           Add Event
         </button>
-        <span className="pb-action-sep">|</span>
-        <button type="button" className="pb-action" onClick={onClose}>
-          Close
-        </button>
-        <span className={syncLabel.isError ? 'pb-sync pb-sync--error' : 'pb-sync'}>
-          {syncLabel.text}
-        </span>
-      </footer>
+      </PersonalViewFooter>
 
       {openDay && (
         <PersonalSheet
-          title={agendaLabel(openDay, today)}
+          title={`${openDayEvents.length} more · ${agendaLabel(openDay, today)}`}
           resetMs={resetMs}
           onClose={() => setOpenDay(null)}
         >
