@@ -167,16 +167,14 @@ export interface BoardConfig {
    * kitchen wall. The top-level `auth.pin` always works as well, so a parent
    * is never locked out and a household with one PIN needs no change. */
   pin?: string;
-  /** Accent color for this board (any CSS color). Personal layout only. */
-  accent?: string;
   /** Which of the top-level calendars this board shows, by id. The order here
    * is the order they're drawn in, so a personal board can lead with its own
    * person. Omitted means all of them. */
   calendars?: string[];
   /** Which of the board's calendars count as this board's own person — her
    * family-visible calendar plus her private one. Drives the person picker's
-   * default and the accent. Omitted means every calendar the board shows, i.e.
-   * no one else to peek at and no picker. */
+   * default and decides which events this board may edit. Omitted means every
+   * calendar the board shows, i.e. no one else to peek at and no picker. */
   ownCalendars?: string[];
   /** Calendars that stay in view no matter who the person picker is set to —
    * the family calendar, typically. A family dinner is her event too, so it

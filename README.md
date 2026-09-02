@@ -27,7 +27,7 @@ It's built for one household on one Google account, and that's the whole scope. 
 - **Per-person filter** from the legend. Click a name to see just their week.
 - **Icons instead of the words you type every week.** `Dropoff Alex` draws as a car and the name, `Dentist Appt` as a clock and `Dentist`. Rules live in config and the icon can take the person's own colour.
 - **A screen per person.** The kitchen wall is one board; a 10" touch panel in a bedroom is another, showing that kid's day, her own private calendar, and her to-dos. Same install, same sync, its own PIN.
-- **To-dos from Todoist** on a personal board, ticked off with a finger and written back.
+- **To-dos from Todoist** on a personal board. Tick one off and it writes back to Todoist, then stays put, struck through, until the day is over. Tap it again to undo.
 - **Clock and weather** in a slim top bar. Weather from Open-Meteo, no API key needed.
 - **Made for an always-on screen.** Every transient state reverts after idle. Cached data stays up through any outage. A deploy refreshes the kiosk by itself.
 - **Renders on a bare Raspberry Pi.** Self-hosted emoji font and SVG weather icons, because a stock Pi image has neither.

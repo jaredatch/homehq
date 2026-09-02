@@ -119,16 +119,16 @@ describe('boards', () => {
       expect(board.ownCalendarIds).toEqual(['kida@g', 'kida-private@g']);
     });
 
-    it('defaults the accent to the colour of the person it belongs to', () => {
-      const board = resolveBoard('kida', write({ boards }))!;
-      expect(board.accent).toBe('#ec4899');
-    });
-
-    it('lets an explicit accent win', () => {
+    // The per-board accent colour was removed 2026-09-02: every board now uses
+    // the family board's own scheme, so a form on a bedroom panel looks like a
+    // form on the kitchen wall. An `accent` left in an old config is simply
+    // ignored, which is what this asserts.
+    it('ignores a leftover accent rather than failing to load', () => {
       const config = write({
         boards: { kida: { ...boards.kida, accent: '#00ff00' } },
       });
-      expect(resolveBoard('kida', config)!.accent).toBe('#00ff00');
+      expect(resolveBoard('kida', config)!.name).toBe('Kid A');
+      expect(resolveBoard('kida', config)).not.toHaveProperty('accent');
     });
 
     it('treats every calendar as her own when ownCalendars is omitted', () => {

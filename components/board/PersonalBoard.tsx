@@ -20,7 +20,6 @@ export default function PersonalBoard({ board }: { board: ResolvedBoard }) {
       // panel never downloads the rest of the household's events.
       boardSlug={board.slug}
       name={board.name}
-      accent={board.accent ?? '#60a5fa'}
       calendars={board.calendars}
       ownCalendarIds={board.ownCalendarIds}
       alwaysShowIds={board.alwaysShowIds}

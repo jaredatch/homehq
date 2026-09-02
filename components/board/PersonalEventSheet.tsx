@@ -10,6 +10,7 @@ import {
 } from '@/components/calendar/calendar-utils';
 import PersonalSheet from './PersonalSheet';
 import OnScreenKeyboard, { KeyboardField } from './OnScreenKeyboard';
+import { railStyle } from './PersonalEventRow';
 import type { EventTarget } from './personal-utils';
 
 interface PersonalEventSheetProps {
@@ -21,8 +22,11 @@ interface PersonalEventSheetProps {
   /** "Just me / Family". One entry means this board has nowhere to publish to
    * and the choice isn't drawn at all. */
   targets: EventTarget[];
-  /** Calendar id → display name, for the detail card's "On …" line. */
+  /** Calendar id → display name, for the detail card's calendar chips. */
   calendarNames: Map<string, string>;
+  /** Calendar id → colour, so the read-only card carries the same rail and dots
+   * the agenda row it was opened from does. */
+  calendarColors: Map<string, string>;
   /** False on a read-only deployment. Only changes what the detail card says
    * about WHY it's read-only — the routes refuse the write either way. */
   writeEnabled: boolean;
@@ -126,6 +130,7 @@ export default function PersonalEventSheet({
   event,
   targets,
   calendarNames,
+  calendarColors,
   writeEnabled,
   timezone,
   today,
@@ -251,9 +256,19 @@ export default function PersonalEventSheet({
 
   if (mode === 'detail' && event) {
     const names = currentIds.map((id) => calendarNames.get(id)).filter(Boolean);
+    const colors = currentIds.map((id) => calendarColors.get(id)).filter(Boolean) as string[];
+    const reason = event.recurring_event_id
+      ? 'This one repeats — change it in Google Calendar.'
+      : !writeEnabled
+        ? 'This board can only show the calendar, not change it.'
+        : 'This isn’t your calendar, so it’s read-only here.';
     return (
       <PersonalSheet
-        title="Event"
+        // The WHEN is the sheet's heading, because the event's own title is the
+        // first line of the body and two headings that look alike, one of them
+        // the generic word "Event", read as a bug. This card is now built like
+        // the row that opened it: the day up top, then rail, title, details.
+        title={whenLabel(event, timezone)}
         resetMs={resetMs}
         onClose={onClose}
         footer={
@@ -262,21 +277,43 @@ export default function PersonalEventSheet({
           </button>
         }
       >
-        <p className="pb-detail-title">{event.summary || '(No title)'}</p>
-        <p className="pb-detail-when">{whenLabel(event, timezone)}</p>
-        {event.location && <p className="pb-detail-line">{event.location}</p>}
-        {event.description && <p className="pb-detail-notes">{event.description}</p>}
-        {names.length > 0 && <p className="pb-detail-meta">On {names.join(' and ')}</p>}
+        <div className="pb-detail">
+          {/* Same colour rail the agenda row carries, so the card reads as that
+              row opened rather than as a different surface. */}
+          <span
+            className="pb-detail-rail"
+            style={{ background: railStyle(colors.length ? colors : ['var(--gray-600)']) }}
+            aria-hidden
+          />
+          <div className="pb-detail-body">
+            <p className="pb-detail-title">{event.summary || '(No title)'}</p>
+            {names.length > 0 && (
+              <p className="pb-detail-who">
+                {names.map((name, i) => (
+                  <span className="pb-detail-cal" key={name}>
+                    <span
+                      className="pb-detail-dot"
+                      style={{ backgroundColor: colors[i] ?? 'var(--gray-600)' }}
+                      aria-hidden
+                    />
+                    {name}
+                  </span>
+                ))}
+              </p>
+            )}
+            {event.location && (
+              <p className="pb-detail-line">
+                <span className="pb-detail-label">Where</span>
+                {event.location}
+              </p>
+            )}
+            {event.description && <p className="pb-detail-notes">{event.description}</p>}
+          </div>
+        </div>
         {/* Says WHY it can't be changed here rather than leaving a card that
             looks like it's missing its buttons — and says the true reason: a
             read-only install would otherwise claim her own event isn't hers. */}
-        <p className="pb-detail-meta">
-          {event.recurring_event_id
-            ? 'This one repeats — change it in Google Calendar.'
-            : !writeEnabled
-              ? 'This board can only show the calendar, not change it.'
-              : 'This isn’t your calendar, so it’s read-only here.'}
-        </p>
+        <p className="pb-detail-meta">{reason}</p>
       </PersonalSheet>
     );
   }

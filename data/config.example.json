@@ -89,7 +89,6 @@
       "name": "Kid A",
       "host": "kida.example.com",
       "pin": "246810",
-      "accent": "#ec4899",
       "calendars": [
         "kida@group.calendar.google.com",
         "kida-room@group.calendar.google.com",

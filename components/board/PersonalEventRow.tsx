@@ -3,21 +3,22 @@
 import { eventPaint } from '@/components/calendar/event-paint';
 import EventTitle from '@/components/calendar/EventTitle';
 import type { TitleIconSet } from '@/lib/calendar/title-rules';
-import {
-  formatEventTime,
-  formatEventTimeRange,
-  type CalendarEvent,
-} from '@/components/calendar/calendar-utils';
+import { eventTimeRangeParts, type CalendarEvent } from '@/components/calendar/calendar-utils';
 import { isFinished } from '@/components/calendar/calendar-utils';
 
 /**
- * The personal board's event row: colour rail · start time · title, with the
- * time range and location on a quieter second line.
+ * The personal board's event row: a colour rail, then the family board's own
+ * three lines stacked — time range, title, location.
+ *
+ * It used to put the START time in a fixed left column and then repeat the whole
+ * range under the title, so every row printed its start time twice. The wall has
+ * never done that: `EventItem` puts one time line above the title and nothing
+ * else. This is that row at a finger's scale, plus the location the wall has no
+ * room for.
  *
  * Lives on its own because it is the board's unit of "one event" in more than
- * one place — the Upcoming column and the week view's day sheet — and those two
- * must stay identical. It is deliberately NOT the wall's `EventItem`: that one
- * is a dense chip sized for a 27" panel read from across the room.
+ * one place — the Upcoming column and both day sheets — and those must stay
+ * identical.
  */
 
 export interface PersonalEventRowProps {
@@ -55,12 +56,9 @@ export default function PersonalEventRow({
 }: PersonalEventRowProps) {
   const paint = eventPaint(event, colorMap);
   const past = now > 0 && isFinished(event, now);
-  const meta = [
-    event.all_day ? null : formatEventTimeRange(event.start_time, event.end_time, timezone),
-    event.location,
-  ]
-    .filter(Boolean)
-    .join(' · ');
+  const time = event.all_day
+    ? null
+    : eventTimeRangeParts(event.start_time, event.end_time, timezone);
 
   return (
     <li className="pb-event-item">
@@ -73,18 +71,29 @@ export default function PersonalEventRow({
         onClick={() => onOpen(event)}
       >
         <span className="pb-event-rail" style={{ background: railStyle(paint.colors) }} />
-        <span className="pb-event-when">
-          {event.all_day ? 'All day' : formatEventTime(event.start_time, timezone)}
-        </span>
         <span className="pb-event-body">
+          {/* Start bright, "– end" dim, exactly like .cal-event-time on the wall:
+              the start is the scanning key and the end is rarely needed at a
+              glance. Both colours live in CSS so the pair can be retuned there. */}
+          <span className="pb-event-when">
+            {time ? (
+              <>
+                <span className="pb-event-when-start">{time.start}</span>
+                {` – ${time.end}`}
+              </>
+            ) : (
+              <span className="pb-event-when-start">All day</span>
+            )}
+          </span>
           <span className="pb-event-title">
             <EventTitle
               summary={event.summary}
               icons={titleIcons}
               calendarColor={paint.shared ? undefined : paint.primary}
+              empty="(No title)"
             />
           </span>
-          {meta && <span className="pb-event-meta">{meta}</span>}
+          {event.location && <span className="pb-event-where">{event.location}</span>}
         </span>
       </button>
     </li>

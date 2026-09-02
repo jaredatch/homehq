@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useEffect, useMemo, useState, type CSSProperties } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useMinuteTick } from '@/components/clock/use-minute';
 import { mergeGroups } from '@/components/calendar/event-groups';
 import { calendarIdsForEvent } from '@/lib/calendar/event-links';
@@ -28,7 +28,6 @@ interface PersonalShellProps {
    * narrowed to this board's calendars. */
   boardSlug: string;
   name: string;
-  accent: string;
   calendars: CalendarConfig[];
   ownCalendarIds: string[];
   alwaysShowIds: string[];
@@ -79,7 +78,6 @@ const AGENDA_DAYS = 14;
 export default function PersonalShell({
   boardSlug,
   name,
-  accent,
   calendars,
   ownCalendarIds,
   alwaysShowIds,
@@ -148,6 +146,7 @@ export default function PersonalShell({
   const canWrite = calendarWriteEnabled && targets.length > 0;
 
   const calendarNames = useMemo(() => new Map(calendars.map((c) => [c.id, c.name])), [calendars]);
+  const calendarColors = useMemo(() => new Map(calendars.map((c) => [c.id, c.color])), [calendars]);
 
   const colorMap = useMemo(
     () => new Map(calendars.map((c) => [c.id, { color: c.color, textColor: c.textColor }])),
@@ -284,7 +283,7 @@ export default function PersonalShell({
   );
 
   return (
-    <div className="pb" style={{ '--pb-accent': accent } as CSSProperties}>
+    <div className="pb">
       <PersonalUpcoming
         titleIcons={titleIcons}
         days={days}
@@ -319,6 +318,9 @@ export default function PersonalShell({
           titleIcons={titleIcons}
           calendars={calendars}
           scopeIds={people[person]?.calendarIds ?? calendarOrder}
+          people={people}
+          person={person}
+          onPersonChange={setPerson}
           weeks={calendarWeeks}
           weekStartsOn={weekStartsOn}
           timezone={timezone}
@@ -337,6 +339,9 @@ export default function PersonalShell({
           titleIcons={titleIcons}
           calendars={calendars}
           scopeIds={people[person]?.calendarIds ?? calendarOrder}
+          people={people}
+          person={person}
+          onPersonChange={setPerson}
           weekStartsOn={weekStartsOn}
           timezone={timezone}
           todayColor={todayColor}
@@ -355,6 +360,7 @@ export default function PersonalShell({
           event={sheet.mode === 'create' ? undefined : sheet.event}
           targets={targets}
           calendarNames={calendarNames}
+          calendarColors={calendarColors}
           writeEnabled={calendarWriteEnabled}
           timezone={timezone}
           today={today}

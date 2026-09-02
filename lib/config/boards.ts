@@ -39,7 +39,6 @@ export interface ResolvedBoard {
   layout: BoardLayout;
   /** Header label on a personal board. Falls back to the slug. */
   name: string;
-  accent?: string;
   /** The calendars this board draws, in the order it draws them. */
   calendars: CalendarConfig[];
   /** Which of those count as this board's own person. Defaults to all of them,
@@ -112,9 +111,6 @@ export function resolveBoard(slug: string, config?: AppConfig): ResolvedBoard | 
     slug,
     layout: board.layout,
     name: board.name ?? slug,
-    // A board with no accent takes the colour of the person it belongs to, so
-    // it feels like hers with nothing extra in config.
-    accent: board.accent ?? byId.get(ownCalendarIds[0])?.color,
     calendars,
     ownCalendarIds,
     alwaysShowIds: board.alwaysShow ?? [],

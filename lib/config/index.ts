@@ -167,7 +167,7 @@ function validateBoards(obj: Record<string, unknown>, calendarIds: Set<string>):
       }
     }
 
-    for (const key of ['name', 'accent', 'host', 'defaultCalendar'] as const) {
+    for (const key of ['name', 'host', 'defaultCalendar'] as const) {
       if (b[key] !== undefined && typeof b[key] !== 'string') {
         throw new Error(`Config: ${at}.${key} must be a string`);
       }

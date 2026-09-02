@@ -91,19 +91,18 @@ One HomeHQ install can drive more than one screen: the kitchen wall, plus a touc
 
 A board is a set of overrides on top of the config you already have. Anything it doesn't name falls through to the top-level value, so a config with no `boards` key behaves exactly as it did before boards existed.
 
-| Field             | Required | Notes                                                                                                                                                                                                   |
-| ----------------- | -------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `layout`          | yes      | `family` is the dense wall grid. `personal` is the three-column touch surface: agenda, to-dos, clock and weather.                                                                                       |
-| `name`            | no       | Shown in the header and on the PIN screen. Defaults to the slug.                                                                                                                                        |
-| `host`            | no       | A hostname that serves this board at `/`, so a kiosk URL needs no path. Unclaimed hosts fall through to the family board.                                                                               |
-| `pin`             | no       | Six digits. Opens only this board. Without it, the household PIN is the only way in.                                                                                                                    |
-| `accent`          | no       | Any CSS colour. Defaults to the colour of this board's own calendar.                                                                                                                                    |
-| `calendars`       | no       | Which calendar ids this board draws, in draw order, and on a `personal` board the only ones it is served. Omitted means all of them except the `hidden` ones.                                           |
-| `ownCalendars`    | no       | Which of those belong to this board's person. Sets the person picker's default and the accent, and decides which events this board can edit. Omitted means all of them, which leaves nobody to peek at. |
-| `alwaysShow`      | no       | Calendars that stay in view whoever the picker is set to. Usually the family calendar, since a family dinner is this person's evening too.                                                              |
-| `defaultCalendar` | no       | Where a new event lands by default. On a personal board that's the private calendar, and the create form offers a choice between "Just me" and "Family".                                                |
-| `todos`           | no       | `{ "projectId": "..." }`. The Todoist project this board's to-do column reads and writes. Needs `TODOIST_API_KEY`.                                                                                      |
-| `display`         | no       | Any subset of the `display` block, merged over the top level. Lets one board have its own idle timings or hide weather.                                                                                 |
+| Field             | Required | Notes                                                                                                                                                                                    |
+| ----------------- | -------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `layout`          | yes      | `family` is the dense wall grid. `personal` is the three-column touch surface: agenda, to-dos, clock and weather.                                                                        |
+| `name`            | no       | Shown in the header and on the PIN screen. Defaults to the slug.                                                                                                                         |
+| `host`            | no       | A hostname that serves this board at `/`, so a kiosk URL needs no path. Unclaimed hosts fall through to the family board.                                                                |
+| `pin`             | no       | Six digits. Opens only this board. Without it, the household PIN is the only way in.                                                                                                     |
+| `calendars`       | no       | Which calendar ids this board draws, in draw order, and on a `personal` board the only ones it is served. Omitted means all of them except the `hidden` ones.                            |
+| `ownCalendars`    | no       | Which of those belong to this board's person. Sets the person picker's default, and decides which events this board can edit. Omitted means all of them, which leaves nobody to peek at. |
+| `alwaysShow`      | no       | Calendars that stay in view whoever the picker is set to. Usually the family calendar, since a family dinner is this person's evening too.                                               |
+| `defaultCalendar` | no       | Where a new event lands by default. On a personal board that's the private calendar, and the create form offers a choice between "Just me" and "Family".                                 |
+| `todos`           | no       | `{ "projectId": "..." }`. The Todoist project this board's to-do column reads and writes. Needs `TODOIST_API_KEY`.                                                                       |
+| `display`         | no       | Any subset of the `display` block, merged over the top level. Lets one board have its own idle timings or hide weather.                                                                  |
 
 Ids in `calendars`, `ownCalendars`, `alwaysShow`, and `defaultCalendar` are all checked at startup. A typo fails the boot rather than rendering a convincingly empty screen in someone's bedroom.
 
