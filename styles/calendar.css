@@ -114,9 +114,15 @@
 	gap: 1px;
 }
 
+/* No rule under the date. It was here from the first Tailwind draft
+   (`border-b border-gray-800/50`) and never earned its keep: the column tints
+   and the 1px grid gaps already separate the days, so a second line inside each
+   cell only cut the date off from the events it belongs to. Removing it hands
+   its pixel back to the day cell, which is why the whole grid shifts up 1px —
+   the layout reads `headerH` off the DOM at runtime, so nothing needed
+   retuning. */
 .cal-day-header {
 	padding: 0.25rem 0.5rem;
-	border-bottom: 1px solid color-mix(in oklab, var(--gray-800) 50%, transparent);
 	text-align: left;
 }
 

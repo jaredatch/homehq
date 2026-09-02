@@ -20,6 +20,8 @@ The measuring and the packing arithmetic live in `week-metrics.ts` (`useWeekGrid
 
 The measurement layer must stay `overflow: hidden`. Its uncropped stacks are taller than the grid; with overflow visible that spill became scrollable overflow that a focus nudge could scroll the whole grid into, clipping the header. `getBoundingClientRect` is unaffected by clipping. `.app-main` is `overflow: clip` as a backstop.
 
+**No rule under the date.** `.cal-day-header` carried a `border-bottom` from the first Tailwind draft (`border-b border-gray-800/50`) until 2026-09-02. It never earned its keep: the column tints and the 1px grid gaps already separate the days, so a second line _inside_ each cell only cut the date off from the events under it. Removing it hands that pixel back to the day cell, so the whole grid shifts up 1px. The layout reads `headerH` off the DOM at runtime, so nothing needed retuning, and a normalised geometry diff at 1920×1080 showed 1071 identical elements with no structural, text, or width change.
+
 **Today's hooks.** Today's date header and day cell carry `cal-day-header--today` and `cal-day--today`, with no styles attached. Today is marked by its accent dot alone — a full-cell tint fights every event colour in the column — but the hooks exist so that can be tried without touching `WeekRow`. Note they reach the personal board's week too, which renders the same component; scope anything under `.pb-view` in `personal.css` to keep the two apart.
 
 **Anchor week.** Track heights and cropping follow a strict priority around an anchor week (the current week by default):
