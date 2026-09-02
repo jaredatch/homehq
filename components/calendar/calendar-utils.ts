@@ -17,6 +17,11 @@ export interface CalendarEvent {
    * the same id. null for ordinary single-calendar events. */
   group_id: string | null;
   updated_at: string;
+  /** Every calendar this event lives on, resolved SERVER-side and sent only on a
+   * scoped (personal-board) response — the opposite direction to the two fields
+   * below. A scoped board can't see the other copies, so this is the only honest
+   * answer to "is this event only mine?", which is what gates editing it. */
+  linkedCalendarIds?: string[];
   /** Display-only, added client-side by `mergeGroups` — never sent by the API.
    * Present only on a MERGED shared event: every calendar it belongs to, in
    * config order. Its absence is what makes an event render as a plain chip. */

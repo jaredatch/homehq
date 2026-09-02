@@ -34,6 +34,9 @@ interface PersonalMonthProps {
   todayColor: string;
   /** See PersonalShell.openEvent — the raw fetch travels with the event so
    * membership resolves against a list that actually holds it. */
+  /** Sent as `?board=` so this view reads the same scoped slice the rest of
+   * the board does. */
+  boardSlug: string;
   onOpenEvent: (event: CalendarEvent, unfiltered: CalendarEvent[]) => void;
   onAddEvent?: () => void;
   onViewWeek: () => void;
@@ -67,6 +70,7 @@ export default function PersonalMonth({
   weekStartsOn,
   timezone,
   todayColor,
+  boardSlug,
   onOpenEvent,
   onAddEvent,
   onViewWeek,
@@ -103,7 +107,7 @@ export default function PersonalMonth({
     setToday(todayInZone(timezone));
     try {
       const res = await fetch(
-        `/api/calendar?start=${days[0]}&end=${addDays(days[days.length - 1], 1)}`
+        `/api/calendar?start=${days[0]}&end=${addDays(days[days.length - 1], 1)}&board=${encodeURIComponent(boardSlug)}`
       );
       if (!res.ok) return;
       const data = await res.json();
@@ -114,7 +118,7 @@ export default function PersonalMonth({
     } finally {
       setLoading(false);
     }
-  }, [days, timezone]);
+  }, [days, timezone, boardSlug]);
 
   useEffect(() => {
     const initial = setTimeout(fetchEvents, 0);

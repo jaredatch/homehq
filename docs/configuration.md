@@ -98,7 +98,7 @@ A board is a set of overrides on top of the config you already have. Anything it
 | `host`            | no       | A hostname that serves this board at `/`, so a kiosk URL needs no path. Unclaimed hosts fall through to the family board.                                                                               |
 | `pin`             | no       | Six digits. Opens only this board. Without it, the household PIN is the only way in.                                                                                                                    |
 | `accent`          | no       | Any CSS colour. Defaults to the colour of this board's own calendar.                                                                                                                                    |
-| `calendars`       | no       | Which calendar ids this board draws, in draw order. Omitted means all of them except the `hidden` ones.                                                                                                 |
+| `calendars`       | no       | Which calendar ids this board draws, in draw order, and on a `personal` board the only ones it is served. Omitted means all of them except the `hidden` ones.                                           |
 | `ownCalendars`    | no       | Which of those belong to this board's person. Sets the person picker's default and the accent, and decides which events this board can edit. Omitted means all of them, which leaves nobody to peek at. |
 | `alwaysShow`      | no       | Calendars that stay in view whoever the picker is set to. Usually the family calendar, since a family dinner is this person's evening too.                                                              |
 | `defaultCalendar` | no       | Where a new event lands by default. On a personal board that's the private calendar, and the create form offers a choice between "Just me" and "Family".                                                |
@@ -126,6 +126,8 @@ Ids in `calendars`, `ownCalendars`, `alwaysShow`, and `defaultCalendar` are all 
 **Reaching a board.** `/b/<slug>` always works, so a kiosk with no DNS of its own can point at `http://homehq.local:3000/b/kida`. Subdomains are a convenience on top: give a board a `host` and that hostname serves it at `/`.
 
 **PINs.** The household PIN opens everything, so a parent is never locked out. A board's own PIN opens only that board, and it can't reach `/setup` or the OAuth routes. Each hostname holds its own session cookie, so every screen is signed in once and stays that way.
+
+**What a personal board is served.** Its `calendars` list is a privacy boundary as well as a draw order. The API sends a personal board those calendars and nothing else, so a panel in a bedroom never receives the events it wasn't going to draw. A board signed in with its own PIN is held to its own list whatever it asks for. The family board is deliberately exempt, because its edit form needs the whole picture to save a shared event correctly. The mechanism is in [architecture.md](architecture.md#what-a-board-may-read).
 
 ## Event-title icons
 

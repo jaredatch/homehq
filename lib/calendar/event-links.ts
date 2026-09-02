@@ -145,3 +145,24 @@ export function resolveLink<T extends LinkableEvent>(
 
   return { kind: null, members: [event] };
 }
+
+/**
+ * Which calendars an event currently lives on — one for an ordinary event, more
+ * for a shared one. Seeds the edit form's calendar picker, and is what the API
+ * resolves server-side into `linkedCalendarIds` for a scoped board.
+ *
+ * `candidates` must be the UNFILTERED set, for the reason in `resolveLink`.
+ *
+ * Lives here rather than beside `mergeGroups` because both the browser and the
+ * API route need it, and `lib/` may not reach into `components/`.
+ */
+export function calendarIdsForEvent<T extends LinkableEvent>(
+  candidates: readonly T[],
+  event: T
+): string[] {
+  const { members } = resolveLink(candidates, event);
+  const ids = [...new Set(members.map((m) => m.calendar_id))];
+  // The event's own calendar is the floor: never return an empty set just
+  // because the cache is momentarily missing its siblings.
+  return ids.length > 0 ? ids : [event.calendar_id];
+}

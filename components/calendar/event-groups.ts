@@ -122,25 +122,6 @@ export function mergeGroups<T extends MergeableLike>(
 }
 
 /**
- * Which calendars an event currently lives on — one for an ordinary event, more
- * for a shared one. Seeds the edit form's calendar picker.
- *
- * Pass the UNFILTERED event list: with a per-person filter active a sibling may
- * be hidden from the grid, but the edit form still has to show it checked or
- * saving would silently drop that person from the event.
- */
-export function calendarIdsForEvent<T extends LinkableEvent>(
-  events: readonly T[],
-  event: T
-): string[] {
-  const { members } = resolveLink(events, event);
-  const ids = [...new Set(members.map((m) => m.calendar_id))];
-  // The event's own calendar is the floor: never return an empty set just
-  // because the cache is momentarily missing its siblings.
-  return ids.length > 0 ? ids : [event.calendar_id];
-}
-
-/**
  * Whether the edit form must show membership as fixed.
  *
  * True only for a `google` link — one Google event resource on two calendars

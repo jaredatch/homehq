@@ -1,9 +1,6 @@
 import { describe, it, expect } from 'vitest';
-import {
-  calendarIdsForEvent,
-  isMembershipLocked,
-  mergeGroups,
-} from '@/components/calendar/event-groups';
+import { isMembershipLocked, mergeGroups } from '@/components/calendar/event-groups';
+import { calendarIdsForEvent } from '@/lib/calendar/event-links';
 
 /** Config order — Maddie before Eleanor, as the legend reads. */
 const ORDER = ['jared', 'sam', 'maddie', 'eleanor', 'family'];

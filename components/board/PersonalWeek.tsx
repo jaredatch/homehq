@@ -45,6 +45,9 @@ interface PersonalWeekProps {
   /** Tapping an event. Handed the raw, UNFILTERED fetch alongside it so the
    * shell can resolve the event's full calendar membership — see the note on
    * PersonalShell.openEvent. */
+  /** Sent as `?board=` so this view reads the same scoped slice the rest of
+   * the board does. */
+  boardSlug: string;
   onOpenEvent: (event: CalendarEvent, unfiltered: CalendarEvent[]) => void;
   onAddEvent?: () => void;
   onViewMonth: () => void;
@@ -105,6 +108,7 @@ export default function PersonalWeek({
   weekStartsOn,
   timezone,
   todayColor,
+  boardSlug,
   onOpenEvent,
   onAddEvent,
   onViewMonth,
@@ -149,7 +153,7 @@ export default function PersonalWeek({
     setToday(todayInZone(timezone));
     try {
       const res = await fetch(
-        `/api/calendar?start=${days[0]}&end=${addDays(days[days.length - 1], 1)}`
+        `/api/calendar?start=${days[0]}&end=${addDays(days[days.length - 1], 1)}&board=${encodeURIComponent(boardSlug)}`
       );
       if (!res.ok) return;
       const data = await res.json();
@@ -160,7 +164,7 @@ export default function PersonalWeek({
     } finally {
       setLoading(false);
     }
-  }, [days, timezone]);
+  }, [days, timezone, boardSlug]);
 
   useEffect(() => {
     // Deferred so no setState is reachable synchronously from the effect body,

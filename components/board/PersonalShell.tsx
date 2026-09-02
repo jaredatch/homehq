@@ -2,7 +2,8 @@
 
 import { useCallback, useEffect, useMemo, useState, type CSSProperties } from 'react';
 import { useMinuteTick } from '@/components/clock/use-minute';
-import { calendarIdsForEvent, mergeGroups } from '@/components/calendar/event-groups';
+import { mergeGroups } from '@/components/calendar/event-groups';
+import { calendarIdsForEvent } from '@/lib/calendar/event-links';
 import {
   addDays,
   todayInZone,
@@ -22,6 +23,10 @@ import PersonalWeek from './PersonalWeek';
 import PersonalMonth from './PersonalMonth';
 
 interface PersonalShellProps {
+  /** Which board is asking, sent as `?board=` so the API scopes what it
+   * returns. Everything the columns and the full-screen views read comes back
+   * narrowed to this board's calendars. */
+  boardSlug: string;
   name: string;
   accent: string;
   calendars: CalendarConfig[];
@@ -72,6 +77,7 @@ const AGENDA_DAYS = 14;
  * columns stay presentational and the idle-revert rules live in one place.
  */
 export default function PersonalShell({
+  boardSlug,
   name,
   accent,
   calendars,
@@ -168,7 +174,7 @@ export default function PersonalShell({
 
     try {
       const res = await fetch(
-        `/api/calendar?start=${currentToday}&end=${addDays(currentToday, AGENDA_DAYS)}`
+        `/api/calendar?start=${currentToday}&end=${addDays(currentToday, AGENDA_DAYS)}&board=${encodeURIComponent(boardSlug)}`
       );
       if (!res.ok) return;
       const data = await res.json();
@@ -177,7 +183,7 @@ export default function PersonalShell({
     } catch {
       // Keep what's on screen. A network blip must never blank a bedroom.
     }
-  }, [timezone]);
+  }, [timezone, boardSlug]);
 
   useEffect(() => {
     // Deferred so no setState is reachable synchronously from the effect body
@@ -256,14 +262,21 @@ export default function PersonalShell({
    */
   const openEvent = useCallback(
     (event: CalendarEvent, unfiltered?: CalendarEvent[]) => {
-      // `unfiltered` is the raw fetch the event came from. The columns pass
-      // nothing and get this shell's own list; a full-screen view passes its
-      // own, because it reaches days outside the shell's 14-day window and
-      // resolving membership against a list that doesn't hold the event would
-      // report NO calendars — which reads as "not hers" and quietly makes her
-      // own next-month event read-only.
+      // `linkedCalendarIds` comes off a scoped response, resolved server-side
+      // across calendars this board is never sent — so where it exists it is the
+      // ONLY complete answer, and the client must not second-guess it.
+      //
+      // The fallback covers an unscoped response (the dev bypass). `unfiltered`
+      // is then the raw fetch the event came from: the columns pass nothing and
+      // get this shell's own list; a full-screen view passes its own, because it
+      // reaches days outside the shell's 14-day window and resolving against a
+      // list that doesn't hold the event would report NO calendars — which reads
+      // as "not hers" and quietly makes her own next-month event read-only.
       const source = unfiltered ?? events;
-      const withMembership = { ...event, groupCalendarIds: calendarIdsForEvent(source, event) };
+      const withMembership = {
+        ...event,
+        groupCalendarIds: event.linkedCalendarIds ?? calendarIdsForEvent(source, event),
+      };
       const editable = canWrite && canEditEvent(withMembership, ownCalendarIds);
       setSheet({ mode: editable ? 'edit' : 'detail', event: withMembership });
     },
@@ -302,6 +315,7 @@ export default function PersonalShell({
 
       {view === 'week' && (
         <PersonalWeek
+          boardSlug={boardSlug}
           titleIcons={titleIcons}
           calendars={calendars}
           scopeIds={people[person]?.calendarIds ?? calendarOrder}
@@ -319,6 +333,7 @@ export default function PersonalShell({
 
       {view === 'month' && (
         <PersonalMonth
+          boardSlug={boardSlug}
           titleIcons={titleIcons}
           calendars={calendars}
           scopeIds={people[person]?.calendarIds ?? calendarOrder}

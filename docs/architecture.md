@@ -26,7 +26,7 @@ All under `app/api/`. The dashboard polls the read routes; the write routes exis
 
 | Route                  | Method | What                                                                   |
 | ---------------------- | ------ | ---------------------------------------------------------------------- |
-| `/api/calendar`        | GET    | Cached events                                                          |
+| `/api/calendar`        | GET    | Cached events, narrowed to the asking board (see [Boards](#boards))    |
 | `/api/weather`         | GET    | Cached weather                                                         |
 | `/api/version`         | GET    | The deployed build token (see [Kiosk self-update](#kiosk-self-update)) |
 | `/api/auth`            | POST   | PIN → signed session cookie. Rate-limited.                             |
@@ -70,6 +70,18 @@ A board is an override layer, never a replacement. It can replace a top-level va
 
 - A calendar marked `hidden` still syncs but reaches only a board that names it, which is how a kid's private room calendar stays off the kitchen wall while still having data behind it.
 - Both grids are bounded by `scopeToCalendars`. The sync no longer fetches exactly what the wall draws, so an unbounded grid would leak a hidden calendar onto it.
+
+### What a board may read
+
+`GET /api/calendar` used to return every cached event in the window and let the browser narrow it. That was harmless while every calendar in the cache was one the wall drew. Personal boards ended it: a panel behind a kid's PIN was downloading her parents' whole calendar, titles and locations and notes, and simply not drawing it.
+
+The route now takes `?board=<slug>` and returns only that board's calendars. It reads the board from the session before it reads the query string, so a panel can't widen its own view by leaving the parameter off. A session minted by a board's own PIN is pinned to that board and gets a 403 for naming someone else's. An unstamped household session may name any board, and names none to get the wall.
+
+The family board stays unscoped on purpose. It draws every calendar, and its edit form resolves both a shared event's membership and whether that membership is locked from the full list it was sent. Hand it a subset and saving an event would quietly drop a person from it. Its response is byte-for-byte what this route has always returned.
+
+Dropping the other calendars' rows has one nasty consequence. A personal board can no longer see that an event _also_ lives on a calendar it can't, so it would call a shared event "hers" and let a bedroom panel rewrite a parent's copy. A scoped response therefore stamps every event with `linkedCalendarIds`: the full membership of its link group, resolved server-side by `scopeEventsToBoard` in `lib/calendar/board-scope.ts`. The board can still merge the chip and still refuse to edit it, without ever receiving the other copies' contents.
+
+Resolving those links over the window alone is complete, not a shortcut. Every link tier requires its members to agree on start and end time, so a sibling can't be hiding outside the range.
 
 A personal board owns its own chrome and shares only the presentational grids. It renders `WeekRow` and `MonthWeek` unchanged, so there is one definition of a week and a month house-wide, and it shares the measuring modules and the write routes. It never shares a form or a footer: bending `EventModal` around a second set of constraints is how the family board gets broken. Nothing on it takes text focus either, because an `<input>` invites a platform keyboard the Pi cannot show. The drawn on-screen keyboard writes into a `div`.
 
@@ -148,8 +160,9 @@ components/
   clock/  weather/  dashboard/
 lib/
   auth/                  session cookie, rate limiter, per-board access
-  calendar/              event-links (what counts as one event), event-timing (form
-                         validation), title-rules + title-icons (title icons)
+  calendar/              event-links (what counts as one event), board-scope (what a
+                         board may read), event-timing (form validation),
+                         title-rules + title-icons (title icons)
   config/                config.json loader, board resolution, isCalendarWriteEnabled
   db/                    SQLite setup, migrations, queries
   google/                Calendar API client, OAuth, sync

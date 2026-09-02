@@ -32,7 +32,7 @@ It's built for one household on one Google account, and that's the whole scope. 
 - **Made for an always-on screen.** Every transient state reverts after idle. Cached data stays up through any outage. A deploy refreshes the kiosk by itself.
 - **Renders on a bare Raspberry Pi.** Self-hosted emoji font and SVG weather icons, because a stock Pi image has neither.
 
-Auth is a six-digit PIN behind a signed cookie that renews itself, so no kiosk ever logs out. The household PIN opens every screen; a board can also have its own, which opens only that screen.
+Auth is a six-digit PIN behind a signed cookie that renews itself, so no kiosk ever logs out. The household PIN opens every screen; a board can also have its own, which opens only that screen. HomeHQ then sends that screen only the calendars it was configured to show, so a panel in a bedroom never receives the rest of the household's events.
 
 ## Screenshots
 
