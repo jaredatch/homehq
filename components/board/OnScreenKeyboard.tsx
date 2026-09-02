@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 
 /**
  * HomeHQ's own on-screen keyboard.
@@ -13,6 +13,12 @@ import { useState } from 'react';
  * The field it edits is NOT an `<input>` — see `KeyboardField` below. Nothing on
  * this screen ever takes text focus, so the browser has no reason to raise a
  * second keyboard over this one.
+ *
+ * A REAL keyboard still types into it, through a window listener rather than a
+ * focused element. That is how the PIN keypad already works, and it's the same
+ * trade: the listener costs nothing on a panel that has no keyboard, and it is
+ * the difference between testing this on a Mac by hand and testing it by
+ * clicking 40 drawn keys with a mouse.
  */
 
 interface OnScreenKeyboardProps {
@@ -67,6 +73,65 @@ export default function OnScreenKeyboard({
     // Back to an empty field is the start of a sentence again.
     if (next === '') setShift(true);
   };
+
+  // A physical keyboard, for the Mac this gets built and tested on. The listener
+  // binds once and reads through a ref, so it can't go stale on `value` and the
+  // window handler isn't torn down and rebuilt on every keystroke. Written in an
+  // effect rather than during render — a ref is not a render-time value.
+  const latest = useRef({ value, onChange, onDone, doneDisabled });
+  useEffect(() => {
+    latest.current = { value, onChange, onDone, doneDisabled };
+  });
+
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      // Never swallow a shortcut, and never fight a real input if one somehow
+      // has focus (the wall's modal is on the same page in dev).
+      if (e.metaKey || e.ctrlKey || e.altKey) return;
+      const el = document.activeElement;
+      if (el instanceof HTMLInputElement || el instanceof HTMLTextAreaElement) return;
+
+      const {
+        value: current,
+        onChange: change,
+        onDone: done,
+        doneDisabled: locked,
+      } = latest.current;
+
+      if (e.key === 'Enter') {
+        e.preventDefault();
+        if (!locked) done();
+        return;
+      }
+      if (e.key === 'Backspace') {
+        e.preventDefault();
+        const next = current.slice(0, -1);
+        // Write the new value straight back into the ref as well as calling
+        // onChange. React batches, and the effect that refreshes this ref
+        // doesn't run between two keydowns delivered in the same batch — so a
+        // burst (key auto-repeat, or a fast typist) would have every event
+        // after the first computing from a stale value and undoing the ones
+        // before it. Typing "Xy" produced "y".
+        latest.current = { ...latest.current, value: next };
+        change(next);
+        if (next === '') setShift(true);
+        return;
+      }
+      // Esc belongs to the sheet, which closes on it.
+      if (e.key === 'Escape') return;
+      // One printable character. `key` is already the shifted form, so the
+      // drawn Shift is left alone — a real keyboard says what it typed.
+      if (e.key.length !== 1) return;
+      e.preventDefault();
+      if (current.length >= MAX_LENGTH) return;
+      const next = current + e.key;
+      latest.current = { ...latest.current, value: next };
+      change(next);
+      setShift(false);
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, []);
 
   const rows = symbols ? SYMBOL_ROWS : LETTER_ROWS;
 
