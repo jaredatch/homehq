@@ -6,8 +6,10 @@ import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import { normalizeTask, type TodoistTask } from '@/lib/todoist/client';
 import { getDb, _setDefaultDb } from '@/lib/db';
 import {
-  deleteTodo,
+  completeTodo,
   getProjectTodos,
+  purgeCompletedTodos,
+  reopenTodo,
   getTodo,
   replaceProjectTodos,
   upsertTodo,
@@ -125,7 +127,7 @@ describe('todos cache', () => {
     expect(getProjectTodos('p1')[0].updated_at).toMatch(/Z$/);
   });
 
-  it('replaces a project wholesale, so a completed task actually leaves', () => {
+  it('replaces a project wholesale, so a deleted task actually leaves', () => {
     replaceProjectTodos('p1', [normalizeTask(task({ id: 'gone' }))]);
     replaceProjectTodos('p1', [normalizeTask(task({ id: 'kept' }))]);
     expect(getProjectTodos('p1').map((t) => t.id)).toEqual(['kept']);
@@ -139,10 +141,51 @@ describe('todos cache', () => {
     expect(getProjectTodos('p2').map((t) => t.id)).toEqual(['two']);
   });
 
-  it('deletes one task so a tap sticks instead of flickering back', () => {
+  it('marks one task done so a tap sticks instead of flickering back', () => {
     replaceProjectTodos('p1', [normalizeTask(task({ id: 'x' }))]);
-    deleteTodo('x');
-    expect(getTodo('x')).toBeNull();
+    completeTodo('x', '2026-09-02');
+    expect(getTodo('x')!.completed_on).toBe('2026-09-02');
+  });
+
+  it('reopens a task by clearing the mark', () => {
+    replaceProjectTodos('p1', [normalizeTask(task({ id: 'x' }))]);
+    completeTodo('x', '2026-09-02');
+    reopenTodo('x');
+    expect(getTodo('x')!.completed_on).toBeNull();
+  });
+
+  // Todoist stops returning a closed task, so a plain full replace would delete
+  // the row a kid ticked ten seconds ago and the tick would look like it failed.
+  it('keeps a completed task through a sync that no longer returns it', () => {
+    replaceProjectTodos('p1', [normalizeTask(task({ id: 'x' }))]);
+    completeTodo('x', '2026-09-02');
+    replaceProjectTodos('p1', []);
+    expect(getTodo('x')!.completed_on).toBe('2026-09-02');
+  });
+
+  // A recurring task checked off here comes back under the same id with its
+  // next due date. Anything in a sync payload is open by definition.
+  it('un-checks a completed task that comes back from Todoist', () => {
+    replaceProjectTodos('p1', [normalizeTask(task({ id: 'x' }))]);
+    completeTodo('x', '2026-09-02');
+    replaceProjectTodos('p1', [normalizeTask(task({ id: 'x' }))]);
+    expect(getTodo('x')!.completed_on).toBeNull();
+  });
+
+  it('purges completed tasks once their day is over, and only those', () => {
+    replaceProjectTodos('p1', [
+      normalizeTask(task({ id: 'yesterday' })),
+      normalizeTask(task({ id: 'today' })),
+      normalizeTask(task({ id: 'open' })),
+    ]);
+    completeTodo('yesterday', '2026-09-01');
+    completeTodo('today', '2026-09-02');
+    purgeCompletedTodos('2026-09-02');
+    expect(
+      getProjectTodos('p1')
+        .map((t) => t.id)
+        .sort()
+    ).toEqual(['open', 'today']);
   });
 
   it('puts a task back on undo, and updates rather than duplicating', () => {

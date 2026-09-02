@@ -18,6 +18,8 @@ The schedulers start once, from `instrumentation.ts`, when the server boots.
 - **Weather** (`lib/weather/sync.ts`): every 30 minutes, fetch current conditions and the forecast for the configured lat/long from Open-Meteo (no API key) and cache the JSON.
 - **Todoist** (`lib/todoist/sync.ts`): every minute, for each project a board names, pull open tasks into the `todos` table. It runs only when `TODOIST_API_KEY` is set and some board declares a project, so an install without to-dos never makes the call. A minute rather than five: a to-do ticked on a phone should be gone from the bedroom panel before anyone wonders whether it worked.
 
+  The replace keeps one kind of row: a task this install has marked completed. Todoist's task endpoint returns only open tasks, so a plain full replace would delete the row someone ticked ten seconds ago, and the tick would look like it failed. A checked task instead stays where it was (same section, bottom of the list, struck through) until the local day rolls over, and tapping it again reopens it. `completed_on` holds that local day, and reading `/api/todos` sweeps out anything older than today. Anything Todoist _does_ return is open by definition, which is what un-checks a recurring task when it comes back under the same id with its next due date.
+
 Each sync records success or failure in `sync_status`. The footer's sync indicator reads that and turns amber with the reason when the last attempt failed. Timestamps are ISO 8601 UTC with a `Z` suffix throughout; nothing a browser parses ever comes from SQLite's `datetime('now')`.
 
 ## API routes
@@ -37,7 +39,7 @@ All under `app/api/`. The dashboard polls the read routes; the write routes exis
 | `/api/calendar/delete` | POST   | Delete (gated; recurring 409; idempotent)                              |
 | `/api/todos`           | GET    | Cached to-dos for a board's project                                    |
 | `/api/todos/create`    | POST   | Add a task to Todoist                                                  |
-| `/api/todos/complete`  | POST   | Close a task                                                           |
+| `/api/todos/complete`  | POST   | Close a task, and mark the cached row done                             |
 | `/api/todos/reopen`    | POST   | Reopen one, for the tick that was a mis-tap                            |
 
 `isCalendarWriteEnabled()` in `lib/config` is the single gate for the OAuth scope, the write routes, the "+ Add event" button, and click-to-edit.

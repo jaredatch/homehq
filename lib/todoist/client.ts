@@ -110,16 +110,6 @@ export async function fetchProjectTasks(projectId: string): Promise<TodoistTask[
   return tasks;
 }
 
-/** One task by id. Used after an undo, to put the real row back in the cache. */
-export async function fetchTask(id: string): Promise<TodoistTask | null> {
-  try {
-    return await request<TodoistTask>(`/tasks/${encodeURIComponent(id)}`);
-  } catch (err) {
-    if (err instanceof TodoistError && err.status === 404) return null;
-    throw err;
-  }
-}
-
 export async function createTask(input: {
   projectId: string;
   content: string;
