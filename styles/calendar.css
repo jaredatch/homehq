@@ -419,7 +419,7 @@
    THE HEIGHT IS LOAD-BEARING. On an all-day bar the icon shares a line box with
    the title, and .cal-band-bar's height must stay exactly equal to its invisible
    .cal-band-spacer or the whole absolute band overlay drifts off the lanes each
-   day reserved (see .cal-band-label). A 1em box nudged 0.125em below the
+   day reserved (see .cal-band-label). A 0.875em box nudged 0.1em below the
    baseline sits entirely inside the box Inter's ascent and descent already make
    at every leading this app uses, so it costs nothing. Grow it, or align it
    `middle`, and you move the band.

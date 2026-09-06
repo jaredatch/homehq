@@ -20,6 +20,7 @@ data/homehq.db
 data/homehq.db-wal
 data/homehq.db-shm
 data/deploy-version
+data/icons/
 # Local backups of the above (DB backups carry the OAuth token — never commit)
 data/*.bak-*
 

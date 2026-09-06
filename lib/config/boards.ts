@@ -128,9 +128,9 @@ function normalizeHost(host: string): string {
 }
 
 /**
- * The board slug a hostname maps to, or null. Used by the proxy to rewrite `/`
- * on a board's own subdomain. A host no board claims — the kitchen's — returns
- * null and is left alone.
+ * The board slug a hostname maps to, or null. Used by the page at `/` to pick
+ * the board for a hostname (the Edge proxy can't read config, so it can't). A
+ * host no board claims — the kitchen's — returns null and is left alone.
  */
 export function boardSlugForHost(
   host: string | null | undefined,

@@ -45,6 +45,7 @@ GOOGLE_CLIENT_ID=...
 GOOGLE_CLIENT_SECRET=...
 COOKIE_SECRET=<openssl rand -hex 32, a NEW one for prod>
 NEXT_PUBLIC_BASE_URL=https://your-domain.com
+TODOIST_API_KEY=<optional; only for a personal board's to-do column>
 ```
 
 Add `https://your-domain.com/api/oauth/callback` to the OAuth client's authorized redirect
@@ -71,7 +72,7 @@ matter for a wall display:
 Worth doing on any box that faces the internet, even behind Cloudflare:
 
 - **Swap:** 2 GB swapfile + `vm.swappiness=10`, persisted in `/etc/fstab` and `/etc/sysctl.d/99-homehq.conf`.
-- **Users:** the app runs as an unprivileged **`homehq`** user; **`ubuntu`** is the admin / break-glass user. `homehq` has only a _narrow_ `NOPASSWD` sudoers rule for `systemctl {restart,start,stop,status} homehq` (`/etc/sudoers.d/homehq`) and no general sudo.
+- **Users:** the app runs as an unprivileged **`homehq`** user; **`ubuntu`** is the admin / break-glass user. `homehq` has only a _narrow_ `NOPASSWD` sudoers rule for `systemctl restart homehq` (`/etc/sudoers.d/homehq`) and no general sudo.
 - **SSH:** key-only (`PasswordAuthentication no`), **`PermitRootLogin no`**, `KbdInteractiveAuthentication no`, `X11Forwarding no` via `/etc/ssh/sshd_config.d/99-homehq-hardening.conf`. **Connect as `ssh ubuntu@<ip>`; root SSH is closed.** Validate any change with `sshd -t` before `systemctl reload ssh`, and keep a second session open.
 - **Firewall:** `ufw` default-deny inbound, allowing only 22 / 80 / 443 (v4 + v6).
 - **fail2ban:** sshd jail on the systemd/journald backend (Ubuntu 24.04 logs auth to the journal, not `/var/log/auth.log`, so `backend = systemd` in `/etc/fail2ban/jail.local` is required).
@@ -152,7 +153,7 @@ server {
     listen 80 default_server;
     listen [::]:80 default_server;
     server_name _;
-    return 301 https://your-domain.com$request_uri;
+    return 301 https://$host$request_uri;
 }
 
 server {
@@ -193,9 +194,9 @@ works because the record resolves to the droplet, and it auto-renews).
 
 ### First run
 
-1. Visit `https://your-domain.com` → PIN screen. Enter your PIN.
+1. Visit `https://your-domain.com` → PIN screen. Enter the household PIN (`auth.pin`). A board's own PIN can't reach `/setup`.
 2. Go to `https://your-domain.com/setup` → Connect Google Calendar.
-3. Within ~5 minutes the calendar grid populates; weather appears within ~30 seconds.
+3. Within ~5 minutes the calendar grid populates; weather appears within ~30 seconds. Connecting saves the token but doesn't start a sync, so `sudo systemctl restart homehq` if you'd rather not wait for the next tick.
 
 > Shortcut: if you've already connected Google in dev with the same OAuth client, you can
 > skip step 2 by copying a consistent snapshot of the dev DB to the droplet
@@ -212,6 +213,8 @@ npm run build
 git rev-parse --short HEAD > data/deploy-version   # so the kiosk auto-refreshes (see below)
 sudo systemctl restart homehq
 ```
+
+There is no migration step. The app applies any new schema migration itself on the first request after a restart.
 
 ### Deploying updates with a script
 
@@ -235,22 +238,22 @@ This script is also the reusable core if you later want **GitHub Actions** deplo
 Start with the script; graduate to Actions only if you want deploys to run without your machine,
 gate them on tests, or hand deploy access to someone else.
 
-### Refreshing the wall display
+### Refreshing the screens
 
 The dashboard is a single-page app, so a deploy ships new code to the server but a kiosk
 that's already open keeps running the bundle it loaded at boot. To close that gap, `deploy.sh`
-stamps the deployed commit into `data/deploy-version`, and the dashboard polls `/api/version`
-once a minute and hard-reloads itself when that token changes. A normal deploy reaches the wall
-on its own within a minute, without touching the Pi.
+stamps the deployed commit into `data/deploy-version`, and every board polls `/api/version`
+once a minute and hard-reloads itself when that token changes. A normal deploy reaches every
+screen on its own within a minute or two, without touching a Pi.
 
 One catch the first time: a kiosk already running an _older_ build has no version check yet, so
 it needs a single manual reload (or reboot) to pick up the self-updating bundle. Every deploy
 after that is hands-off.
 
-For a config-only change (you edited `data/config.json` but didn't redeploy code, so the
-commit token didn't move), run `./scripts/kiosk-reload.sh` from your machine to bump the token by
-hand and trigger the same refresh. (Config edits are also picked up by the server itself within
-a minute; the reload is for the already-open browser.)
+For a config change made by hand over SSH (so the commit token didn't move), run
+`./scripts/kiosk-reload.sh` from your machine to bump the token and trigger the same refresh.
+`config-sync.sh push` bumps it for you. (Config edits are also picked up by the server itself
+within a minute; the reload is for the already-open browser.)
 
 ### Pushing config
 
@@ -261,11 +264,11 @@ config renders a screen that merely looks empty.
 `scripts/config-sync.sh` closes that gap. It reads the same `HOMEHQ_HOST` / `HOMEHQ_KEY` as
 `deploy.sh`:
 
-| Command                         | What it does                                                                                                                              |
-| ------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------- |
-| `./scripts/config-sync.sh`      | Diffs your local config against the droplet's. PIN values are never printed, only whether one differs. Exits 1 on drift.                  |
-| `./scripts/config-sync.sh push` | Backs up the remote config, pushes yours, restarts, and checks `/login`. If the app doesn't come back it restores the backup and exits 1. |
-| `./scripts/config-sync.sh env`  | Compares `.env` key _names_ against `.env.example` so you can spot one you forgot to set. It never reads a value.                         |
+| Command                         | What it does                                                                                                                                                                                                                                                           |
+| ------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `./scripts/config-sync.sh`      | Diffs your local config against the droplet's. PIN values are never printed, only whether one differs. Exits 1 on drift.                                                                                                                                               |
+| `./scripts/config-sync.sh push` | Refuses if any PIN is still the template `123456`. Otherwise backs up the remote config, pushes yours, restarts, and checks `/login`. If the app doesn't come back it restores the backup and exits 1; if it does, it bumps the kiosk token so every screen refreshes. |
+| `./scripts/config-sync.sh env`  | Compares `.env` key _names_ against `.env.example` so you can spot one you forgot to set. It never reads a value. Exits 1 on any difference, so an optional key you left out counts.                                                                                   |
 
 `push` deliberately leaves `.env` alone. The droplet's differs from yours on purpose
 (`NEXT_PUBLIC_BASE_URL`, for one), and overwriting it takes the site down in a way that isn't
@@ -278,14 +281,17 @@ you to notice later.
 ### Adding a screen
 
 A new board is a `boards` block in `config.json` and a DNS record. Nginx and TLS already handle
-unknown subdomains, so nothing on the droplet changes.
+unknown subdomains, so nothing on the droplet changes. The flip side: a hostname no board claims
+falls through to the family board, so keep DNS to one record per screen and never a wildcard, or
+every typo'd subdomain serves the kitchen wall's login.
 
 1. Add the board to your local `config.json` (see
    [configuration.md](configuration.md#boards)). Give it a `host`, its own `pin`, and the
    calendars it should see. A calendar marked `hidden` syncs but reaches only a board that names
    it, which is how a private room calendar stays off the kitchen wall.
 2. Point the subdomain at the droplet: `./scripts/cf-dns.sh add kidb`, which reuses the IP an
-   existing record points at, or pass one explicitly. `list` shows the zone. Credentials live in
+   existing record points at (if the zone points at more than one, pass one explicitly). It
+   won't touch a name that already exists. `list` shows the zone. Credentials live in
    a gitignored `private/cloudflare.env` (a `Zone:DNS:Edit` + `Zone:Zone:Read` token, the zone
    name, and optionally the zone id). There is deliberately no `delete`: taking a screen off the
    network should be a decision made where you can see what you're pointing at.
@@ -293,16 +299,17 @@ unknown subdomains, so nothing on the droplet changes.
    new config doesn't boot.
 4. Point the screen at `https://<host>/` and enter that board's PIN once.
 
-`/b/<slug>` works without any DNS at all, so a panel on the LAN can use
-`http://homehq.local:3000/b/kidb` and skip steps 2 and 4's hostname entirely.
+`/b/<slug>` works without any DNS at all: `https://your-domain.com/b/kidb` skips steps 2 and 4's
+hostname entirely. It has to be the HTTPS origin, though. The production session cookie is
+`Secure`, so a plain `http://` address on the LAN signs in and immediately bounces back to the
+PIN screen.
 
 ### Backups
 
 Everything worth backing up lives in three files: `data/homehq.db` (the OAuth refresh token
-
-- cached events), `data/config.json`, and `.env`. Losing the DB only costs the Google
-  connection (reconnect at `/setup`) and cached data, which rebuilds itself; losing `.env` means
-  re-creating credentials. Low stakes, but cheap to automate.
+plus cached events and to-dos), `data/config.json`, and `.env`. Losing the DB only costs the
+Google connection (reconnect at `/setup`) and cached data, which rebuilds itself within a sync
+or two; losing `.env` means re-creating credentials. Low stakes, but cheap to automate.
 
 The DB runs in WAL mode, so never `cp homehq.db`: recent writes live in the `-wal` file and a
 plain copy silently drops them. Use sqlite's online `.backup`, which folds the WAL into a
@@ -379,8 +386,9 @@ Raspberry Pi OS (64-bit, **with desktop**) + Chromium in kiosk mode.
 - A **micro-HDMI → HDMI** cable to your display. The Pi 5 outputs video only over its
   **micro-HDMI** ports (its USB-C port is power _in_, not video), so drive the panel over its
   HDMI input. A 27" 4K panel is what this UI is tuned for, but it scales to other sizes.
-- A USB/Bluetooth **keyboard with trackpad** for the one-time PIN entry, any debugging, and
-  adding events from the wall if you enable write access.
+- A USB/Bluetooth **keyboard with trackpad** for debugging and for adding events from the wall
+  if you enable write access. The PIN screen is a drawn keypad, so a trackpad tap (or a finger, on
+  a touch panel) is enough to sign in.
 
 ### Flashing the image
 
@@ -405,7 +413,7 @@ sudo reboot
 
 ### Dual Wi-Fi (two networks)
 
-Bookworm manages Wi-Fi with **NetworkManager**, which auto-connects to whichever _saved_
+Raspberry Pi OS manages Wi-Fi with **NetworkManager**, which auto-connects to whichever _saved_
 network is in range, with no detection logic to write. The Imager seeds your first network; add a
 second as another saved profile. You can add it **while out of range**; the profile just
 waits until that network is reachable:
@@ -426,7 +434,7 @@ Point this at your **dev machine's server** while testing (see _Testing on the P
 swap the URL to your production domain once the droplet is live. That one line is the only
 difference between a test setup and the wall.
 
-For Raspberry Pi OS Bookworm+ (Wayland/labwc, the default on Pi 5), add to
+For Raspberry Pi OS Bookworm or later (Wayland/labwc, the default on Pi 5), add to
 `~/.config/labwc/autostart`. **Heads-up on the binary name:** it's `chromium-browser` on
 Bookworm but **`chromium` on Debian 13 / trixie**. Call the wrong one and the kiosk fails
 silently and you land on the bare desktop. This picks whichever exists:
@@ -481,13 +489,70 @@ no DigitalOcean, no domain, no PIN/OAuth setup required:
    line; that's the URL the Pi uses. Add the Pi's hostname or IP to `HOMEHQ_DEV_ORIGINS` in
    `.env` so hot-reload assets are allowed through, and open the port in your machine's
    firewall if the Pi can't connect. The bypass is ignored in production builds, so it can't
-   leak past local dev (`proxy.ts`).
+   leak past local dev (`isAuthBypassed()` in `lib/auth/session.ts`).
 
 2. Point the kiosk Chromium at `http://<your-dev-machine-LAN-IP>:3000`.
 
 The Pi now renders the live app at real size and distance with the real keyboard, while the
 app is still being tweaked. When the droplet is up, change the autostart URL to
 `https://your-domain.com`; nothing else about the Pi changes.
+
+### Touch panel (personal board)
+
+A personal board's screen is a small touch panel with no keyboard and no mouse, in our case a
+Pi 5 on the back of a 10.1" 1280×800 HDMI panel with USB touch. The flash, Wi-Fi, autologin and
+blanking steps above apply unchanged. What differs, all of it found the hard way on real
+hardware:
+
+- **No scale factor.** The board is laid out for 1280×800, so drop `--force-device-scale-factor`
+  from the Chromium line.
+- **`--password-store=basic` on the Chromium line.** Without it Chromium's first launch parks on
+  a GNOME keyring dialog, and an autologin desktop can stop on an unlock prompt at later boots.
+  HomeHQ never saves a password, so there's nothing to keep.
+- **Wrap Chromium in a relaunch loop.** A crashed kiosk on a panel with no keyboard is a bare
+  desktop until someone reboots it. The autostart becomes:
+
+  ```bash
+  CHROMIUM="$(command -v chromium-browser || command -v chromium)"
+  (
+    while true; do
+      "$CHROMIUM" --kiosk --password-store=basic --noerrdialogs --disable-infobars \
+        --disable-session-crashed-bubble https://kidb.your-domain.com
+      sleep 2
+    done
+  ) &
+  ```
+
+- **"No signal" after the bootloader screen.** Some HDMI panels don't assert hotplug-detect. The
+  Pi's bootloader shows its splash regardless, then the kernel sees no display and the panel goes
+  dark while Linux boots fine underneath (SSH works). Both connectors read `disconnected` in
+  `/sys/class/drm/card1-HDMI-A-*/status`. Tell the kernel to drive the port anyway by appending
+  to the one line in `/boot/firmware/cmdline.txt`, for the port the cable is actually in and only
+  that port (a forced-on empty port is a phantom second screen the kiosk can land on):
+
+  ```bash
+  sudo sed -i '1s/$/ video=HDMI-A-1:1280x800@60e/' /boot/firmware/cmdline.txt
+  sudo reboot
+  ```
+
+- **Touch mapped to nowhere.** If the display looked disconnected at first login, Pi OS writes
+  `~/.config/labwc/rc.xml` with the touch device mapped to `NOOP-1`, a placeholder output. And its
+  default `mouseEmulation="yes"` turns a finger drag into a text selection in Chromium instead of
+  a scroll. Fix both and reload labwc in place:
+
+  ```bash
+  sed -i 's/mapToOutput="NOOP-1"/mapToOutput="HDMI-A-1"/; s/mouseEmulation="yes"/mouseEmulation="no"/' ~/.config/labwc/rc.xml
+  pkill -HUP -x labwc
+  ```
+
+  Emulation off costs double-tap in the Pi's file manager, which the panel never uses.
+
+- **Sign in with the board's own PIN** on the drawn keypad. It mints a session that opens only
+  that board. Then the same checks as the wall: a deploy or `config-sync.sh push` reloads the
+  panel by itself, and a power cycle boots straight back to the board.
+
+Getting out of the kiosk without a keyboard is SSH: `pkill chromium` restarts it, and
+`pkill -f labwc/autostart; pkill chromium` leaves the bare desktop, where touch works as a mouse.
 
 ### Disable screen blanking
 
@@ -497,7 +562,7 @@ sudo raspi-config   # Display Options → Screen Blanking → Off
 
 ### First login on the kiosk
 
-Enter the PIN once with a keyboard. The session cookie renews itself on use (sliding
+Tap the PIN once on the drawn keypad. The session cookie renews itself on use (sliding
 renewal), so an always-on display stays logged in indefinitely.
 
 ### Recovery behaviors worth knowing

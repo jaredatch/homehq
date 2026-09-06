@@ -14,9 +14,9 @@ That shape buys three things: credentials stay server-side, the wall keeps showi
 
 The schedulers start once, from `instrumentation.ts`, when the server boots.
 
-- **Calendar** (`lib/google/sync.ts`): every 5 minutes, for each calendar in `config.json`, fetch events in a window of 60 days back to 210 days ahead (`google.syncDaysBack` / `syncDaysAhead`), expand recurrences (`singleEvents: true`, so each row is one occurrence), normalise, and replace that calendar's rows wholesale (`upsertCalendarEvents`). The fetch paginates, so a wide window is safe. The window is also the hard limit on how far the UI can look: past it the cache has no rows and month view would show empty cells that aren't empty.
+- **Calendar** (`lib/google/sync.ts`): every 5 minutes, for each calendar in `config.json`, fetch events in a window of 60 days back to 210 days ahead (`google.syncDaysBack` / `syncDaysAhead`), expand recurrences (`singleEvents: true`, so each row is one occurrence), normalise, and replace that calendar's rows wholesale (`upsertCalendarEvents`). Cancelled events, invites the calendar's owner declined, and unanswered invites from outside the household are dropped on the way in (`shouldHideEvent`), and a calendar removed from config has its rows deleted on the next pass. The fetch paginates, so a wide window is safe. The window is also the hard limit on how far the UI can look: past it the cache has no rows and month view would show empty cells that aren't empty.
 - **Weather** (`lib/weather/sync.ts`): every 30 minutes, fetch current conditions and the forecast for the configured lat/long from Open-Meteo (no API key) and cache the JSON.
-- **Todoist** (`lib/todoist/sync.ts`): every minute, for each project a board names, pull open tasks into the `todos` table. It runs only when `TODOIST_API_KEY` is set and some board declares a project, so an install without to-dos never makes the call. A minute rather than five: a to-do ticked on a phone should be gone from the bedroom panel before anyone wonders whether it worked.
+- **Todoist** (`lib/todoist/sync.ts`): every minute, for each project a board names, pull open top-level tasks into the `todos` table (sub-tasks are skipped), with due dates bucketed in `display.timezone`. It runs only when `TODOIST_API_KEY` is set and some board declares a project, so an install without to-dos never makes the call. A minute rather than five: a to-do ticked on a phone should be gone from the bedroom panel before anyone wonders whether it worked.
 
   The replace keeps one kind of row: a task this install has marked completed. Todoist's task endpoint returns only open tasks, so a plain full replace would delete the row someone ticked ten seconds ago, and the tick would look like it failed. A checked task instead stays where it was (same section, bottom of the list, struck through) until the local day rolls over, and tapping it again reopens it. `completed_on` holds that local day, and reading `/api/todos` sweeps out anything older than today. Anything Todoist _does_ return is open by definition, which is what un-checks a recurring task when it comes back under the same id with its next due date.
 
@@ -54,7 +54,9 @@ Recurring occurrences are blocked from edit and delete, in the UI and again in t
 
 A six-digit PIN checked by `POST /api/auth`. Success sets an HMAC-SHA256 signed cookie (`lib/auth/session.ts`, Web Crypto). Sessions last 30 days and renew on use after 7, so an always-on kiosk never logs out. `proxy.ts` (the Next.js 16 name for middleware) gates every page and API route on that cookie.
 
-The household PIN from `auth.pin` opens everything. A board may also declare its own `pin`, and a session minted with it is stamped with that board and opens only that board: the code a kid types on her bedroom panel is not the code that opens the kitchen wall, and it reaches neither `/setup` nor the OAuth routes. `lib/auth/board-access.ts` enforces the stamp.
+The household PIN from `auth.pin` opens everything. A board may also declare its own `pin`, and a session minted with it is stamped with that board and opens only that board: the code a kid types on her bedroom panel is not the code that opens the kitchen wall, and it reaches neither `/setup` nor the OAuth routes. `proxy.ts` enforces the stamp on every path it can see; `lib/auth/board-access.ts` covers the one it can't, a board served at `/` on its own hostname, which the proxy can't resolve.
+
+The stamp gates what a board may _read_ (below) but not yet what it may _write_. The create, update and delete routes check for a valid session and `isCalendarWriteEnabled()`, and no more; a personal board keeps its edits to its own calendars by a rule in the browser (`canEditEvent` in `components/board/personal-utils.ts`). Closing that on the server is next on the list.
 
 An unstamped session opens everything, and that is deliberate rather than an oversight. The household PIN mints one on purpose: it keeps every cookie issued before per-board PINs existed working, which is why the family board's own case must never be stamped.
 
@@ -85,7 +87,7 @@ Dropping the other calendars' rows has one nasty consequence. A personal board c
 
 Resolving those links over the window alone is complete, not a shortcut. Every link tier requires its members to agree on start and end time, so a sibling can't be hiding outside the range.
 
-A personal board owns its own chrome and shares only the presentational grids. It renders `WeekRow` and `MonthWeek` unchanged, so there is one definition of a week and a month house-wide, and it shares the measuring modules and the write routes. It never shares a form or a footer: bending `EventModal` around a second set of constraints is how the family board gets broken. Nothing on it takes text focus either, because an `<input>` invites a platform keyboard the Pi cannot show. The drawn on-screen keyboard writes into a `div`.
+A personal board owns its own chrome and shares only the presentational grids. It renders `WeekRow` and `MonthWeek` unchanged, so there is one definition of a week and a month house-wide, and it shares the measuring modules and the write routes. It never shares a form or a footer: bending `EventModal` around a second set of constraints is how the family board gets broken. Nothing on it takes text focus either, because an `<input>` invites a platform keyboard the Pi cannot show. The drawn on-screen keyboard writes into a `div`, and a physical keyboard reaches it through a window listener, never through focus.
 
 Every key is in [configuration.md](configuration.md#boards); the layout side is in [calendar.md](calendar.md#what-a-personal-board-borrows-personalweek-personalmonth).
 
@@ -101,7 +103,9 @@ A family has several ways to get one event onto two people's calendars, and each
 
 1. **Stamp.** HomeHQ's own shared events: one real Google event per calendar, each stamped with the same id in `extendedProperties.private.homehqGroup` and mirrored into the `group_id` column. Created deliberately, so this tier has no size cap.
 2. **Google.** The same `event_id` on two calendars. Google returns one id for an invite because it really is one event resource with a guest.
-3. **Twin.** Identical title, start, end, and all-day flag with different ids: the same thing typed in once per person. This is the only tier that guesses, so it's capped at two calendars, and location and notes are left out of the key on purpose (real pairs routinely have notes on one copy only).
+3. **Twin.** Identical title, start, end, and all-day flag with different ids: the same thing typed in once per person. This is the only tier that guesses, and location and notes are left out of the key on purpose (real pairs routinely have notes on one copy only).
+
+Only the stamp tier is uncapped. Tiers 2 and 3 stop at two calendars, and the scoped API relies on that cap when it decides what a personal board can be told.
 
 A stronger tier claims its members before a weaker one runs, so a stamped pair can never be widened by a lookalike. The grids merge with this file and the update/delete routes resolve siblings with it. That sharing matters: if the read side and write side ever disagreed about membership, editing a shared event could insert a third copy.
 
@@ -115,13 +119,13 @@ The dashboard always shows cached data. If Google is down, auth breaks, or the d
 
 ## Kiosk self-update
 
-The dashboard is a long-lived single-page app: a deploy ships new code, but a kiosk that has been open for a week keeps running the bundle it booted with. The page is stamped with a build token (`getDeployVersion` in `lib/version.ts` reads `data/deploy-version`), and `CalendarGrid` polls `/api/version` once a minute, hard-reloading when the token changes. `scripts/deploy.sh` stamps the git SHA on every deploy; `scripts/kiosk-reload.sh` writes a `manual-<epoch>` token to force a refresh after a config-only change.
+The dashboard is a long-lived single-page app: a deploy ships new code, but a kiosk that has been open for a week keeps running the bundle it booted with. The page is stamped with a build token (`getDeployVersion` in `lib/version.ts` reads `data/deploy-version`), and every board (`CalendarGrid` on the wall, `PersonalShell` on a panel) polls `/api/version` once a minute, hard-reloading when the token changes. `scripts/deploy.sh` stamps the git SHA on every deploy; `scripts/kiosk-reload.sh` writes a `manual-<epoch>` token to force a refresh after a hand-edited config; `config-sync.sh push` stamps one itself.
 
 It can't loop: the reloaded page is served with the new token as its baseline, and a fetch error never triggers a reload.
 
 ## Styling
 
-Plain hand-authored CSS, no framework. Design tokens (palette, type scale, leading, weight) are CSS custom properties in `styles/tokens.css`. A reset and the root `clamp()` that scales the whole layout with viewport height live in `styles/base.css`. Each area has its own stylesheet with a class prefix (`cal-` week grid, `mon-` month view, `wx-` weather, `tb-`/`clk-` top bar and clock, `auth-` login), all `@import`ed from `app/globals.css`. Dynamic values (calendar colours, grid spans) stay inline.
+Plain hand-authored CSS, no framework. Design tokens (palette, type scale, leading, weight) are CSS custom properties in `styles/tokens.css`. A reset and the root `clamp()` that scales the whole layout with viewport height live in `styles/base.css`. Each area has its own stylesheet with a class prefix (`cal-` week grid, `mon-` month view, `wx-` weather, `tb-`/`clk-` top bar and clock, `auth-` login, `pb-` personal board), all `@import`ed from `app/globals.css`. Dynamic values (calendar colours, grid spans) stay inline.
 
 Everything is sized in `rem` off that root `clamp()`, which is what makes one layout work on a 27" 4K panel and a laptop. The one deliberate exception is month view, which scales its own font-size in `em` so its rows can be denser. See [calendar.md](calendar.md).
 
@@ -139,7 +143,7 @@ Event-title icons take a third approach. Font Awesome Free ships as a server dep
 
 ## Database
 
-SQLite via better-sqlite3, WAL mode, migrated on boot from `lib/db/migrations/`. Tables: `calendar_events`, `weather_cache`, `todos`, `sync_status` (all caches), plus `oauth_tokens`. The refresh token is the only thing in the database that a sync can't regenerate, which is what makes it the one row worth backing up.
+SQLite via better-sqlite3, WAL mode, migrated on the first `getDb()` from `lib/db/migrations/` (five so far: the initial schema, a recurring-event id, the shared-event `group_id`, the `todos` table, and its `completed_on` column). Tables: `calendar_events`, `weather_cache`, `todos`, `sync_status` (all caches), plus `oauth_tokens`. The refresh token is the only thing in the database that a sync can't regenerate, which is what makes it the one row worth backing up.
 
 Tests never touch the default path: `getDb()` refuses `data/homehq.db` under Vitest and tests open temp files via `_setDefaultDb()`. (That guard exists because a fixture once wiped a live refresh token.)
 
@@ -147,24 +151,28 @@ Tests never touch the default path: `getDb()` refuses `data/homehq.db` under Vit
 
 ```
 proxy.ts                 auth gate
-instrumentation.ts       starts the two sync schedulers
+instrumentation.ts       starts the three sync schedulers
 app/
   page.tsx               whichever board this hostname resolves to
   b/[slug]/              a board by URL path
   login/  setup/         PIN entry, Google connect
   api/                   routes listed above
 components/
+  auth/                  PinPad, the drawn keypad
   board/                 FamilyBoard, PersonalBoard + PersonalShell and its
-                         columns, sheets, and on-screen keyboard
+                         columns, sheets, PersonPicker, view footer, and
+                         on-screen keyboard
   calendar/              CalendarView, CalendarGrid, WeekRow, EventItem, EventTitle,
-                         MonthGrid/MonthWeek/MonthDayPopover, CalendarFooter,
-                         EventModal, CalendarPicker, *-utils.ts
+                         DayPopover, MonthGrid/MonthWeek/MonthDayPopover,
+                         CalendarFooter, EventModal, CalendarPicker, and the
+                         pure modules beside them (wall-layout, week-metrics,
+                         month-metrics, calendar-filter, event-groups, event-paint)
   clock/  weather/  dashboard/
 lib/
   auth/                  session cookie, rate limiter, per-board access
-  calendar/              event-links (what counts as one event), board-scope (what a
-                         board may read), event-timing (form validation),
-                         title-rules + title-icons (title icons)
+  calendar/              event-links (what counts as one event), event-groups (the
+                         stamp), board-scope (what a board may read), event-timing
+                         (form validation), title-rules + title-icons (title icons)
   config/                config.json loader, board resolution, isCalendarWriteEnabled
   db/                    SQLite setup, migrations, queries
   google/                Calendar API client, OAuth, sync
@@ -174,6 +182,6 @@ lib/
 styles/                  tokens, base, per-area stylesheets
 scripts/                 deploy.sh, kiosk-reload.sh, config-sync.sh, cf-dns.sh,
                          asset generators
-data/                    config.json, homehq.db, icons/ (gitignored),
-                         config.example.json
+data/                    config.json, homehq.db, deploy-version, icons/ (all
+                         gitignored), config.example.json
 ```

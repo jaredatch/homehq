@@ -83,9 +83,8 @@ interface DayPopoverProps {
  * touches the timed stack, so nothing in the band can be behind "+N more".
  *
  * Month view has its own (`MonthDayPopover`) and this is deliberately not it.
- * The two share the part that is genuinely one thing — `popoverLayout()`, the
- * clamping math that keeps the card inside the calendar region — and nothing
- * else. `.mon-pop` is sized in `em` against `.mon-calendar`'s `clamp()` font
+ * They share nothing but the idea: this one clamps itself with `dayPopoverBox`
+ * below, month view's with `popoverLayout()` in month-utils. `.mon-pop` is sized in `em` against `.mon-calendar`'s `clamp()` font
  * size and draws its rows as month chips; rendered on the wall it would come
  * out at the wrong scale AND in a different visual language from the column
  * directly behind it. So this one is `rem` like the rest of the wall's chrome

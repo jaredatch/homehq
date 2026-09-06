@@ -11,21 +11,21 @@ Config is validated on load. A bad value fails fast with a message naming the fi
 
 ## `.env`
 
-| Variable               | Required | Notes                                                                                                       |
-| ---------------------- | -------- | ----------------------------------------------------------------------------------------------------------- |
-| `GOOGLE_CLIENT_ID`     | yes      | From Google Cloud Console. See [google-oauth-setup.md](google-oauth-setup.md).                              |
-| `GOOGLE_CLIENT_SECRET` | yes      | Same.                                                                                                       |
-| `COOKIE_SECRET`        | yes      | Signs the session cookie. Generate with `openssl rand -hex 32`. Use a different one for prod.               |
-| `NEXT_PUBLIC_BASE_URL` | yes      | The URL the app is served at. `http://localhost:3000` in dev, `https://your-domain` in prod.                |
-| `TODOIST_API_KEY`      | no       | Personal API token from Todoist → Settings → Integrations → Developer. Only needed if a board shows to-dos. |
-| `HOMEHQ_DEV_ORIGINS`   | no       | Dev only. Comma-separated hosts allowed to reach `next dev` from another machine.                           |
-| `DEV_AUTH_BYPASS`      | no       | Dev only. `1` skips the PIN gate. Ignored in production builds (`proxy.ts`).                                |
+| Variable               | Required | Notes                                                                                                         |
+| ---------------------- | -------- | ------------------------------------------------------------------------------------------------------------- |
+| `GOOGLE_CLIENT_ID`     | yes      | From Google Cloud Console. See [google-oauth-setup.md](google-oauth-setup.md).                                |
+| `GOOGLE_CLIENT_SECRET` | yes      | Same.                                                                                                         |
+| `COOKIE_SECRET`        | yes      | Signs the session cookie. Generate with `openssl rand -hex 32`. Use a different one for prod.                 |
+| `NEXT_PUBLIC_BASE_URL` | yes      | The URL the app is served at. `http://localhost:3000` in dev, `https://your-domain` in prod.                  |
+| `TODOIST_API_KEY`      | no       | Personal API token from Todoist → Settings → Integrations → Developer. Only needed if a board shows to-dos.   |
+| `HOMEHQ_DEV_ORIGINS`   | no       | Dev only. Comma-separated hosts allowed to reach `next dev` from another machine.                             |
+| `DEV_AUTH_BYPASS`      | no       | Dev only. `1` skips the PIN gate. Ignored in production builds (`isAuthBypassed()` in `lib/auth/session.ts`). |
 
-The deploy scripts (`scripts/deploy.sh`, `scripts/kiosk-reload.sh`) read `HOMEHQ_HOST` and `HOMEHQ_KEY` from the environment or from a gitignored `private/deploy.env`. See [deployment.md](deployment.md).
+The deploy scripts (`scripts/deploy.sh`, `scripts/config-sync.sh`, `scripts/kiosk-reload.sh`) read `HOMEHQ_HOST` and `HOMEHQ_KEY` from the environment or from a gitignored `private/deploy.env`. See [deployment.md](deployment.md).
 
 ## `data/config.json`
 
-The shape is defined in `lib/config/types.ts` (`AppConfig`). Everything marked optional has a default, so a minimal config is just calendars, weather, and a PIN.
+The shape is defined in `lib/config/types.ts` (`AppConfig`). Everything marked optional has a default, so a minimal config is calendars, weather, a PIN, and a `display` block with `calendarWeeks` and `showWeather`.
 
 ### `calendars`
 
@@ -53,21 +53,21 @@ Weather comes from [Open-Meteo](https://open-meteo.com/), which needs no API key
 
 ### `display`
 
-| Field                    | Default   | Notes                                                                                                                                                    |
-| ------------------------ | --------- | -------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `calendarWeeks`          | required  | How many week rows the wall view shows. 2 fits a 27" panel well.                                                                                         |
-| `showWeather`            | required  | `false` hides the weather panel in the top bar.                                                                                                          |
-| `weekStartsOn`           | `monday`  | or `sunday`.                                                                                                                                             |
-| `timezone`               | browser   | IANA zone (`America/Chicago`). Pins the clock and all event times to one zone regardless of the kiosk's OS clock. Leave unset to use the browser's zone. |
-| `weatherIcons`           | `lucide`  | `lucide` · `meteocons` · `weather-icons` · `emoji`. The first three are self-hosted SVGs. See [Weather icons](#weather-icons).                           |
-| `todayColor`             | `#60a5fa` | Colour of today's marker dot.                                                                                                                            |
-| `titleIcons`             | unset     | Rules that draw an event's title as an icon plus the rest, in the calendar grids only. See [Event-title icons](#event-title-icons).                      |
-| `titleIconColor`         | unset     | Default colour for those icons: any CSS colour, or `calendar` for the event's own calendar colour. Unset means they take the title's colour.             |
-| `expandResetSeconds`     | `300`     | How long "expand next week" stays up before the wall snaps back. `0` disables.                                                                           |
-| `createFormResetSeconds` | `120`     | How long an idle event form stays open before it closes itself. `0` disables.                                                                            |
-| `monthViewResetSeconds`  | `180`     | How long month view stays up when idle before reverting to the week grid. `0` disables.                                                                  |
-| `filterResetSeconds`     | `300`     | How long a per-person filter stays applied when idle before showing everyone again. `0` disables.                                                        |
-| `viewResetSeconds`       | `120`     | Personal boards only. How long a full-screen view (week, month) stays up when idle before falling back to the columns. `0` disables.                     |
+| Field                    | Default   | Notes                                                                                                                                                                    |
+| ------------------------ | --------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `calendarWeeks`          | required  | How many week rows the wall view shows. 2 fits a 27" panel well.                                                                                                         |
+| `showWeather`            | required  | `false` hides the weather panel in the top bar.                                                                                                                          |
+| `weekStartsOn`           | `monday`  | or `sunday`.                                                                                                                                                             |
+| `timezone`               | browser   | IANA zone (`America/Chicago`). Pins the clock and all event times to one zone regardless of the kiosk's OS clock. Leave unset to use the browser's zone.                 |
+| `weatherIcons`           | `lucide`  | `lucide` · `meteocons` · `weather-icons` · `emoji`. The first three are self-hosted SVGs. See [Weather icons](#weather-icons).                                           |
+| `todayColor`             | `#60a5fa` | Colour of today's marker dot.                                                                                                                                            |
+| `titleIcons`             | unset     | Rules that draw an event's title as an icon plus the rest, in the calendar grids only. See [Event-title icons](#event-title-icons).                                      |
+| `titleIconColor`         | unset     | Default colour for those icons: any CSS colour, or `calendar` for the event's own calendar colour. Unset means they take the title's colour.                             |
+| `expandResetSeconds`     | `300`     | Family board only. How long "expand next week" stays up before the wall snaps back. `0` disables.                                                                        |
+| `createFormResetSeconds` | `120`     | How long an idle event form stays open before it closes itself. `0` disables.                                                                                            |
+| `monthViewResetSeconds`  | `180`     | Family board only. How long month view stays up when idle before reverting to the week grid. `0` disables.                                                               |
+| `filterResetSeconds`     | `300`     | How long a per-person filter stays applied when idle before showing everyone again. On a personal board, how long a peek at someone else's calendar lasts. `0` disables. |
+| `viewResetSeconds`       | `120`     | Personal boards only. How long a full-screen view (week, month) stays up when idle before falling back to the columns. `0` disables.                                     |
 
 The `*ResetSeconds` keys exist because the display is always on and nobody is there to put it back. Every transient state (month view, the filter, an open form, the expanded week, a personal board's full-screen view) reverts on its own. The timers restart on any interaction, so they never fire while someone is mid-task.
 
@@ -91,20 +91,20 @@ One HomeHQ install can drive more than one screen: the kitchen wall, plus a touc
 
 A board is a set of overrides on top of the config you already have. Anything it doesn't name falls through to the top-level value, so a config with no `boards` key behaves exactly as it did before boards existed.
 
-| Field             | Required | Notes                                                                                                                                                                                    |
-| ----------------- | -------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `layout`          | yes      | `family` is the dense wall grid. `personal` is the three-column touch surface: agenda, to-dos, clock and weather.                                                                        |
-| `name`            | no       | Shown in the header and on the PIN screen. Defaults to the slug.                                                                                                                         |
-| `host`            | no       | A hostname that serves this board at `/`, so a kiosk URL needs no path. Unclaimed hosts fall through to the family board.                                                                |
-| `pin`             | no       | Six digits. Opens only this board. Without it, the household PIN is the only way in.                                                                                                     |
-| `calendars`       | no       | Which calendar ids this board draws, in draw order, and on a `personal` board the only ones it is served. Omitted means all of them except the `hidden` ones.                            |
-| `ownCalendars`    | no       | Which of those belong to this board's person. Sets the person picker's default, and decides which events this board can edit. Omitted means all of them, which leaves nobody to peek at. |
-| `alwaysShow`      | no       | Calendars that stay in view whoever the picker is set to. Usually the family calendar, since a family dinner is this person's evening too.                                               |
-| `defaultCalendar` | no       | Where a new event lands by default. On a personal board that's the private calendar, and the create form offers a choice between "Just me" and "Family".                                 |
-| `todos`           | no       | `{ "projectId": "..." }`. The Todoist project this board's to-do column reads and writes. Needs `TODOIST_API_KEY`.                                                                       |
-| `display`         | no       | Any subset of the `display` block, merged over the top level. Lets one board have its own idle timings or hide weather.                                                                  |
+| Field             | Required | Notes                                                                                                                                                                                                                                                    |
+| ----------------- | -------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `layout`          | yes      | `family` is the dense wall grid. `personal` is the three-column touch surface: agenda, to-dos, clock and weather.                                                                                                                                        |
+| `name`            | no       | A personal board shows it in the header and on the PIN screen. Defaults to the slug.                                                                                                                                                                     |
+| `host`            | no       | A hostname that serves this board at `/`, so a kiosk URL needs no path. Matched case-insensitively, port ignored; two boards can't claim the same one. Unclaimed hosts fall through to the family board.                                                 |
+| `pin`             | no       | Six digits. Opens only this board. Without it, the household PIN is the only way in. The template's `123456` is refused in production here too.                                                                                                          |
+| `calendars`       | no       | Which calendar ids this board draws, in draw order, and on a `personal` board the only ones it is served. Omitted means all of them except the `hidden` ones.                                                                                            |
+| `ownCalendars`    | no       | Which of those belong to this board's person. Sets the person picker's default, and decides which events this board can edit. Omitted means all of them, which leaves nobody to peek at.                                                                 |
+| `alwaysShow`      | no       | Calendars that stay in view whoever the picker is set to. Usually the family calendar, since a family dinner is this person's evening too.                                                                                                               |
+| `defaultCalendar` | no       | Where a new event lands by default. On a personal board that's the private calendar, and the create form offers "Just me" (this calendar, or the first of `ownCalendars`) and "Family" (the next visible own calendar, else the first `alwaysShow` one). |
+| `todos`           | no       | `{ "projectId": "..." }`. The Todoist project this board's to-do column reads and writes. Needs `TODOIST_API_KEY`.                                                                                                                                       |
+| `display`         | no       | Any subset of the `display` block, merged over the top level. Lets one board have its own idle timings or hide weather. A personal board's full-screen week shows one row unless the board sets `calendarWeeks` itself.                                  |
 
-Ids in `calendars`, `ownCalendars`, `alwaysShow`, and `defaultCalendar` are all checked at startup. A typo fails the boot rather than rendering a convincingly empty screen in someone's bedroom.
+The slug is the URL, so it's lowercase letters, digits and dashes. Ids in `calendars`, `ownCalendars`, `alwaysShow`, and `defaultCalendar` are all checked at startup. A typo fails the boot rather than rendering a convincingly empty screen in someone's bedroom.
 
 ```jsonc
 "boards": {
@@ -113,7 +113,7 @@ Ids in `calendars`, `ownCalendars`, `alwaysShow`, and `defaultCalendar` are all 
     "name": "Kid A",
     "host": "kida.example.com",
     "pin": "246810",
-    "calendars": ["family@group.calendar.google.com", "kida@group.calendar.google.com", "kida-room@group.calendar.google.com"],
+    "calendars": ["kida@group.calendar.google.com", "kida-room@group.calendar.google.com", "family@group.calendar.google.com"],
     "ownCalendars": ["kida@group.calendar.google.com", "kida-room@group.calendar.google.com"],
     "alwaysShow": ["family@group.calendar.google.com"],
     "defaultCalendar": "kida-room@group.calendar.google.com",
@@ -167,7 +167,7 @@ Font Awesome Free ships with the app, so any of its icons is a config edit away 
 
 Browse names at [fontawesome.com/search](https://fontawesome.com/search?o=r&m=free). A name the build doesn't have makes the app refuse to start, with the nearest matches in the error, so a typo turns up at boot instead of as a wall quietly missing its glyphs.
 
-For anything Font Awesome lacks (there is no pig, though there is a cow, a horse and a tractor), drop an SVG into `data/icons/` and name it `local:<file>`. `data/icons/pig.svg` becomes `"icon": "local:pig"`. The file needs a `viewBox` and at least one `<path>`, and it has to be a solid outline rather than stroked line art. Line art turns to mush at chip size, the same way a mono emoji face did before this app shipped a colour one.
+For anything Font Awesome lacks (there is no pig, though there is a cow, a horse and a tractor), drop an SVG into `data/icons/` and name it `local:<file>`. `data/icons/pig.svg` becomes `"icon": "local:pig"`. The name follows the slug rule (lowercase, digits, dashes). The file needs at least one `d="…"` path (a missing `viewBox` is taken as 512×512), and it has to be a solid outline rather than stroked line art. Line art turns to mush at chip size, the same way a mono emoji face did before this app shipped a colour one.
 
 ### Colouring an icon
 
@@ -200,4 +200,4 @@ The SVG sets are inlined in `lib/weather/weather-icon-svgs.ts`, regenerated from
 
 ## Applying a change
 
-`config.json` is re-read within a minute (`getConfig` caches it briefly), so most edits show up on the next poll without a restart. Two exceptions: `.env` is read at boot, and a change to `google.calendarAccess` needs a re-consent at `/setup`. On a wall kiosk that has been open for days, run `scripts/kiosk-reload.sh` to force a refresh after a config-only change.
+`config.json` is re-read within a minute (`getConfig` caches it for 60 seconds). Anything the API serves (scoping, PINs, the sync window) changes within that minute; anything the page is rendered with (the `display` block, the calendar list, board fields) shows on the next page load. Two exceptions: `.env` is read at boot, and a change to `google.calendarAccess` needs a re-consent at `/setup`. On a wall kiosk that has been open for days, run `scripts/kiosk-reload.sh` to force a refresh after a config-only change.

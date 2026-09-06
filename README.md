@@ -26,7 +26,7 @@ It's built for one household on one Google account, and that's the whole scope. 
 - **One event on two people's calendars** shows as a single two-colour chip, whether HomeHQ created it, Google linked it as an invite, or someone typed it in twice.
 - **Per-person filter** from the legend. Click a name to see just their week.
 - **Icons instead of the words you type every week.** `Dropoff Alex` draws as a car and the name, `Dentist Appt` as a clock and `Dentist`. Rules live in config and the icon can take the person's own colour.
-- **A screen per person.** The kitchen wall is one board; a 10" touch panel in a bedroom is another, showing that kid's day, her own private calendar, and her to-dos. Same install, same sync, its own PIN.
+- **A screen per person.** The kitchen wall is one board; a 10" touch panel in a bedroom is another, showing that kid's day, her own private calendar, and her to-dos. Same install, same sync, its own PIN. It's touch all the way down: a drawn keypad to sign in, a drawn keyboard to add things, and full-screen week and month views that go back to her day on their own.
 - **To-dos from Todoist** on a personal board. Tick one off and it writes back to Todoist, then stays put, struck through, until the day is over. Tap it again to undo.
 - **Clock and weather** in a slim top bar. Weather from Open-Meteo, no API key needed.
 - **Made for an always-on screen.** Every transient state reverts after idle. Cached data stays up through any outage. A deploy refreshes the kiosk by itself.
@@ -65,13 +65,13 @@ git clone https://github.com/jaredatch/homehq.git
 cd homehq
 npm install
 
-cp .env.example .env                              # add Google client ID/secret, a cookie secret
-cp data/config.example.json data/config.json      # calendars, lat/long, PIN
+cp .env.example .env                              # Google client ID/secret, a cookie secret, Todoist token (optional)
+cp data/config.example.json data/config.json      # calendars, lat/long, PIN, boards
 
 npm run dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000), enter your PIN, then visit `/setup` to connect Google. Events show up within a few minutes; weather within a minute. That's the kitchen wall; adding a board for another screen is a `boards` block in the same file.
+Open [http://localhost:3000](http://localhost:3000), enter your PIN, then visit `/setup` to connect Google. Events show up within a few minutes; weather within a minute. That's the kitchen wall. A second screen is a `boards` block in the same file, served at `/b/<slug>` (the example config ships one at `/b/kida`) or at its own hostname once you give it a `host`. To-dos need a Todoist token in `.env` and a project id on the board.
 
 Every config key is documented in [docs/configuration.md](docs/configuration.md). Local development and troubleshooting are in [BOOTSTRAP.md](BOOTSTRAP.md).
 

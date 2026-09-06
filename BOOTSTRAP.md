@@ -13,11 +13,15 @@ cp data/config.example.json data/config.json  # calendars, location, PIN
 npm run dev                                   # http://localhost:3000
 ```
 
-`.env` needs a Google client ID and secret ([docs/google-oauth-setup.md](docs/google-oauth-setup.md)) and a `COOKIE_SECRET` (`openssl rand -hex 32`). Every key in both files is described in [docs/configuration.md](docs/configuration.md).
+`.env` needs a Google client ID and secret ([docs/google-oauth-setup.md](docs/google-oauth-setup.md)) and a `COOKIE_SECRET` (`openssl rand -hex 32`). `TODOIST_API_KEY` is optional; leave it blank and to-dos are off. Every key in both files is described in [docs/configuration.md](docs/configuration.md).
 
 Enter your PIN at the login screen, then go to `/setup` to connect Google. The first calendar sync runs on boot and every 5 minutes after.
 
 To skip the PIN while developing, run `DEV_AUTH_BYPASS=1 npm run dev`. Production builds ignore it.
+
+The example config also ships a personal board. Open `/b/kida` in a 1280×800 viewport to see it (that's the real panel size). Its PIN is under `boards.kida.pin`, and the household PIN opens it too.
+
+`data/config.json` is cached in memory for 60 seconds. If an edit seems to be ignored, that's why; restart the dev server rather than debugging the wrong thing.
 
 ## Commands
 
@@ -38,7 +42,7 @@ Before committing: `npm test`, `npm run lint`, `npm run format:check`, and `npm 
 
 ## Testing
 
-Vitest, deliberately light: the pure logic (layout packing, event linking, date math, filter), the DB layer, the auth pieces, and the write routes with Google mocked. UI components aren't rendered in tests; layout changes are verified against a real browser instead (see [docs/calendar.md](docs/calendar.md#checking-a-layout-change)).
+Vitest, deliberately light: the pure logic (layout packing, event linking, date math, filter, board scoping, to-do sorting), the DB layer, the auth pieces, config validation, the Todoist sync, and the write routes with Google and Todoist mocked. UI components aren't rendered in tests; layout changes are verified against a real browser instead (see [docs/calendar.md](docs/calendar.md#checking-a-layout-change)).
 
 Tests never open `data/homehq.db`. `getDb()` refuses the default path under Vitest, so a test that needs a database opens a temp file and calls `_setDefaultDb()`. Keep it that way; a fixture once wiped a live OAuth token.
 
@@ -62,11 +66,11 @@ Everything in `data/` except the example config is gitignored.
 
 ## Troubleshooting
 
-**Config errors on startup.** The app validates `config.json` on load and the error names the field. Common ones: file missing (copy the example), PIN not a six-digit string, `display.weatherIcons` not one of the four sets, `display.timezone` not a valid IANA zone, and a `display.titleIcons` rule naming an icon the build doesn't have (the error lists the nearest matches). In production the example PIN `123456` is refused outright.
+**Config errors on startup.** The app validates `config.json` on load and the error names the field. Common ones: file missing (copy the example), PIN not a six-digit string, `display.weatherIcons` not one of the four sets, `display.timezone` not a valid IANA zone, and a `display.titleIcons` rule naming an icon the build doesn't have (the error lists the nearest matches). Boards add a few more: a slug with characters other than lowercase letters, digits and dashes, a board naming a calendar id that isn't in the top-level list, `ownCalendars`, `alwaysShow` or `defaultCalendar` naming a calendar the board doesn't show, and two boards claiming the same `host`. In production the example PIN `123456` is refused outright, on the household and on any board.
 
 **`next build` fails with `useContext` or `<Html>` errors.** `NODE_ENV=development` is set in your shell profile. Next sets it itself; remove yours (`echo $NODE_ENV` to check) and open a new terminal.
 
-**A long-running dev server keeps overwriting data.** Restart `npm run dev` after changing anything the background sync touches (`lib/google/sync.ts`, `normalizeEvent`, the DB write helpers). The sync schedulers start once, from `instrumentation.ts`, and Next's hot reload never re-instantiates that module graph. So a server left running overnight keeps executing yesterday's sync code against today's database every 5 minutes. It looks like a product bug: writes through the (hot-reloaded, current) API routes land correctly, then the next sync quietly reverts them. The tell is a row whose `updated_at` matches `sync_status.last_success` and a new column that's empty.
+**A long-running dev server keeps overwriting data.** Restart `npm run dev` after changing anything the background syncs touch (`lib/google/sync.ts`, `lib/todoist/sync.ts`, `lib/weather/sync.ts`, `normalizeEvent`, the DB write helpers). The sync schedulers start once, from `instrumentation.ts`, and Next's hot reload never re-instantiates that module graph. So a server left running overnight keeps executing yesterday's sync code against today's database every 5 minutes. It looks like a product bug: writes through the (hot-reloaded, current) API routes land correctly, then the next sync quietly reverts them. The tell is a row whose `updated_at` matches `sync_status.last_success` and a new column that's empty.
 
 **Sync indicator says "Sync failing".** If it adds "reconnect Google at `/setup`", the refresh token is gone: revoked, or (for an External Google app still in Testing) expired after seven days ([why, and the fix](docs/google-oauth-setup.md#4b-external-apps-only-publish-to-production)). Otherwise the full error is in the server log (`[sync]` lines in the dev console, or `journalctl -u homehq` in production).
 

@@ -54,8 +54,9 @@
 
 > **This is the trap that kills External apps.** While an External app's publishing
 > status is **Testing**, Google expires its refresh tokens after **7 days**. The
-> dashboard works for a week, then sync silently dies with `invalid_grant` and you have
-> to reconnect. (Internal apps are immune — skip this section.)
+> dashboard works for a week, then sync dies with `invalid_grant`: the footer's sync
+> indicator turns amber and says to reconnect at `/setup`, and cached events keep showing
+> until you do. (Internal apps are immune — skip this section.)
 
 1. Go to **APIs & Services → OAuth consent screen**
 2. Under **Publishing status**, click **Publish App** → confirm
@@ -79,6 +80,10 @@ Generate `COOKIE_SECRET` if you haven't already:
 ```bash
 openssl rand -hex 32
 ```
+
+The redirect URI HomeHQ sends is `NEXT_PUBLIC_BASE_URL` plus `/api/oauth/callback`, exactly, so the one you registered in step 4 has to match that string: same scheme, same host, no trailing slash. A `redirect_uri_mismatch` error is nearly always one of those.
+
+Then sign in with the household PIN and open `/setup` to connect. A board's own PIN can't reach `/setup`, by design.
 
 ## Checklist
 
