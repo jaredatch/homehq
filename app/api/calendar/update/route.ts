@@ -1,6 +1,12 @@
 import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
 import { getConfig, isCalendarWriteEnabled } from '@/lib/config';
+import { requestBoard } from '@/lib/auth/request-board';
+import {
+  boardOwnsEvent,
+  creatableCalendarIds,
+  isWriteRestricted,
+} from '@/lib/calendar/board-writes';
 import { getValidAccessToken } from '@/lib/google/oauth';
 import {
   patchCalendarEvent,
@@ -170,6 +176,22 @@ export async function POST(request: NextRequest) {
         return badRequest(`Unknown calendarId: ${id}`);
     }
     nextIds = requested;
+  }
+
+  // A session minted by a personal board's PIN may change an event only when
+  // every copy of it is on her own calendars — the rule her own sheet applies
+  // (`canEditEvent`) — and may move it only where her form could create it.
+  // A shared event with a parent's copy is theirs to edit, not hers.
+  const who = await requestBoard();
+  if (!who.ok) return NextResponse.json({ error: who.error }, { status: who.status });
+  if (isWriteRestricted(who.board)) {
+    const allowed = creatableCalendarIds(who.board);
+    if (!boardOwnsEvent(who.board, currentIds) || nextIds.some((id) => !allowed.has(id))) {
+      return NextResponse.json(
+        { error: 'This board can only edit events on its own calendars' },
+        { status: 403 }
+      );
+    }
   }
 
   const { kept, added, removed } = diffMembership(currentIds, nextIds);

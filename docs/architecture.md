@@ -56,7 +56,7 @@ A six-digit PIN checked by `POST /api/auth`. Success sets an HMAC-SHA256 signed 
 
 The household PIN from `auth.pin` opens everything. A board may also declare its own `pin`, and a session minted with it is stamped with that board and opens only that board: the code a kid types on her bedroom panel is not the code that opens the kitchen wall, and it reaches neither `/setup` nor the OAuth routes. `proxy.ts` enforces the stamp on every path it can see; `lib/auth/board-access.ts` covers the one it can't, a board served at `/` on its own hostname, which the proxy can't resolve.
 
-The stamp gates what a board may _read_ (below) but not yet what it may _write_. The create, update and delete routes check for a valid session and `isCalendarWriteEnabled()`, and no more; a personal board keeps its edits to its own calendars by a rule in the browser (`canEditEvent` in `components/board/personal-utils.ts`). Closing that on the server is next on the list.
+The stamp gates writes as well as reads. A personal board's session may add an event only to its own calendars or one it always shows, may change or delete an event only when every copy is on its own calendars, and may touch only the Todoist project it names. Those are the same rules its own form applies (`canEditEvent` and `eventTargets` in `components/board/personal-utils.ts`), restated in `lib/calendar/board-writes.ts` so the two can't drift. The household PIN and a family-layout board stay unrestricted, as on the read side.
 
 An unstamped session opens everything, and that is deliberate rather than an oversight. The household PIN mints one on purpose: it keeps every cookie issued before per-board PINs existed working, which is why the family board's own case must never be stamped.
 
@@ -169,10 +169,12 @@ components/
                          month-metrics, calendar-filter, event-groups, event-paint)
   clock/  weather/  dashboard/
 lib/
-  auth/                  session cookie, rate limiter, per-board access
+  auth/                  session cookie, rate limiter, per-board access,
+                         which board a request's session is stamped with
   calendar/              event-links (what counts as one event), event-groups (the
-                         stamp), board-scope (what a board may read), event-timing
-                         (form validation), title-rules + title-icons (title icons)
+                         stamp), board-scope (what a board may read), board-writes
+                         (what it may change), event-timing (form validation),
+                         title-rules + title-icons (title icons)
   config/                config.json loader, board resolution, isCalendarWriteEnabled
   db/                    SQLite setup, migrations, queries
   google/                Calendar API client, OAuth, sync

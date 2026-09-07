@@ -11,6 +11,12 @@ import { TodoistError } from '@/lib/todoist/client';
 // Controlled config: one board bound to one Todoist project. `mock`-prefixed so
 // Vitest allows the reference inside the hoisted factory.
 let mockConfig: Record<string, unknown> & { display: { timezone?: string } };
+// These tests are the household path: an unstamped session, no board
+// restriction. The stamped-session rules live in board-writes-routes.test.ts.
+vi.mock('@/lib/auth/request-board', () => ({
+  requestBoard: async () => ({ ok: true, board: null }),
+}));
+
 vi.mock('@/lib/config', () => ({
   getConfig: () => mockConfig,
   isCalendarWriteEnabled: () => true,

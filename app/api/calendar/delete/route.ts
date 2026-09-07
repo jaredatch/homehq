@@ -1,6 +1,8 @@
 import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
 import { getConfig, isCalendarWriteEnabled } from '@/lib/config';
+import { requestBoard } from '@/lib/auth/request-board';
+import { boardOwnsEvent, isWriteRestricted } from '@/lib/calendar/board-writes';
 import { getValidAccessToken } from '@/lib/google/oauth';
 import { deleteCalendarEvent, CalendarApiError } from '@/lib/google/calendar';
 import { getEvent, getLinkCandidates, deleteEvent } from '@/lib/db/events';
@@ -55,6 +57,27 @@ export async function POST(request: NextRequest) {
     );
   }
 
+  // Every copy, by the same rule the grid merged the chip with (see below), so
+  // the ownership check sees the whole event and not one person's view of it.
+  const targets = resolveLink(getLinkCandidates(existing), existing).members;
+
+  // A session minted by a personal board's PIN may delete only an event whose
+  // every copy is on her own calendars — `canEditEvent`, held server-side.
+  const who = await requestBoard();
+  if (!who.ok) return NextResponse.json({ error: who.error }, { status: who.status });
+  if (
+    isWriteRestricted(who.board) &&
+    !boardOwnsEvent(
+      who.board,
+      targets.map((t) => t.calendar_id)
+    )
+  ) {
+    return NextResponse.json(
+      { error: 'This board can only delete events on its own calendars' },
+      { status: 403 }
+    );
+  }
+
   let accessToken: string;
   try {
     accessToken = await getValidAccessToken();
@@ -74,7 +97,6 @@ export async function POST(request: NextRequest) {
   // call removes it and the second comes back 410, which deleteCalendarEvent
   // already treats as success. Issuing both is deliberate — it drops both cache
   // rows, so nothing lingers on the wall until the next sync.
-  const targets = resolveLink(getLinkCandidates(existing), existing).members;
 
   const failures: { calendarId: string; error: string }[] = [];
   let firstError: unknown = null;

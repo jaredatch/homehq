@@ -9,6 +9,12 @@ import { upsertEvent, getEvent } from '@/lib/db/events';
 import { CalendarApiError } from '@/lib/google/calendar';
 
 let mockConfig: Record<string, unknown> & { google: { calendarAccess: string } };
+// These tests are the household path: an unstamped session, no board
+// restriction. The stamped-session rules live in board-writes-routes.test.ts.
+vi.mock('@/lib/auth/request-board', () => ({
+  requestBoard: async () => ({ ok: true, board: null }),
+}));
+
 vi.mock('@/lib/config', () => ({
   getConfig: () => mockConfig,
   isCalendarWriteEnabled: (c?: { google?: { calendarAccess?: string } }) =>

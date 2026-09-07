@@ -2,6 +2,8 @@ import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
 import { getConfig } from '@/lib/config';
 import { todoProjectIds } from '@/lib/config/boards';
+import { requestBoard } from '@/lib/auth/request-board';
+import { boardMayUseProject, isWriteRestricted } from '@/lib/calendar/board-writes';
 import { createTask, normalizeTask, TodoistError } from '@/lib/todoist/client';
 import { upsertTodo } from '@/lib/db/todos';
 
@@ -45,6 +47,12 @@ export async function POST(request: NextRequest) {
   // complete routes use, so this can't become a general Todoist write proxy
   // into the household's account.
   if (!todoProjectIds(getConfig()).includes(projectId)) {
+    return NextResponse.json({ error: 'Unknown project' }, { status: 404 });
+  }
+  // And a personal board's session writes only to its own project.
+  const who = await requestBoard();
+  if (!who.ok) return NextResponse.json({ error: who.error }, { status: who.status });
+  if (isWriteRestricted(who.board) && !boardMayUseProject(who.board, projectId)) {
     return NextResponse.json({ error: 'Unknown project' }, { status: 404 });
   }
 

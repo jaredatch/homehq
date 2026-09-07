@@ -2,6 +2,8 @@ import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
 import { getConfig } from '@/lib/config';
 import { todoProjectIds } from '@/lib/config/boards';
+import { requestBoard } from '@/lib/auth/request-board';
+import { boardMayUseProject, isWriteRestricted } from '@/lib/calendar/board-writes';
 import { getProjectTodos, purgeCompletedTodos } from '@/lib/db/todos';
 import { getSyncStatus } from '@/lib/db/sync-status';
 import { todayInZone } from '@/components/calendar/calendar-utils';
@@ -11,7 +13,7 @@ import { todayInZone } from '@/components/calendar/calendar-utils';
  * talks to Todoist (CLAUDE.md rule 3), so the column paints instantly and keeps
  * painting through a Todoist outage.
  */
-export function GET(request: NextRequest) {
+export async function GET(request: NextRequest) {
   const projectId = request.nextUrl.searchParams.get('projectId');
   if (!projectId) {
     return NextResponse.json({ error: 'projectId query param required' }, { status: 400 });
@@ -21,6 +23,13 @@ export function GET(request: NextRequest) {
   // the cache holds nothing else — but a route that answers for any id invites
   // someone to treat it as a Todoist proxy, which it is not.
   if (!todoProjectIds(getConfig()).includes(projectId)) {
+    return NextResponse.json({ error: 'Unknown project' }, { status: 404 });
+  }
+
+  // And a personal board's session reads only its own project, not a sibling's.
+  const who = await requestBoard();
+  if (!who.ok) return NextResponse.json({ error: who.error }, { status: who.status });
+  if (isWriteRestricted(who.board) && !boardMayUseProject(who.board, projectId)) {
     return NextResponse.json({ error: 'Unknown project' }, { status: 404 });
   }
 

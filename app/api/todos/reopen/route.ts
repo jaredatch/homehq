@@ -2,6 +2,8 @@ import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
 import { getConfig } from '@/lib/config';
 import { todoProjectIds } from '@/lib/config/boards';
+import { requestBoard } from '@/lib/auth/request-board';
+import { boardMayUseProject, isWriteRestricted } from '@/lib/calendar/board-writes';
 import { reopenTask, TodoistError } from '@/lib/todoist/client';
 import { getTodo, reopenTodo } from '@/lib/db/todos';
 
@@ -29,6 +31,12 @@ export async function POST(request: NextRequest) {
   // reopen arbitrary tasks in the household's Todoist account.
   const todo = getTodo(id);
   if (!todo || !todoProjectIds(getConfig()).includes(todo.project_id)) {
+    return NextResponse.json({ error: 'Unknown to-do' }, { status: 404 });
+  }
+  // And a personal board's session touches only its own project's tasks.
+  const who = await requestBoard();
+  if (!who.ok) return NextResponse.json({ error: who.error }, { status: who.status });
+  if (isWriteRestricted(who.board) && !boardMayUseProject(who.board, todo.project_id)) {
     return NextResponse.json({ error: 'Unknown to-do' }, { status: 404 });
   }
 

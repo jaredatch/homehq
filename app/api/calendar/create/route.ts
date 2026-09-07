@@ -1,6 +1,8 @@
 import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
 import { getConfig, isCalendarWriteEnabled } from '@/lib/config';
+import { requestBoard } from '@/lib/auth/request-board';
+import { creatableCalendarIds, isWriteRestricted } from '@/lib/calendar/board-writes';
 import { getValidAccessToken } from '@/lib/google/oauth';
 import {
   createCalendarEvent,
@@ -65,6 +67,21 @@ export async function POST(request: NextRequest) {
   }
   for (const id of calendarIds) {
     if (!config.calendars.some((c) => c.id === id)) return badRequest(`Unknown calendarId: ${id}`);
+  }
+
+  // A session minted by a personal board's PIN may only put an event where that
+  // board's own form would: her calendars, or one it always shows. The wall and
+  // the household PIN are unrestricted (lib/calendar/board-writes.ts).
+  const who = await requestBoard();
+  if (!who.ok) return NextResponse.json({ error: who.error }, { status: who.status });
+  if (isWriteRestricted(who.board)) {
+    const allowed = creatableCalendarIds(who.board);
+    if (calendarIds.some((id) => !allowed.has(id))) {
+      return NextResponse.json(
+        { error: 'This board can only add events to its own calendars' },
+        { status: 403 }
+      );
+    }
   }
 
   const parsed = parseTiming(body);
