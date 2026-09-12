@@ -167,6 +167,21 @@ server {
 
     include /etc/nginx/snippets/cloudflare-realip.conf;
 
+    # While the app restarts (a deploy, a config push) the upstream refuses
+    # connections for a second or two. A kiosk that loads a bare 502 in that
+    # window is stuck on it: the error page carries none of the JS that would
+    # reload it. Serve a page that retries itself instead (step 4). Sent as 503
+    # so Cloudflare passes it through rather than substituting its own gateway
+    # page. Only nginx's own errors land here (no proxy_intercept_errors), so
+    # the app's API error bodies are untouched.
+    error_page 502 503 504 =503 /__retry.html;
+    location = /__retry.html {
+        internal;
+        root /var/www/homehq-retry;
+        add_header Cache-Control "no-store";
+        add_header Retry-After 3;
+    }
+
     location / {
         proxy_pass http://127.0.0.1:3000;
         proxy_http_version 1.1;
@@ -181,11 +196,38 @@ server {
 }
 ```
 
+**4. The retry page.** A plain HTML file with a `meta refresh`, so a screen that hits the
+restart window reloads itself every few seconds until the app answers:
+
+```bash
+sudo mkdir -p /var/www/homehq-retry
+sudo tee /var/www/homehq-retry/__retry.html >/dev/null <<'HTML'
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta http-equiv="refresh" content="3">
+<title>HomeHQ</title>
+<style>
+html{background:#030712;color:#6a7282;font:1rem/1.4 system-ui,sans-serif}
+body{margin:0;min-height:100vh;display:grid;place-items:center}
+p{margin:0}
+</style>
+</head>
+<body><p>Restarting… back in a moment.</p></body>
+</html>
+HTML
+```
+
 ```bash
 sudo ln -s /etc/nginx/sites-available/homehq /etc/nginx/sites-enabled/
 sudo rm -f /etc/nginx/sites-enabled/default
 sudo nginx -t && sudo systemctl reload nginx
 ```
+
+To see the retry page without taking the app down, add `location = /__retry-test { return 502; }`
+to the vhost, reload, request `/__retry-test`, and take it out again.
 
 **Not using Cloudflare's proxy?** If you point DNS straight at the droplet (DNS-only /
 grey-cloud), skip the Origin cert and use Let's Encrypt instead:
@@ -219,10 +261,20 @@ There is no migration step. The app applies any new schema migration itself on t
 ### Deploying updates with a script
 
 `scripts/deploy.sh` does this. Run `./scripts/deploy.sh` from your machine. It SSHes in as
-`homehq`, pulls, `npm ci`, rebuilds on the droplet (that's what the swap is for), restarts the
-service, and health-checks `/login`. It reads the target from `HOMEHQ_HOST` / `HOMEHQ_KEY`, or
-from a gitignored `private/deploy.env` (see the script header). Two prerequisites make it
-non-interactive:
+`homehq` and builds the new version **beside** the live tree, in `~/homehq-build` (a second
+clone it makes on the first run, with `.env` and `data/` symlinked to the live ones). Then it
+pulls the live tree, renames the new `.next/` and `node_modules/` into place, restarts the
+service, and health-checks `/login`. If the new build doesn't come up it renames the old ones
+back and restarts again. Only after a passing health check does it move the kiosk token, so no
+screen reloads into a server that isn't ready.
+
+Building beside the live tree is the point. `npm ci` and `next build` take about a minute on a
+1 GB droplet, and the running server reads `.next/` and `node_modules/` lazily, so rebuilding
+in place leaves a window where any page load gets a bare "Internal Server Error". A kiosk that
+lands on that page is stuck on it. The swap itself is two renames and takes milliseconds.
+
+It reads the target from `HOMEHQ_HOST` / `HOMEHQ_KEY`, or from a gitignored
+`private/deploy.env` (see the script header). Two prerequisites make it non-interactive:
 
 - **Passwordless restart**, so the deploy doesn't stall on a sudo password prompt. Add a
   narrow rule via `sudo visudo -f /etc/sudoers.d/homehq`:
@@ -245,6 +297,12 @@ that's already open keeps running the bundle it loaded at boot. To close that ga
 stamps the deployed commit into `data/deploy-version`, and every board polls `/api/version`
 once a minute and hard-reloads itself when that token changes. A normal deploy reaches every
 screen on its own within a minute or two, without touching a Pi.
+
+The token moves last, after the health check, because a reload is the one thing a kiosk can't
+undo: an error page has no JavaScript, so a screen that reloads into a restarting server sits
+on "Internal Server Error" until someone touches it. The nginx retry page covers the second or
+two of the restart itself; the token ordering covers everything before it. Don't bump the token
+by hand while a deploy is running.
 
 One catch the first time: a kiosk already running an _older_ build has no version check yet, so
 it needs a single manual reload (or reboot) to pick up the self-updating bundle. Every deploy
