@@ -462,6 +462,18 @@ over SSH instead of fumbling at the monitor:
   `display.timezone` in `config.json` (see Display options), so it stays correct even if the OS
   zone is wrong. That's how the kiosk clock is pinned.
 
+  This step sets the timezone and keyboard, but not the system locale, which stays Raspberry Pi
+  OS's default of `en_GB.UTF-8`. It shows up in one place: the family board's event form uses
+  the browser's own date and time fields, and Chromium draws those in the system locale, so a US
+  household sees `22/09/2026` and `22:00`. Set yours after first boot (then reboot):
+
+  ```bash
+  sudo raspi-config nonint do_change_locale en_US.UTF-8
+  ```
+
+  Personal boards draw their own date and time pickers, so they read the same whatever the
+  locale.
+
 First boot, then update:
 
 ```bash
