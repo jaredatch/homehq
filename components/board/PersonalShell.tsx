@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState, type CSSProperties } from 'react';
 import { useMinuteTick } from '@/components/clock/use-minute';
 import { mergeGroups } from '@/components/calendar/event-groups';
 import { calendarIdsForEvent } from '@/lib/calendar/event-links';
@@ -283,7 +283,10 @@ export default function PersonalShell({
   );
 
   return (
-    <div className="pb">
+    // Today's marker colour as a custom property, so the date picker inside a
+    // sheet can mark today the way the grids do without threading it through
+    // every form.
+    <div className="pb" style={{ '--pb-today': todayColor } as CSSProperties}>
       <PersonalUpcoming
         titleIcons={titleIcons}
         days={days}
@@ -302,6 +305,7 @@ export default function PersonalShell({
         projectId={todoProjectId}
         timezone={timezone}
         today={today}
+        weekStartsOn={weekStartsOn}
         formResetMs={formResetMs}
       />
       <PersonalStatus
@@ -364,6 +368,7 @@ export default function PersonalShell({
           writeEnabled={calendarWriteEnabled}
           timezone={timezone}
           today={today}
+          weekStartsOn={weekStartsOn}
           resetMs={formResetMs}
           onClose={() => setSheet(null)}
           onSaved={fetchEvents}

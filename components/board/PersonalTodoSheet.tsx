@@ -1,14 +1,18 @@
 'use client';
 
 import { useState } from 'react';
-import { addDays } from '@/components/calendar/calendar-utils';
+import { addDays, type WeekStart } from '@/components/calendar/calendar-utils';
 import PersonalSheet from './PersonalSheet';
 import OnScreenKeyboard, { KeyboardField } from './OnScreenKeyboard';
+import DatePicker from './DatePicker';
+import { formatPickedDate } from './picker-utils';
 
 interface PersonalTodoSheetProps {
   projectId: string;
   /** Today as YYYY-MM-DD in the board's zone — what the "Today" chip means. */
   today: string;
+  /** Which column the date picker's weeks start in, same as the grids. */
+  weekStartsOn: WeekStart;
   resetMs: number;
   onClose: () => void;
   /** Called after Todoist confirms, with the new task's id, so the column can
@@ -33,20 +37,24 @@ type When = 'none' | 'today' | 'tomorrow' | 'pick';
  * harder to fix from here — than a missing one. The landing problem is solved
  * where it belongs instead: the column scrolls the new task into view.
  *
- * The date picker is a native `<input type="date">`, the same control the event
- * form uses. It opens Chromium's own date popup rather than a text cursor, so it
- * doesn't break the rule that nothing on this board takes text focus.
+ * "Pick a date" opens the board's own drawn month grid in place of the keyboard,
+ * the same one the event form uses. It used to be a native `<input type="date">`,
+ * which on the panel took several taps to open, opened mouse-sized, and drew
+ * the date in the Pi's locale rather than ours (see DatePicker).
  */
 export default function PersonalTodoSheet({
   projectId,
   today,
+  weekStartsOn,
   resetMs,
   onClose,
   onAdded,
 }: PersonalTodoSheetProps) {
   const [content, setContent] = useState('');
   const [when, setWhen] = useState<When>('none');
-  const [pickedDate, setPickedDate] = useState(today);
+  // Only ever set by tapping a day, so "pick" never stands without a date.
+  const [pickedDate, setPickedDate] = useState<string | null>(null);
+  const [picking, setPicking] = useState(false);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -56,16 +64,12 @@ export default function PersonalTodoSheet({
       : when === 'tomorrow'
         ? addDays(today, 1)
         : when === 'pick'
-          ? pickedDate
+          ? (pickedDate ?? undefined)
           : undefined;
 
   const add = async () => {
     const text = content.trim();
     if (!text || saving) return;
-    if (when === 'pick' && !pickedDate) {
-      setError('Pick a date, or choose No date.');
-      return;
-    }
     setSaving(true);
     setError(null);
     try {
@@ -91,17 +95,54 @@ export default function PersonalTodoSheet({
     }
   };
 
-  const chip = (key: When, label: string) => (
+  const chip = (key: When, label: string, onClick = () => setWhen(key)) => (
     <button
       key={key}
       type="button"
       className={`pb-chip${when === key ? ' pb-chip--on' : ''}`}
-      onClick={() => setWhen(key)}
+      onClick={onClick}
       aria-pressed={when === key}
     >
       {label}
     </button>
   );
+
+  /* The keyboard steps aside for the grid, and comes back holding what was
+     typed — the text lives here, not in the keyboard. */
+  if (picking) {
+    return (
+      <PersonalSheet
+        title="Due date"
+        resetMs={resetMs}
+        onClose={onClose}
+        footer={
+          <button type="button" className="pb-btn" onClick={() => setPicking(false)}>
+            Back
+          </button>
+        }
+      >
+        <DatePicker
+          value={when === 'pick' ? pickedDate : null}
+          today={today}
+          weekStartsOn={weekStartsOn}
+          // A new to-do due yesterday would land straight in Past Due.
+          min={today}
+          onPick={(picked) => {
+            // Today and Tomorrow already have chips of their own; lighting
+            // those instead of a third chip that says the same thing keeps one
+            // answer per day.
+            if (picked === today) setWhen('today');
+            else if (picked === addDays(today, 1)) setWhen('tomorrow');
+            else {
+              setPickedDate(picked);
+              setWhen('pick');
+            }
+            setPicking(false);
+          }}
+        />
+      </PersonalSheet>
+    );
+  }
 
   return (
     <PersonalSheet title="Add to-do" resetMs={resetMs} onClose={onClose}>
@@ -111,22 +152,14 @@ export default function PersonalTodoSheet({
         {chip('none', 'No date')}
         {chip('today', 'Today')}
         {chip('tomorrow', 'Tomorrow')}
-        {chip('pick', 'Pick a date')}
+        {/* Once a day is picked, the chip IS the answer: it says the date, and
+            tapping it again reopens the grid on that day. */}
+        {chip(
+          'pick',
+          when === 'pick' && pickedDate ? formatPickedDate(pickedDate, today) : 'Pick a date',
+          () => setPicking(true)
+        )}
       </div>
-
-      {/* Only once "Pick a date" is chosen — an always-present date field beside
-          three chips reads as a fifth option that's already answered. */}
-      {when === 'pick' && (
-        <label className="pb-field pb-field--date">
-          <span className="pb-field-label">Due</span>
-          <input
-            className="pb-input"
-            type="date"
-            value={pickedDate}
-            onChange={(e) => setPickedDate(e.target.value)}
-          />
-        </label>
-      )}
 
       {error && <p className="pb-sheet-error">{error}</p>}
 

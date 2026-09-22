@@ -7,10 +7,20 @@ import {
   nextHourRange,
   zonedParts,
   type CalendarEvent,
+  type WeekStart,
 } from '@/components/calendar/calendar-utils';
 import PersonalSheet from './PersonalSheet';
 import OnScreenKeyboard, { KeyboardField } from './OnScreenKeyboard';
+import DatePicker from './DatePicker';
+import TimePicker from './TimePicker';
 import { railStyle } from './PersonalEventRow';
+import {
+  carryEnd,
+  formatClock12,
+  formatDuration,
+  formatPickedDate,
+  toMinutes,
+} from './picker-utils';
 import type { EventTarget } from './personal-utils';
 
 interface PersonalEventSheetProps {
@@ -33,6 +43,8 @@ interface PersonalEventSheetProps {
   timezone?: string;
   /** Today in the board's zone — the date a new event opens on. */
   today: string;
+  /** Which column the date picker's weeks start in, same as the grids. */
+  weekStartsOn: WeekStart;
   resetMs: number;
   onClose: () => void;
   /** Called after Google confirms, so the agenda refetches. */
@@ -40,6 +52,50 @@ interface PersonalEventSheetProps {
 }
 
 const pad = (n: number) => String(n).padStart(2, '0');
+
+/** Which face of the sheet is showing. The form is home; every other screen is
+ * one field, drawn big, that hands back to the form when it's done. */
+type Screen = 'form' | 'title' | 'date' | 'endDate' | 'start' | 'end';
+
+/**
+ * One form field as a button: the label and the value inside one box, the
+ * shape the title row already had. Tapping it opens that field's own screen —
+ * the keyboard, the date grid, or the time grid — because nothing on this board
+ * is ever a focused input (CLAUDE.md rule 12).
+ */
+function FieldButton({
+  label,
+  value,
+  placeholder,
+  invalid,
+  on,
+  onClick,
+}: {
+  label: string;
+  value: string;
+  placeholder?: string;
+  invalid?: boolean;
+  /** The one being edited, on a screen that shows more than one. */
+  on?: boolean;
+  onClick: () => void;
+}) {
+  const valueClass = !value
+    ? ' pb-fieldbtn-value--empty'
+    : invalid
+      ? ' pb-fieldbtn-value--error'
+      : '';
+  return (
+    <button
+      type="button"
+      className={`pb-fieldbtn${on ? ' pb-fieldbtn--on' : ''}`}
+      onClick={onClick}
+      aria-pressed={on}
+    >
+      <span className="pb-field-label">{label}</span>
+      <span className={`pb-fieldbtn-value${valueClass}`}>{value || placeholder}</span>
+    </button>
+  );
+}
 
 /** "Sat, Aug 30 · 4:00 – 5:00 PM" — the detail card's one-line when. */
 function whenLabel(event: CalendarEvent, timezone: string | undefined): string {
@@ -134,6 +190,7 @@ export default function PersonalEventSheet({
   writeEnabled,
   timezone,
   today,
+  weekStartsOn,
   resetMs,
   onClose,
   onSaved,
@@ -163,7 +220,7 @@ export default function PersonalEventSheet({
   const [endTime, setEndTime] = useState(init.endTime);
   // A new event opens straight on the keyboard: the title is required and
   // empty, so the first thing to do is always the same thing.
-  const [typing, setTyping] = useState(mode === 'create');
+  const [screen, setScreen] = useState<Screen>(mode === 'create' ? 'title' : 'form');
   const [confirmingDelete, setConfirmingDelete] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -173,10 +230,18 @@ export default function PersonalEventSheet({
   const canSave = title.trim() !== '' && !!date && datesValid && timesValid && !busy;
 
   // Same rule the wall's form uses: the end follows the start while the two
-  // match, and goes independent the moment they differ.
+  // match, and goes independent the moment they differ. A start picked past the
+  // end pulls the end with it — the grid would otherwise hand back a range that
+  // runs backwards, and the only way out would be a second trip to the grid.
   const changeStartDate = (next: string) => {
-    if (allDay && endDate === date) setEndDate(next);
+    if (allDay && (endDate === date || endDate < next)) setEndDate(next);
     setDate(next);
+  };
+
+  // Moving the start carries the end along, keeping the event's length.
+  const changeStartTime = (next: string) => {
+    setEndTime(carryEnd(startTime, next, endTime));
+    setStartTime(next);
   };
 
   const save = async () => {
@@ -318,23 +383,99 @@ export default function PersonalEventSheet({
     );
   }
 
+  const formTitle = mode === 'edit' ? 'Edit event' : 'Add event';
+
   /* ---- Typing the title ------------------------------------------------ */
 
-  if (typing) {
+  if (screen === 'title') {
     return (
-      <PersonalSheet
-        title={mode === 'edit' ? 'Edit event' : 'Add event'}
-        resetMs={resetMs}
-        onClose={onClose}
-      >
+      <PersonalSheet title={formTitle} resetMs={resetMs} onClose={onClose}>
         <KeyboardField value={title} placeholder="What’s happening?" label="Event title" />
         <OnScreenKeyboard
           value={title}
           onChange={setTitle}
-          onDone={() => setTyping(false)}
+          onDone={() => setScreen('form')}
           doneLabel="Next"
           doneDisabled={title.trim() === ''}
         />
+      </PersonalSheet>
+    );
+  }
+
+  /* ---- Picking a day --------------------------------------------------- */
+
+  if (screen === 'date' || screen === 'endDate') {
+    const isEnd = screen === 'endDate';
+    return (
+      <PersonalSheet
+        title={isEnd ? 'End date' : allDay ? 'Start date' : 'Date'}
+        resetMs={resetMs}
+        onClose={onClose}
+        footer={
+          <button type="button" className="pb-btn" onClick={() => setScreen('form')}>
+            Back
+          </button>
+        }
+      >
+        <DatePicker
+          value={isEnd ? endDate : date}
+          today={today}
+          weekStartsOn={weekStartsOn}
+          // An all-day event can't end before it starts, so those days don't
+          // offer themselves. The start has no floor: an edit may be in the past.
+          min={isEnd ? date : undefined}
+          onPick={(picked) => {
+            if (isEnd) setEndDate(picked);
+            else changeStartDate(picked);
+            setScreen('form');
+          }}
+        />
+      </PersonalSheet>
+    );
+  }
+
+  /* ---- Picking a time --------------------------------------------------- */
+
+  if (screen === 'start' || screen === 'end') {
+    const isEnd = screen === 'end';
+    const length = toMinutes(endTime) - toMinutes(startTime);
+    return (
+      <PersonalSheet
+        title="Time"
+        resetMs={resetMs}
+        onClose={onClose}
+        footer={
+          <button
+            type="button"
+            className="pb-btn pb-btn--primary"
+            onClick={() => setScreen('form')}
+          >
+            Done
+          </button>
+        }
+      >
+        {/* Start and End side by side, one of them lit: both are one tap away,
+            and moving the start visibly moves the end with it. */}
+        <div className="pb-field-row pb-tp-readouts">
+          <FieldButton
+            label="Starts"
+            value={formatClock12(startTime)}
+            on={!isEnd}
+            onClick={() => setScreen('start')}
+          />
+          <FieldButton
+            label={length > 0 ? `Ends · ${formatDuration(length)}` : 'Ends'}
+            value={formatClock12(endTime)}
+            invalid={!timesValid}
+            on={isEnd}
+            onClick={() => setScreen('end')}
+          />
+        </div>
+        <TimePicker
+          value={isEnd ? endTime : startTime}
+          onChange={isEnd ? setEndTime : changeStartTime}
+        />
+        {!timesValid && <p className="pb-sheet-error">The end time has to be after the start.</p>}
       </PersonalSheet>
     );
   }
@@ -380,7 +521,7 @@ export default function PersonalEventSheet({
 
   return (
     <PersonalSheet
-      title={mode === 'edit' ? 'Edit event' : 'Add event'}
+      title={formTitle}
       resetMs={resetMs}
       onClose={onClose}
       footer={
@@ -411,10 +552,12 @@ export default function PersonalEventSheet({
         </>
       }
     >
-      <button type="button" className="pb-titlerow" onClick={() => setTyping(true)}>
-        <span className="pb-field-label">Title</span>
-        <span className="pb-titlerow-value">{title || 'What’s happening?'}</span>
-      </button>
+      <FieldButton
+        label="Title"
+        value={title}
+        placeholder="What’s happening?"
+        onClick={() => setScreen('title')}
+      />
 
       {showTargets && (
         <div className="pb-field">
@@ -443,46 +586,31 @@ export default function PersonalEventSheet({
       {/* One row in both states: all-day swaps the two clocks for an end date
           rather than adding a row, so toggling it doesn't move the buttons. */}
       <div className="pb-field-row">
-        <label className="pb-field pb-field--date">
-          <span className="pb-field-label">{allDay ? 'Starts' : 'Date'}</span>
-          <input
-            className="pb-input"
-            type="date"
-            value={date}
-            onChange={(e) => changeStartDate(e.target.value)}
-          />
-        </label>
+        <FieldButton
+          label={allDay ? 'Starts' : 'Date'}
+          value={formatPickedDate(date, today)}
+          onClick={() => setScreen('date')}
+        />
         {allDay ? (
-          <label className="pb-field pb-field--date">
-            <span className="pb-field-label">Ends</span>
-            <input
-              className="pb-input"
-              type="date"
-              value={endDate}
-              min={date}
-              onChange={(e) => setEndDate(e.target.value)}
-            />
-          </label>
+          <FieldButton
+            label="Ends"
+            value={formatPickedDate(endDate, today)}
+            invalid={!datesValid}
+            onClick={() => setScreen('endDate')}
+          />
         ) : (
           <>
-            <label className="pb-field pb-field--time">
-              <span className="pb-field-label">Start</span>
-              <input
-                className="pb-input"
-                type="time"
-                value={startTime}
-                onChange={(e) => setStartTime(e.target.value)}
-              />
-            </label>
-            <label className="pb-field pb-field--time">
-              <span className="pb-field-label">End</span>
-              <input
-                className="pb-input"
-                type="time"
-                value={endTime}
-                onChange={(e) => setEndTime(e.target.value)}
-              />
-            </label>
+            <FieldButton
+              label="Start"
+              value={formatClock12(startTime)}
+              onClick={() => setScreen('start')}
+            />
+            <FieldButton
+              label="End"
+              value={formatClock12(endTime)}
+              invalid={!timesValid}
+              onClick={() => setScreen('end')}
+            />
           </>
         )}
       </div>

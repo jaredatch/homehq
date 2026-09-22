@@ -789,47 +789,17 @@
 	color: var(--gray-500);
 }
 
-.pb-input {
-	width: 100%;
-	padding: 0.5rem 0.625rem;
-	border: 1px solid var(--gray-700);
-	border-radius: var(--radius);
-	background-color: var(--gray-950);
-	font-size: var(--text-base);
-	color: var(--gray-100);
-	touch-action: manipulation;
-}
-
-/* Native date/time controls draw their own value and must never be squeezed —
-   a narrowed date input clips its text, the trap the wall's modal hit. */
-.pb-field--date,
-.pb-field--time {
-	flex: 0 0 auto;
-}
-
-/* A date field standing on its own in a sheet (Add Todo's "Pick a date") rather
-   than sharing a .pb-field-row. The body is a column flex, so it would stretch
-   to the sheet's full 42rem — a 798px-wide control holding "09/02/2026". */
-.pb-sheet-body > .pb-field--date {
-	align-self: flex-start;
-}
-
-.pb-field--date .pb-input {
-	min-width: 9.5rem;
-}
-
-.pb-field--time .pb-input {
-	min-width: 6.5rem;
-}
-
-/* The title opens the keyboard rather than taking focus — nothing on this
-   board is ever a focused text input (see OnScreenKeyboard). */
-.pb-titlerow {
+/* One form field as a button: label and value inside one box. Tapping it opens
+   that field's own screen — the keyboard, the date grid, or the time grid —
+   because nothing on this board is ever a focused input (see OnScreenKeyboard).
+   The title row was already built this way; the date and time fields joined it
+   when the native controls went. */
+.pb-fieldbtn {
 	display: flex;
 	flex-direction: column;
 	align-items: flex-start;
 	gap: 0.25rem;
-	width: 100%;
+	min-width: 0;
 	padding: 0.5rem 0.625rem;
 	border: 1px solid var(--gray-700);
 	border-radius: var(--radius);
@@ -838,14 +808,42 @@
 	touch-action: manipulation;
 }
 
-.pb-titlerow-value {
+.pb-fieldbtn:active {
+	border-color: var(--gray-500);
+}
+
+/* Side by side, the fields share the row evenly. Only inside a row: the sheet
+   body is a column flex, where a zero basis would squash the title row flat. */
+.pb-field-row > .pb-fieldbtn {
+	flex: 1 1 0%;
+}
+
+/* The field being edited, on a screen that shows two (the time readouts). An
+   outline, not a fill — a filled --blue-600 is what a CHOSEN value looks like
+   in the grids below it. */
+.pb-fieldbtn--on,
+.pb-fieldbtn--on:active {
+	border-color: var(--blue-600);
+	box-shadow: inset 0 0 0 1px var(--blue-600);
+}
+
+.pb-fieldbtn-value {
 	max-width: 100%;
 	font-size: var(--text-lg);
 	line-height: var(--leading-snug);
+	font-variant-numeric: tabular-nums;
 	color: var(--gray-100);
 	overflow: hidden;
 	text-overflow: ellipsis;
 	white-space: nowrap;
+}
+
+.pb-fieldbtn-value--empty {
+	color: var(--gray-600);
+}
+
+.pb-fieldbtn-value--error {
+	color: var(--red-400);
 }
 
 /* ---- Segmented control + chips ---------------------------------------- */
@@ -1109,6 +1107,168 @@
 	.pb-kb-caret {
 		animation: none;
 	}
+}
+
+/* ---- Drawn pickers: date and time -------------------------------------- */
+
+/* Both replace native controls that failed the panel: Chromium opens a date
+   input's popup only from a small icon, sizes it for a mouse, and draws the
+   value in the DEVICE's locale (a Pi on en_GB showed 22/09/2026 and 22:00).
+   These are drawn from our own code, at a finger's size, the same everywhere. */
+
+.pb-dp,
+.pb-tp {
+	user-select: none;
+}
+
+.pb-dp {
+	display: flex;
+	flex-direction: column;
+	gap: 0.5rem;
+}
+
+/* Month view's header in miniature: the month's name, then ‹ Today › in the
+   same outlined .pb-view-navbtn the full-screen views use. */
+.pb-dp-head {
+	display: flex;
+	align-items: center;
+	gap: 0.375rem;
+	padding-bottom: 0.25rem;
+}
+
+.pb-dp-month {
+	flex: 1 1 auto;
+	font-size: var(--text-xl);
+	line-height: var(--text-xl-lh);
+	font-weight: var(--weight-semibold);
+	color: var(--gray-100);
+}
+
+.pb-dp-weekdays,
+.pb-dp-grid {
+	display: grid;
+	grid-template-columns: repeat(7, minmax(0, 1fr));
+	gap: 0.25rem;
+}
+
+.pb-dp-weekday {
+	text-align: center;
+	font-size: var(--text-xs);
+	line-height: var(--text-xs-lh);
+	font-weight: var(--weight-medium);
+	text-transform: uppercase;
+	letter-spacing: var(--tracking-wide);
+	color: var(--gray-500);
+}
+
+/* ~110×60px at the panel's 20px root: a whole finger, with no scrolling. */
+.pb-dp-day {
+	position: relative;
+	height: 3rem;
+	border-radius: var(--radius);
+	font-size: var(--text-lg);
+	line-height: 1;
+	font-variant-numeric: tabular-nums;
+	color: var(--gray-100);
+	touch-action: manipulation;
+}
+
+.pb-dp-day:active {
+	background-color: var(--gray-800);
+}
+
+/* Past days stay pickable (an edit may be in the past) but step back, as they
+   do on the grids. Next and last month's days step back further. */
+.pb-dp-day--past {
+	color: var(--gray-500);
+}
+
+.pb-dp-day--outside {
+	color: var(--gray-600);
+}
+
+/* Today gets the grids' own marker: a dot in display.todayColor, which the
+   shell sets as --pb-today. */
+.pb-dp-day--today::after {
+	content: '';
+	position: absolute;
+	left: 50%;
+	bottom: 0.375rem;
+	width: 0.3125rem;
+	height: 0.3125rem;
+	margin-left: -0.15625rem;
+	border-radius: var(--radius-full);
+	background-color: var(--pb-today, var(--blue-400));
+}
+
+.pb-dp-day--on,
+.pb-dp-day--on:active {
+	background-color: var(--blue-600);
+	font-weight: var(--weight-semibold);
+	color: var(--white);
+}
+
+.pb-dp-day--on.pb-dp-day--today::after {
+	background-color: var(--white);
+}
+
+.pb-dp-day:disabled {
+	color: var(--gray-700);
+	background: none;
+	cursor: default;
+}
+
+/* Hours beside minutes, AM/PM under both. Every time is on screen at once. */
+.pb-tp {
+	display: grid;
+	grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+	gap: 0.75rem 1rem;
+}
+
+.pb-tp-group {
+	display: flex;
+	flex-direction: column;
+	gap: 0.375rem;
+}
+
+.pb-tp-grid {
+	display: grid;
+	grid-template-columns: repeat(4, minmax(0, 1fr));
+	gap: 0.375rem;
+}
+
+/* Raised like the keyboard's keys, because they are keys. */
+.pb-tp-cell {
+	height: 3rem;
+	border-radius: var(--radius);
+	background-color: var(--gray-800);
+	font-size: var(--text-lg);
+	line-height: 1;
+	font-variant-numeric: tabular-nums;
+	color: var(--gray-100);
+	touch-action: manipulation;
+}
+
+.pb-tp-cell:active {
+	background-color: var(--gray-700);
+}
+
+.pb-tp-cell--on,
+.pb-tp-cell--on:active {
+	background-color: var(--blue-600);
+	font-weight: var(--weight-semibold);
+	color: var(--white);
+}
+
+.pb-tp-meridiem {
+	grid-column: 1 / -1;
+}
+
+/* The Start / End readouts over the grid are the screen's answer, so they
+   read a size up from an ordinary field. */
+.pb-tp-readouts .pb-fieldbtn-value {
+	font-size: var(--text-2xl);
+	line-height: var(--text-2xl-lh);
 }
 
 /* ---- Full-screen views: View Week, View Month --------------------------- */

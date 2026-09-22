@@ -1,7 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { formatEventTime } from '@/components/calendar/calendar-utils';
+import { formatEventTime, type WeekStart } from '@/components/calendar/calendar-utils';
 import { groupTodos, isTodoSyncBroken, todoMeta, type Todo } from './todo-utils';
 import PersonalTodoSheet from './PersonalTodoSheet';
 
@@ -13,6 +13,8 @@ interface PersonalTodoProps {
    * measured against. Comes from the shell so the column can't disagree with
    * the agenda about what day it is. */
   today: string;
+  /** Which column the due-date picker's weeks start in, same as the grids. */
+  weekStartsOn: WeekStart;
   /** How long the Add form stays open untouched before it closes itself (ms). */
   formResetMs: number;
 }
@@ -38,6 +40,7 @@ export default function PersonalTodo({
   projectId,
   timezone,
   today,
+  weekStartsOn,
   formResetMs,
 }: PersonalTodoProps) {
   const [todos, setTodos] = useState<Todo[]>([]);
@@ -230,6 +233,7 @@ export default function PersonalTodo({
         <PersonalTodoSheet
           projectId={projectId}
           today={today}
+          weekStartsOn={weekStartsOn}
           resetMs={formResetMs}
           onClose={() => setAdding(false)}
           onAdded={addedTodo}

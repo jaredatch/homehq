@@ -58,8 +58,10 @@ export default function OnScreenKeyboard({
 }: OnScreenKeyboardProps) {
   const [symbols, setSymbols] = useState(false);
   // Starts on so the first letter of a fresh entry is capitalised without
-  // anyone thinking about it, and drops after one letter like a phone's.
-  const [shift, setShift] = useState(true);
+  // anyone thinking about it, and drops after one letter like a phone's. Only
+  // on an EMPTY field: the keyboard remounts when a sheet comes back from a
+  // picker or reopens a title to edit, and the next letter there is mid-sentence.
+  const [shift, setShift] = useState(() => value === '');
 
   const insert = (ch: string) => {
     if (value.length >= MAX_LENGTH) return;
