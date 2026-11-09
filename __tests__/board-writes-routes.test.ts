@@ -62,6 +62,8 @@ vi.mock('@/lib/google/calendar', async (importActual) => {
 const mockCreateTask = vi.fn();
 const mockCloseTask = vi.fn();
 const mockReopenTask = vi.fn();
+const mockUpdateTask = vi.fn();
+const mockDeleteTask = vi.fn();
 vi.mock('@/lib/todoist/client', async (importActual) => {
   const actual = await importActual<typeof import('@/lib/todoist/client')>();
   return {
@@ -69,6 +71,8 @@ vi.mock('@/lib/todoist/client', async (importActual) => {
     createTask: (...args: unknown[]) => mockCreateTask(...args),
     closeTask: (...args: unknown[]) => mockCloseTask(...args),
     reopenTask: (...args: unknown[]) => mockReopenTask(...args),
+    updateTask: (...args: unknown[]) => mockUpdateTask(...args),
+    deleteTask: (...args: unknown[]) => mockDeleteTask(...args),
   };
 });
 
@@ -79,6 +83,8 @@ import { GET as listTodos } from '@/app/api/todos/route';
 import { POST as createTodo } from '@/app/api/todos/create/route';
 import { POST as completeTodo } from '@/app/api/todos/complete/route';
 import { POST as reopenTodo } from '@/app/api/todos/reopen/route';
+import { POST as updateTodo } from '@/app/api/todos/update/route';
+import { POST as deleteTodo } from '@/app/api/todos/delete/route';
 
 const baseConfig = {
   calendars: [
@@ -374,6 +380,13 @@ describe('write routes under a board-stamped session', () => {
       expect((await post(completeTodo, '/api/todos/complete', { id: 't-m' })).status).toBe(200);
       mockReopenTask.mockResolvedValue(undefined);
       expect((await post(reopenTodo, '/api/todos/reopen', { id: 't-m' })).status).toBe(200);
+
+      mockUpdateTask.mockResolvedValue({ id: 't-m', project_id: 'p-maddie', content: 'Fixed' });
+      expect(
+        (await post(updateTodo, '/api/todos/update', { id: 't-m', content: 'Fixed' })).status
+      ).toBe(200);
+      mockDeleteTask.mockResolvedValue(undefined);
+      expect((await post(deleteTodo, '/api/todos/delete', { id: 't-m' })).status).toBe(200);
     });
 
     it("cannot see or touch a sibling's project, and gets the same 404 an unknown one would", async () => {
@@ -393,6 +406,15 @@ describe('write routes under a board-stamped session', () => {
 
       expect((await post(reopenTodo, '/api/todos/reopen', { id: 't-e' })).status).toBe(404);
       expect(mockReopenTask).not.toHaveBeenCalled();
+
+      expect(
+        (await post(updateTodo, '/api/todos/update', { id: 't-e', content: 'Mine now' })).status
+      ).toBe(404);
+      expect(mockUpdateTask).not.toHaveBeenCalled();
+
+      expect((await post(deleteTodo, '/api/todos/delete', { id: 't-e' })).status).toBe(404);
+      expect(mockDeleteTask).not.toHaveBeenCalled();
+      expect(getTodo('t-e')).toBeTruthy();
     });
   });
 

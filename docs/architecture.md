@@ -41,6 +41,8 @@ All under `app/api/`. The dashboard polls the read routes; the write routes exis
 | `/api/todos/create`    | POST   | Add a task to Todoist                                                  |
 | `/api/todos/complete`  | POST   | Close a task, and mark the cached row done                             |
 | `/api/todos/reopen`    | POST   | Reopen one, for the tick that was a mis-tap                            |
+| `/api/todos/update`    | POST   | Fix a task's text or move/clear its date; sends only what changed      |
+| `/api/todos/delete`    | POST   | Delete a task, and drop the cached row                                 |
 
 `isCalendarWriteEnabled()` in `lib/config` is the single gate for the OAuth scope, the write routes, the "+ Add event" button, and click-to-edit.
 

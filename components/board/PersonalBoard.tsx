@@ -42,6 +42,7 @@ export default function PersonalBoard({ board }: { board: ResolvedBoard }) {
       // sitting on November: transient, and never what the screen is still
       // showing the next morning.
       viewResetMs={(display.viewResetSeconds ?? 120) * 1000}
+      todoEditResetMs={(display.todoEditResetSeconds ?? 15) * 1000}
       // One week row by default, not the wall's two. On an 800px panel a single
       // row gives a day cell ~590px — about ten events before it crops — where
       // two rows would halve that for a screen showing one person's calendar.

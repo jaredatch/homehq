@@ -95,6 +95,12 @@ export interface DisplayConfig {
    * board left on next month isn't still there three days later. The timer
    * restarts on any touch. Defaults to 120. Set to 0 to disable auto-revert. */
   viewResetSeconds?: number;
+  /** Personal boards only. Seconds the Todo column waits, after Edit is tapped,
+   * for a task to be picked before it goes back to tap-to-complete — so a board
+   * left in edit mode doesn't turn a kid's next tick into a form. Short on
+   * purpose; the timer restarts on any touch in the column. Defaults to 15. Set
+   * to 0 to disable. */
+  todoEditResetSeconds?: number;
   /** Rewrite event titles as an icon plus the rest, in the calendar grids only
    * (never a modal, a tooltip, or anything written back to Google). Unset means
    * every title renders exactly the bare text node it always has. See

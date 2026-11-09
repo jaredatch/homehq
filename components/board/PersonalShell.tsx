@@ -49,6 +49,9 @@ interface PersonalShellProps {
   /** How long a full-screen view (week, month) stays up before falling back to
    * the columns (ms). 0 disables. From config.display.viewResetSeconds. */
   viewResetMs: number;
+  /** How long the Todo column's "tap a to-do to edit" mode waits for a pick
+   * before going back to tap-to-complete (ms). 0 disables. */
+  todoEditResetMs: number;
   /** Week rows the full-screen week draws (display.calendarWeeks). */
   calendarWeeks: number;
   weekStartsOn: WeekStart;
@@ -90,6 +93,7 @@ export default function PersonalShell({
   peekResetMs,
   formResetMs,
   viewResetMs,
+  todoEditResetMs,
   calendarWeeks,
   weekStartsOn,
   todayColor,
@@ -307,6 +311,7 @@ export default function PersonalShell({
         today={today}
         weekStartsOn={weekStartsOn}
         formResetMs={formResetMs}
+        editResetMs={todoEditResetMs}
       />
       <PersonalStatus
         now={now}

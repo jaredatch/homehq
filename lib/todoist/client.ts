@@ -191,3 +191,29 @@ export function normalizeTask(task: TodoistTask, boardZone?: string): TodoInput 
     labels: JSON.stringify(task.labels ?? []),
   };
 }
+
+/**
+ * Change a task's text and/or due date. Only the fields given are sent, so a
+ * text-only edit leaves Todoist's due date — and any recurrence on it — alone.
+ *
+ * `dueDate: null` clears the date. Todoist has no "null" for that; it takes the
+ * phrase "no date" in `due_string`.
+ */
+export async function updateTask(
+  id: string,
+  input: { content?: string; dueDate?: string | null }
+): Promise<TodoistTask> {
+  const body: Record<string, string> = {};
+  if (input.content !== undefined) body.content = input.content;
+  if (input.dueDate === null) body.due_string = 'no date';
+  else if (input.dueDate !== undefined) body.due_date = input.dueDate;
+  return request<TodoistTask>(`/tasks/${encodeURIComponent(id)}`, {
+    method: 'POST',
+    body: JSON.stringify(body),
+  });
+}
+
+/** Delete a task outright. */
+export async function deleteTask(id: string): Promise<void> {
+  await request<void>(`/tasks/${encodeURIComponent(id)}`, { method: 'DELETE' });
+}

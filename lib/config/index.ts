@@ -18,6 +18,7 @@ const RESET_KEYS = [
   ['monthViewResetSeconds', 'auto-revert'],
   ['filterResetSeconds', 'auto-clear'],
   ['viewResetSeconds', 'auto-revert'],
+  ['todoEditResetSeconds', 'auto-cancel'],
 ] as const;
 
 /**

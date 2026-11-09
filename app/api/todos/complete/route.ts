@@ -1,12 +1,10 @@
 import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
 import { getConfig } from '@/lib/config';
-import { todoProjectIds } from '@/lib/config/boards';
-import { requestBoard } from '@/lib/auth/request-board';
-import { boardMayUseProject, isWriteRestricted } from '@/lib/calendar/board-writes';
+import { writableTodo } from '@/lib/todoist/writable-todo';
 import { todayInZone } from '@/components/calendar/calendar-utils';
 import { closeTask, TodoistError } from '@/lib/todoist/client';
-import { completeTodo, getTodo } from '@/lib/db/todos';
+import { completeTodo } from '@/lib/db/todos';
 
 /**
  * Check a to-do off.
@@ -31,25 +29,12 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: 'Invalid JSON body' }, { status: 400 });
   }
 
-  if (typeof id !== 'string' || !id) {
-    return NextResponse.json({ error: 'id is required' }, { status: 400 });
-  }
-
-  // Only tasks this install actually caches, so the route can't be used to
-  // close arbitrary tasks in the household's Todoist account.
-  const todo = getTodo(id);
-  if (!todo || !todoProjectIds(getConfig()).includes(todo.project_id)) {
-    return NextResponse.json({ error: 'Unknown to-do' }, { status: 404 });
-  }
-  // And a personal board's session touches only its own project's tasks.
-  const who = await requestBoard();
-  if (!who.ok) return NextResponse.json({ error: who.error }, { status: who.status });
-  if (isWriteRestricted(who.board) && !boardMayUseProject(who.board, todo.project_id)) {
-    return NextResponse.json({ error: 'Unknown to-do' }, { status: 404 });
-  }
+  const access = await writableTodo(id);
+  if (!access.ok) return access.response;
+  const todoId = access.todo.id;
 
   try {
-    await closeTask(id);
+    await closeTask(todoId);
   } catch (err) {
     const status = err instanceof TodoistError ? (err.status ?? 502) : 502;
     return NextResponse.json(
@@ -60,6 +45,6 @@ export async function POST(request: NextRequest) {
 
   // The board's local day, from the same config the column groups by — a
   // droplet running UTC must not file an 8pm Texas tick under tomorrow.
-  completeTodo(id, todayInZone(getConfig().display.timezone));
+  completeTodo(todoId, todayInZone(getConfig().display.timezone));
   return NextResponse.json({ ok: true });
 }

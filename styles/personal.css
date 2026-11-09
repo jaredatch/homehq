@@ -445,6 +445,33 @@
 	touch-action: manipulation;
 }
 
+/* ---- Todo edit mode ---------------------------------------------------- */
+
+/* "Edit" in the footer while it's armed. The app's one commit colour, lifted
+   to the 400 step because here it's text on near-black, not a filled button. */
+.pb-action--on {
+	color: var(--blue-400);
+}
+
+.pb-todo-hint {
+	font-size: var(--text-sm);
+	line-height: var(--text-sm-lh);
+	font-weight: var(--weight-medium);
+	color: var(--blue-400);
+}
+
+/* While armed, every open row's checkbox becomes a pen, so nothing on screen
+   looks like a tap will tick it off. Same box, same size: no row moves. */
+.pb-todo-box--edit {
+	border-color: var(--blue-400);
+	color: var(--blue-400);
+}
+
+.pb-todo-box--edit svg {
+	width: 0.625rem;
+	height: 0.625rem;
+}
+
 /* ---- Column 3: clock, weather, widgets --------------------------------- */
 
 .pb-status-clock {

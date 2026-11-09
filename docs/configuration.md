@@ -68,6 +68,7 @@ Weather comes from [Open-Meteo](https://open-meteo.com/), which needs no API key
 | `monthViewResetSeconds`  | `180`     | Family board only. How long month view stays up when idle before reverting to the week grid. `0` disables.                                                               |
 | `filterResetSeconds`     | `300`     | How long a per-person filter stays applied when idle before showing everyone again. On a personal board, how long a peek at someone else's calendar lasts. `0` disables. |
 | `viewResetSeconds`       | `120`     | Personal boards only. How long a full-screen view (week, month) stays up when idle before falling back to the columns. `0` disables.                                     |
+| `todoEditResetSeconds`   | `15`      | Personal boards only. After **Edit** is tapped in the Todo column, how long it waits for a task to be picked before taps go back to checking tasks off. `0` disables.    |
 
 The `*ResetSeconds` keys exist because the display is always on and nobody is there to put it back. Every transient state (month view, the filter, an open form, the expanded week, a personal board's full-screen view) reverts on its own. The timers restart on any interaction, so they never fire while someone is mid-task.
 

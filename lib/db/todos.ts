@@ -99,6 +99,11 @@ export function completeTodo(id: string, completedOn: string): void {
   getDb().prepare('UPDATE todos SET completed_on = ? WHERE id = ?').run(completedOn, id);
 }
 
+/** Drop one task from the cache the moment it's deleted on Todoist. */
+export function deleteTodo(id: string): void {
+  getDb().prepare('DELETE FROM todos WHERE id = ?').run(id);
+}
+
 /** Un-check a task locally, without a Todoist round trip. */
 export function reopenTodo(id: string): void {
   getDb().prepare('UPDATE todos SET completed_on = NULL WHERE id = ?').run(id);

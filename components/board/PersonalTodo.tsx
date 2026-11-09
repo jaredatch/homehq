@@ -17,9 +17,17 @@ interface PersonalTodoProps {
   weekStartsOn: WeekStart;
   /** How long the Add form stays open untouched before it closes itself (ms). */
   formResetMs: number;
+  /** How long "tap a to-do to edit" waits for a pick before it gives up (ms).
+   * 0 disables. */
+  editResetMs: number;
 }
 
 const POLL_INTERVAL_MS = 60_000;
+
+/** Font Awesome's `pen` (free solid), inlined for the same reason the home
+ * button's house is: fixed chrome, not a configurable title icon. */
+const PEN_PATH =
+  'M362.7 19.3L314.3 67.7 444.3 197.7l48.4-48.4c25-25 25-65.5 0-90.5L453.3 19.3c-25-25-65.5-25-90.5 0zm-71 71L58.6 323.5c-10.4 10.4-18 23.3-22.2 37.4L1 481.2C-1.5 489.7 .8 498.8 7 505s15.3 8.5 23.7 6.1l120.3-35.4c14.1-4.2 27-11.8 37.4-22.2L421.7 220.3 291.7 90.3z';
 
 /**
  * Column 2 — "Todo". Todoist tasks for this board's project, in five sections:
@@ -35,6 +43,15 @@ const POLL_INTERVAL_MS = 60_000;
  * earlier design moved it to a holding area at the top and deleted it after five
  * seconds, so the reward for doing something was the list rearranging itself and
  * then losing the evidence.
+ *
+ * Editing is a mode, not a button on every row. A row's tap is "done", and
+ * fixing a typo is rare, so a per-row Edit spent space on every line for
+ * something almost never used. Instead the footer's **Edit** arms the column:
+ * the next task tapped opens in the edit form rather than being checked off.
+ * It is one-shot — the form closing puts the column back — and it gives up on
+ * its own after `editResetMs` idle, so a board left armed can't turn a kid's
+ * next tick into a form. While armed, every checkbox becomes a pen, so a tap
+ * can't look like it will tick anything.
  */
 export default function PersonalTodo({
   projectId,
@@ -42,6 +59,7 @@ export default function PersonalTodo({
   today,
   weekStartsOn,
   formResetMs,
+  editResetMs,
 }: PersonalTodoProps) {
   const [todos, setTodos] = useState<Todo[]>([]);
   const [syncBroken, setSyncBroken] = useState(false);
@@ -49,6 +67,10 @@ export default function PersonalTodo({
   /** Rows with a write in flight, so a double-tap can't fire twice. */
   const [busy, setBusy] = useState<ReadonlySet<string>>(new Set());
   const [adding, setAdding] = useState(false);
+  /** Edit is armed: the next task tapped opens for editing. */
+  const [choosing, setChoosing] = useState(false);
+  /** The task picked while armed, while its sheet is open. */
+  const [editing, setEditing] = useState<Todo | null>(null);
   /** A task just added, to be scrolled to once it lands in the list. */
   const [landed, setLanded] = useState<string | null>(null);
   const bodyRef = useRef<HTMLDivElement>(null);
@@ -144,13 +166,42 @@ export default function PersonalTodo({
     return () => clearTimeout(timer);
   }, [landed]);
 
-  const addedTodo = useCallback(
+  const savedTodo = useCallback(
     async (id: string) => {
       await fetchTodos();
       if (id) setLanded(id);
     },
     [fetchTodos]
   );
+
+  // Armed edit mode gives up after idle (rule 1). Any touch in the column —
+  // scrolling to find the task, say — restarts the clock.
+  const chooseTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const armChooseTimer = useCallback(() => {
+    if (chooseTimer.current) clearTimeout(chooseTimer.current);
+    if (editResetMs > 0) chooseTimer.current = setTimeout(() => setChoosing(false), editResetMs);
+  }, [editResetMs]);
+  useEffect(() => {
+    if (!choosing) return;
+    armChooseTimer();
+    return () => {
+      if (chooseTimer.current) clearTimeout(chooseTimer.current);
+    };
+  }, [choosing, armChooseTimer]);
+
+  const tapRow = (todo: Todo) => {
+    if (!choosing) {
+      toggle(todo);
+      return;
+    }
+    // A ticked-off task has nothing left to fix; the tap does nothing rather
+    // than quietly un-ticking it while she thinks she's editing.
+    if (todo.completed_on) return;
+    setChoosing(false);
+    setEditing(todo);
+  };
+
+  const hasOpen = todos.some((t) => !t.completed_on && !t.parent_id);
 
   const sections = useMemo(() => groupTodos(todos, today), [todos, today]);
   const formatTime = useCallback((iso: string) => formatEventTime(iso, timezone), [timezone]);
@@ -169,13 +220,29 @@ export default function PersonalTodo({
         <button
           type="button"
           className="pb-todo-main"
-          onClick={() => toggle(todo)}
-          aria-pressed={done}
-          aria-label={done ? `${todo.content}, done — tap to undo` : `Complete ${todo.content}`}
+          onClick={() => tapRow(todo)}
+          aria-pressed={choosing ? undefined : done}
+          aria-label={
+            choosing
+              ? done
+                ? `${todo.content}, done`
+                : `Edit ${todo.content}`
+              : done
+                ? `${todo.content}, done — tap to undo`
+                : `Complete ${todo.content}`
+          }
         >
-          <span className="pb-todo-box" data-priority={todo.priority} aria-hidden>
-            {done ? '✓' : ''}
-          </span>
+          {choosing && !done ? (
+            <span className="pb-todo-box pb-todo-box--edit" aria-hidden>
+              <svg viewBox="0 0 512 512" focusable="false">
+                <path d={PEN_PATH} fill="currentColor" />
+              </svg>
+            </span>
+          ) : (
+            <span className="pb-todo-box" data-priority={todo.priority} aria-hidden>
+              {done ? '✓' : ''}
+            </span>
+          )}
           <span className="pb-todo-body">
             <span className="pb-todo-content">{todo.content}</span>
             {meta && <span className="pb-todo-meta">{meta}</span>}
@@ -186,9 +253,15 @@ export default function PersonalTodo({
   };
 
   return (
-    <section className="pb-col pb-col--todo">
+    <section
+      className={`pb-col pb-col--todo${choosing ? ' pb-col--choosing' : ''}`}
+      onPointerDown={choosing ? armChooseTimer : undefined}
+    >
       <header className="pb-col-head">
         <h2 className="pb-col-title">Todo</h2>
+        {/* In the header, not above the list: a line pushed in on top would
+            shift every row down just as she reaches for one. */}
+        {choosing && <p className="pb-todo-hint">Tap a to-do to edit it</p>}
       </header>
 
       <div className="pb-col-body" ref={bodyRef}>
@@ -222,10 +295,24 @@ export default function PersonalTodo({
         <button
           type="button"
           className="pb-action"
-          onClick={() => setAdding(true)}
+          onClick={() => {
+            setChoosing(false);
+            setAdding(true);
+          }}
           disabled={!projectId}
         >
-          Add Todo
+          Add
+        </button>
+        <span className="pb-action-sep">|</span>
+        {/* Tapping it again while armed is the way back out. */}
+        <button
+          type="button"
+          className={`pb-action${choosing ? ' pb-action--on' : ''}`}
+          onClick={() => setChoosing((c) => !c)}
+          aria-pressed={choosing}
+          disabled={!projectId || !hasOpen}
+        >
+          Edit
         </button>
       </footer>
 
@@ -236,7 +323,22 @@ export default function PersonalTodo({
           weekStartsOn={weekStartsOn}
           resetMs={formResetMs}
           onClose={() => setAdding(false)}
-          onAdded={addedTodo}
+          onSaved={savedTodo}
+        />
+      )}
+
+      {editing && projectId && (
+        <PersonalTodoSheet
+          // Keyed so a second task's sheet never inherits the first's state.
+          key={editing.id}
+          projectId={projectId}
+          todo={editing}
+          today={today}
+          weekStartsOn={weekStartsOn}
+          resetMs={formResetMs}
+          onClose={() => setEditing(null)}
+          onSaved={savedTodo}
+          onDeleted={fetchTodos}
         />
       )}
     </section>

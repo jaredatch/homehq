@@ -142,6 +142,7 @@ Shared validation for both routes and the form lives in `lib/calendar/event-timi
 | Month view                                                    | `display.monthViewResetSeconds`  | 180 s   |
 | Per-person filter, or a personal board's peek at someone else | `display.filterResetSeconds`     | 300 s   |
 | Personal board's full-screen week or month                    | `display.viewResetSeconds`       | 120 s   |
+| Personal board's Todo column armed for Edit                   | `display.todoEditResetSeconds`   | 15 s    |
 
 ## Checking a layout change
 

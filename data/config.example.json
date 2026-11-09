@@ -106,7 +106,8 @@
         "projectId": "0000000000000000"
       },
       "display": {
-        "viewResetSeconds": 120
+        "viewResetSeconds": 120,
+        "todoEditResetSeconds": 15
       }
     }
   }
